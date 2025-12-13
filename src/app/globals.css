@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #0f0f0f;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #262626;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background-color: var(--bg-primary);
+  color: #f5f5f5;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #404040;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #525252;
+}
+
+/* PDF page styling */
+.react-pdf__Page__canvas {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* TOC item animation */
+.toc-item {
+  transition: all 0.15s ease;
+}
+
+.toc-item:hover {
+  background-color: var(--bg-tertiary)40;
+}
+
+/* Button focus styles */
+button:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Loading animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Search highlight styling for react-pdf text layer */
+.react-pdf__Page__textContent mark,
+.react-pdf__Page__textContent .highlight {
+  background-color: rgba(255, 213, 0, 0.4);
+  color: inherit;
+}
+
+.react-pdf__Page__textContent mark.current,
+.react-pdf__Page__textContent .highlight.current {
+  background-color: rgba(255, 140, 0, 0.6);
+}
+
+/* PDF Annotation Layer - make internal links clickable */
+/* Only link elements should capture clicks, not the entire annotation layer */
+.react-pdf__Page__annotations {
+  pointer-events: none !important;
+}
+
+.react-pdf__Page__annotations section {
+  pointer-events: none !important;
+}
+
+.react-pdf__Page__annotations a {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Text layer - ensure text is selectable */
+.react-pdf__Page__textContent {
+  pointer-events: auto !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+.react-pdf__Page__textContent span {
+  pointer-events: auto !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Make link areas visible on hover for debugging */
+.react-pdf__Page__annotations a:hover {
+  background-color: rgba(59, 130, 246, 0.2);
+}
