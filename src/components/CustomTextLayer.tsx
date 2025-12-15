@@ -84,6 +84,9 @@ export default function CustomTextLayer({ page, scale, searchQuery }: CustomText
         const fontSize = Math.hypot(tx[0], tx[1]);
         const angle = Math.atan2(tx[1], tx[0]);
 
+        // Calculate the width in viewport coordinates
+        const width = item.width * viewport.scale;
+
         // Highlight search matches if searchQuery is provided
         let content: React.ReactNode = item.str;
         if (searchQuery) {
@@ -126,10 +129,19 @@ export default function CustomTextLayer({ page, scale, searchQuery }: CustomText
           color: 'transparent',
           whiteSpace: 'pre',
           transformOrigin: '0% 0%',
+          width: 'auto',
+          minWidth: `${width}px`,
+          maxWidth: `${width}px`,
         };
 
+        // Build transform string with rotation
+        const transforms: string[] = [];
         if (angle !== 0) {
-          style.transform = `rotate(${angle}rad)`;
+          transforms.push(`rotate(${angle}rad)`);
+        }
+
+        if (transforms.length > 0) {
+          style.transform = transforms.join(' ');
         }
 
         return (
