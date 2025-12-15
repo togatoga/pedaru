@@ -523,6 +523,11 @@ export default function Home() {
       // Push into history when user-driven navigation occurs
       setPageHistory(prev => {
         const next = prev.slice(0, historyIndex + 1);
+        // If the last entry has the same page, just update the timestamp
+        if (next.length > 0 && next[next.length - 1].page === page) {
+          next[next.length - 1] = { page, timestamp: new Date().toISOString() };
+          return next;
+        }
         next.push({ page, timestamp: new Date().toISOString() });
         if (next.length > 100) {
           const overflow = next.length - 100;
@@ -531,11 +536,16 @@ export default function Home() {
         return next;
       });
       setHistoryIndex(prev => {
+        const history = pageHistory.slice(0, prev + 1);
+        // If the last entry has the same page, don't increment index
+        if (history.length > 0 && history[history.length - 1].page === page) {
+          return prev;
+        }
         const nextIndex = prev + 1;
         return Math.min(nextIndex, 99);
       });
     }
-  }, [totalPages, historyIndex, isStandaloneMode]);
+  }, [totalPages, historyIndex, isStandaloneMode, pageHistory]);
 
   // Helper to find chapter for a given page from TOC
   const getChapterForPage = useCallback((pageNum: number): string | undefined => {
@@ -664,6 +674,11 @@ export default function Home() {
       // Push into history when user-driven navigation occurs
       setPageHistory(prev => {
         const next = prev.slice(0, historyIndex + 1);
+        // If the last entry has the same page, just update the timestamp
+        if (next.length > 0 && next[next.length - 1].page === page) {
+          next[next.length - 1] = { page, timestamp: new Date().toISOString() };
+          return next;
+        }
         next.push({ page, timestamp: new Date().toISOString() });
         // Cap history to 100 entries
         if (next.length > 100) {
@@ -673,12 +688,17 @@ export default function Home() {
         return next;
       });
       setHistoryIndex(prev => {
+        const history = pageHistory.slice(0, prev + 1);
+        // If the last entry has the same page, don't increment index
+        if (history.length > 0 && history[history.length - 1].page === page) {
+          return prev;
+        }
         const nextIndex = prev + 1;
         // If capped, ensure index stays in bounds
         return Math.min(nextIndex, 99);
       });
     }
-  }, [totalPages, historyIndex, activeTabId, isStandaloneMode, getChapterForPage]);
+  }, [totalPages, historyIndex, activeTabId, isStandaloneMode, getChapterForPage, pageHistory]);
 
   const goToPrevPage = useCallback(() => {
     const step = viewMode === 'two-column' ? 2 : 1;
