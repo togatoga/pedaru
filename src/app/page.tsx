@@ -32,7 +32,6 @@ import {
   migrateOldStorage,
   TabState,
   WindowState,
-  BookmarkState,
   PdfSessionState,
 } from '@/lib/sessionStorage';
 
@@ -522,27 +521,19 @@ export default function Home() {
 
       // Push into history when user-driven navigation occurs
       setPageHistory(prev => {
-        const next = prev.slice(0, historyIndex + 1);
-        // If the last entry has the same page, just update the timestamp
-        if (next.length > 0 && next[next.length - 1].page === page) {
-          next[next.length - 1] = { page, timestamp: new Date().toISOString() };
-          return next;
+        // Remove duplicate pages from history
+        const filtered = prev.slice(0, historyIndex + 1).filter(entry => entry.page !== page);
+        filtered.push({ page, timestamp: new Date().toISOString() });
+        if (filtered.length > 100) {
+          const overflow = filtered.length - 100;
+          return filtered.slice(overflow);
         }
-        next.push({ page, timestamp: new Date().toISOString() });
-        if (next.length > 100) {
-          const overflow = next.length - 100;
-          return next.slice(overflow);
-        }
-        return next;
+        return filtered;
       });
       setHistoryIndex(prev => {
-        const history = pageHistory.slice(0, prev + 1);
-        // If the last entry has the same page, don't increment index
-        if (history.length > 0 && history[history.length - 1].page === page) {
-          return prev;
-        }
-        const nextIndex = prev + 1;
-        return Math.min(nextIndex, 99);
+        // Remove duplicate pages and add new one
+        const filtered = pageHistory.slice(0, prev + 1).filter(entry => entry.page !== page);
+        return Math.min(filtered.length, 99);
       });
     }
   }, [totalPages, historyIndex, isStandaloneMode, pageHistory]);
@@ -609,6 +600,10 @@ export default function Home() {
 
     saveTimeoutRef.current = setTimeout(() => {
       const activeIndex = tabs.findIndex((t) => t.id === activeTabId);
+      const savedHistory = pageHistory.slice(-100); // Keep last 100 history entries
+      // Adjust historyIndex to match the sliced history
+      const overflow = pageHistory.length - 100;
+      const adjustedHistoryIndex = overflow > 0 ? Math.max(0, historyIndex - overflow) : historyIndex;
       const state: PdfSessionState = {
         lastOpened: Date.now(),
         page: currentPage,
@@ -626,8 +621,8 @@ export default function Home() {
           label: b.label,
           createdAt: b.createdAt,
         })),
-        pageHistory: pageHistory.slice(-50), // Keep last 50 history entries
-        historyIndex,
+        pageHistory: savedHistory,
+        historyIndex: Math.min(adjustedHistoryIndex, savedHistory.length - 1),
       };
       saveSessionState(filePath, state);
     }, 500);
@@ -673,29 +668,20 @@ export default function Home() {
 
       // Push into history when user-driven navigation occurs
       setPageHistory(prev => {
-        const next = prev.slice(0, historyIndex + 1);
-        // If the last entry has the same page, just update the timestamp
-        if (next.length > 0 && next[next.length - 1].page === page) {
-          next[next.length - 1] = { page, timestamp: new Date().toISOString() };
-          return next;
-        }
-        next.push({ page, timestamp: new Date().toISOString() });
+        // Remove duplicate pages from history
+        const filtered = prev.slice(0, historyIndex + 1).filter(entry => entry.page !== page);
+        filtered.push({ page, timestamp: new Date().toISOString() });
         // Cap history to 100 entries
-        if (next.length > 100) {
-          const overflow = next.length - 100;
-          return next.slice(overflow);
+        if (filtered.length > 100) {
+          const overflow = filtered.length - 100;
+          return filtered.slice(overflow);
         }
-        return next;
+        return filtered;
       });
       setHistoryIndex(prev => {
-        const history = pageHistory.slice(0, prev + 1);
-        // If the last entry has the same page, don't increment index
-        if (history.length > 0 && history[history.length - 1].page === page) {
-          return prev;
-        }
-        const nextIndex = prev + 1;
-        // If capped, ensure index stays in bounds
-        return Math.min(nextIndex, 99);
+        // Remove duplicate pages and add new one
+        const filtered = pageHistory.slice(0, prev + 1).filter(entry => entry.page !== page);
+        return Math.min(filtered.length, 99);
       });
     }
   }, [totalPages, historyIndex, activeTabId, isStandaloneMode, getChapterForPage, pageHistory]);
@@ -844,14 +830,29 @@ export default function Home() {
   }, []);
 
   // History navigation helpers
-  const canGoBack = historyIndex > 0;
-  const canGoForward = historyIndex >= 0 && historyIndex < pageHistory.length - 1;
+  // Ensure historyIndex is within bounds of pageHistory
+  const effectiveHistoryIndex = Math.min(historyIndex, pageHistory.length - 1);
+  const canGoBack = effectiveHistoryIndex > 0 && pageHistory.length > 0;
+  const canGoForward = effectiveHistoryIndex >= 0 && effectiveHistoryIndex < pageHistory.length - 1;
   const goBack = useCallback(() => {
-    if (canGoBack) {
-      const idx = historyIndex - 1;
+    // Ensure index is within bounds
+    const currentIdx = Math.min(historyIndex, pageHistory.length - 1);
+    if (currentIdx > 0 && pageHistory.length > 0) {
+      const idx = currentIdx - 1;
+      const entry = pageHistory[idx];
+      if (!entry) return;
       setHistoryIndex(idx);
-      const page = pageHistory[idx].page;
+      const page = entry.page;
       setCurrentPage(page);
+      // Update active tab's page and label
+      setTabs(prev => prev.map(tab => {
+        if (tab.id === activeTabId) {
+          const chapter = getChapterForPage(page);
+          const label = chapter ? `P${page}: ${chapter}` : `Page ${page}`;
+          return { ...tab, page, label };
+        }
+        return tab;
+      }));
       // Update window title in standalone mode
       if (isStandaloneMode) {
         const chapter = getChapterForPage(page);
@@ -860,13 +861,26 @@ export default function Home() {
         getCurrentWebviewWindow().setTitle(title).catch(console.warn);
       }
     }
-  }, [canGoBack, historyIndex, pageHistory, isStandaloneMode, getChapterForPage]);
+  }, [historyIndex, pageHistory, isStandaloneMode, getChapterForPage, activeTabId]);
   const goForward = useCallback(() => {
-    if (canGoForward) {
-      const idx = historyIndex + 1;
+    // Ensure index is within bounds
+    const currentIdx = Math.min(historyIndex, pageHistory.length - 1);
+    if (currentIdx >= 0 && currentIdx < pageHistory.length - 1) {
+      const idx = currentIdx + 1;
+      const entry = pageHistory[idx];
+      if (!entry) return;
       setHistoryIndex(idx);
-      const page = pageHistory[idx].page;
+      const page = entry.page;
       setCurrentPage(page);
+      // Update active tab's page and label
+      setTabs(prev => prev.map(tab => {
+        if (tab.id === activeTabId) {
+          const chapter = getChapterForPage(page);
+          const label = chapter ? `P${page}: ${chapter}` : `Page ${page}`;
+          return { ...tab, page, label };
+        }
+        return tab;
+      }));
       // Update window title in standalone mode
       if (isStandaloneMode) {
         const chapter = getChapterForPage(page);
@@ -875,7 +889,7 @@ export default function Home() {
         getCurrentWebviewWindow().setTitle(title).catch(console.warn);
       }
     }
-  }, [canGoForward, historyIndex, pageHistory, isStandaloneMode, getChapterForPage]);
+  }, [historyIndex, pageHistory, isStandaloneMode, getChapterForPage, activeTabId]);
 
   const addTabFromCurrent = useCallback(() => {
     setTabs((prev) => {
@@ -1231,6 +1245,20 @@ export default function Home() {
             setShowSearchResults(false);
           }
           break;
+        case ',':
+          // Ctrl+, - go back in history (without updating history)
+          if (e.ctrlKey && !e.metaKey && !e.shiftKey) {
+            e.preventDefault();
+            goBack();
+          }
+          break;
+        case '.':
+          // Ctrl+. - go forward in history (without updating history)
+          if (e.ctrlKey && !e.metaKey && !e.shiftKey) {
+            e.preventDefault();
+            goForward();
+          }
+          break;
         case '[':
           // Cmd+Shift+[ - go to previous tab (like Chrome)
           if ((e.metaKey || e.ctrlKey) && e.shiftKey && tabs.length > 1) {
@@ -1262,7 +1290,7 @@ export default function Home() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentPage, totalPages, goToPage, goToPrevPage, goToNextPage, handleZoomIn, handleZoomOut, handleZoomReset, isStandaloneMode, searchQuery, searchResults, handleSearchNext, handleSearchPrev, showSearchResults, closeCurrentTab, addTabFromCurrent, toggleBookmark, tabs, activeTabId, selectTab, openStandaloneWindow]);
+  }, [currentPage, totalPages, goToPage, goToPrevPage, goToNextPage, handleZoomIn, handleZoomOut, handleZoomReset, isStandaloneMode, searchQuery, searchResults, handleSearchNext, handleSearchPrev, showSearchResults, closeCurrentTab, addTabFromCurrent, toggleBookmark, tabs, activeTabId, selectTab, openStandaloneWindow, goBack, goForward, historyIndex, pageHistory]);
 
   // Update document title
   useEffect(() => {
