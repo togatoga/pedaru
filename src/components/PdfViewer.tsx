@@ -2,11 +2,11 @@
 
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
 import { Loader2, FileQuestion, Bookmark } from 'lucide-react';
 import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { ViewMode } from './Settings';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import CustomTextLayer from './CustomTextLayer';
 
 // Set up PDF.js worker from CDN (local bundling doesn't work well with Next.js)
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -14,6 +14,102 @@ pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.vers
 // Configure cMap for CJK fonts support
 const cMapUrl = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/cmaps/`;
 const cMapPacked = true;
+
+// Page wrapper component that handles custom text layer
+interface PageWithCustomTextLayerProps {
+  pageNumber: number;
+  scale: number;
+  searchQuery?: string;
+  pdfDocument: pdfjs.PDFDocumentProxy | null;
+  bookmarkedPages: number[];
+  onToggleBookmark?: (page: number) => void;
+}
+
+function PageWithCustomTextLayer({
+  pageNumber,
+  scale,
+  searchQuery,
+  pdfDocument,
+  bookmarkedPages,
+  onToggleBookmark,
+}: PageWithCustomTextLayerProps) {
+  const [pdfPage, setPdfPage] = useState<pdfjs.PDFPageProxy | null>(null);
+
+  useEffect(() => {
+    if (!pdfDocument) {
+      setPdfPage(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadPage = async () => {
+      try {
+        // Check if document is still valid
+        if (pdfDocument._transport?.destroyed) {
+          return;
+        }
+        const page = await pdfDocument.getPage(pageNumber);
+        if (!cancelled) {
+          setPdfPage(page);
+        }
+      } catch (error) {
+        // Ignore errors if component was unmounted or document was destroyed
+        if (!cancelled) {
+          console.warn('Failed to load page:', error);
+        }
+      }
+    };
+
+    loadPage();
+
+    return () => {
+      cancelled = true;
+      setPdfPage(null);
+    };
+  }, [pdfDocument, pageNumber]);
+
+  return (
+    <div className="relative group">
+      <Page
+        pageNumber={pageNumber}
+        scale={scale}
+        loading={
+          <div className="flex items-center justify-center p-20">
+            <Loader2 className="w-8 h-8 animate-spin text-accent" />
+          </div>
+        }
+        className="shadow-2xl"
+        renderTextLayer={false}
+        renderAnnotationLayer={true}
+      />
+      {/* Custom text layer overlay */}
+      {pdfPage && (
+        <CustomTextLayer
+          page={pdfPage}
+          scale={scale}
+          searchQuery={searchQuery}
+        />
+      )}
+      {/* Bookmark button */}
+      {onToggleBookmark && (
+        <button
+          onClick={() => onToggleBookmark(pageNumber)}
+          className={`absolute top-2 right-2 p-1 rounded transition-opacity ${
+            bookmarkedPages.includes(pageNumber)
+              ? 'text-yellow-500 opacity-100'
+              : 'text-gray-400 opacity-60 hover:opacity-100 hover:text-gray-300'
+          }`}
+          title={bookmarkedPages.includes(pageNumber) ? 'Remove Bookmark' : 'Add Bookmark'}
+          style={{ zIndex: 10 }}
+        >
+          <Bookmark className={`w-5 h-5 ${bookmarkedPages.includes(pageNumber) ? 'fill-yellow-500' : ''}`} />
+        </button>
+      )}
+      <div className="absolute inset-0 border-2 border-transparent group-hover:border-accent/50 transition-colors pointer-events-none rounded" />
+    </div>
+  );
+}
 
 interface PdfViewerProps {
   fileData: Uint8Array | null;
@@ -65,46 +161,16 @@ export default function PdfViewer({
   // Simple scale calculation - just use zoom directly
   const scale = Math.max(zoom, 0.1);
 
-  // Custom text renderer for search highlighting
-  const textRenderer = useCallback(
-    (textItem: { str: string }) => {
-      if (!searchQuery) return textItem.str;
-      
-      const text = textItem.str;
-      const lowerText = text.toLowerCase();
-      const lowerQuery = searchQuery.toLowerCase();
-      
-      if (!lowerText.includes(lowerQuery)) {
-        return text;
-      }
-
-      // Highlight matches
-      const parts: string[] = [];
-      let lastIndex = 0;
-      let index = lowerText.indexOf(lowerQuery);
-      
-      while (index !== -1) {
-        if (index > lastIndex) {
-          parts.push(text.slice(lastIndex, index));
-        }
-        parts.push(`<mark>${text.slice(index, index + searchQuery.length)}</mark>`);
-        lastIndex = index + searchQuery.length;
-        index = lowerText.indexOf(lowerQuery, lastIndex);
-      }
-      
-      if (lastIndex < text.length) {
-        parts.push(text.slice(lastIndex));
-      }
-      
-      return parts.join('');
-    },
-    [searchQuery]
-  );
-
-
-
   // Store PDF document reference for named destination resolution
+  // Using 'any' because we need access to internal _transport property
   const [pdfDocument, setPdfDocument] = useState<any>(null);
+
+  // Reset document state when file data changes
+  useEffect(() => {
+    // When fileData changes, the old document will be destroyed by react-pdf
+    // Reset our reference to prevent accessing destroyed document
+    setPdfDocument(null);
+  }, [fileData]);
 
   // Handle internal PDF link clicks (called by react-pdf when internal link is clicked)
   const handleInternalLinkClick = useCallback((item: { dest?: any; pageIndex: number; pageNumber: number }) => {
@@ -169,32 +235,38 @@ export default function PdfViewer({
       if (href === '#' && annotationId && onNavigatePage && pdfDocument) {
         e.preventDefault();
         e.stopPropagation();
+
+        // Check if document is still valid
+        if (pdfDocument._transport?.destroyed) {
+          return;
+        }
+
         console.log('Trying to resolve from annotation:', annotationId);
-        
+
         // Find which page this annotation is on by checking parent elements
         let pageElement: HTMLElement | null = section;
         while (pageElement && !pageElement.classList.contains('react-pdf__Page')) {
           pageElement = pageElement.parentElement;
         }
-        
+
         if (pageElement) {
           const pageNumberAttr = pageElement.getAttribute('data-page-number');
           const pageNum = pageNumberAttr ? parseInt(pageNumberAttr, 10) : currentPage;
           console.log('Annotation is on page:', pageNum);
-          
+
           try {
             // Get annotations for the current page
             const page = await pdfDocument.getPage(pageNum);
             const annotations = await page.getAnnotations();
             console.log('Page annotations:', annotations.length);
-            
+
             // Find the annotation with matching id
             const annotation = annotations.find((a: any) => a.id === annotationId);
             console.log('Found annotation:', annotation);
-            
+
             if (annotation && annotation.dest) {
               console.log('Annotation dest:', annotation.dest);
-              
+
               // dest can be a string (named destination) or an array (explicit destination)
               if (typeof annotation.dest === 'string') {
                 const dest = await pdfDocument.getDestination(annotation.dest);
@@ -228,8 +300,14 @@ export default function PdfViewer({
       if (dataDest && onNavigatePage && pdfDocument) {
         e.preventDefault();
         e.stopPropagation();
+
+        // Check if document is still valid
+        if (pdfDocument._transport?.destroyed) {
+          return;
+        }
+
         console.log('Processing data-dest:', dataDest);
-        
+
         try {
           // Try parsing as JSON array first
           const destArray = JSON.parse(dataDest);
@@ -269,7 +347,12 @@ export default function PdfViewer({
       if (href.startsWith('#') && href.length > 1 && onNavigatePage && pdfDocument) {
         e.preventDefault();
         e.stopPropagation();
-        
+
+        // Check if document is still valid
+        if (pdfDocument._transport?.destroyed) {
+          return;
+        }
+
         const destName = decodeURIComponent(href.slice(1)); // Remove the '#' and decode
         console.log('Processing # href, destName:', destName);
         
@@ -395,75 +478,25 @@ export default function PdfViewer({
         className={`flex justify-center items-center ${viewMode === 'two-column' ? 'gap-4' : ''}`}
       >
         {/* Left/Single Page */}
-        <div
-          className="relative group"
-        >
-          <Page
-            pageNumber={leftPage}
-            scale={scale}
-            customTextRenderer={textRenderer}
-            loading={
-              <div className="flex items-center justify-center p-20">
-                <Loader2 className="w-8 h-8 animate-spin text-accent" />
-              </div>
-            }
-            className="shadow-2xl"
-            renderTextLayer={true}
-            renderAnnotationLayer={true}
-          />
-          {/* Bookmark button */}
-          {onToggleBookmark && (
-            <button
-              onClick={() => onToggleBookmark(leftPage)}
-              className={`absolute top-2 right-2 p-1 rounded transition-opacity ${
-                bookmarkedPages.includes(leftPage)
-                  ? 'text-yellow-500 opacity-100'
-                  : 'text-gray-400 opacity-60 hover:opacity-100 hover:text-gray-300'
-              }`}
-              title={bookmarkedPages.includes(leftPage) ? 'Remove Bookmark' : 'Add Bookmark'}
-              style={{ zIndex: 10 }}
-            >
-              <Bookmark className={`w-5 h-5 ${bookmarkedPages.includes(leftPage) ? 'fill-yellow-500' : ''}`} />
-            </button>
-          )}
-          <div className="absolute inset-0 border-2 border-transparent group-hover:border-accent/50 transition-colors pointer-events-none rounded" />
-        </div>
+        <PageWithCustomTextLayer
+          pageNumber={leftPage}
+          scale={scale}
+          searchQuery={searchQuery}
+          pdfDocument={pdfDocument}
+          bookmarkedPages={bookmarkedPages}
+          onToggleBookmark={onToggleBookmark}
+        />
 
         {/* Right Page (Two-column mode only) */}
         {viewMode === 'two-column' && showRightPage && rightPage && (
-          <div
-            className="relative group"
-          >
-            <Page
-              pageNumber={rightPage}
-              scale={scale}
-              customTextRenderer={textRenderer}
-              loading={
-                <div className="flex items-center justify-center p-20">
-                  <Loader2 className="w-8 h-8 animate-spin text-accent" />
-                </div>
-              }
-              className="shadow-2xl"
-              renderTextLayer={true}
-              renderAnnotationLayer={true}
-            />
-            {/* Bookmark button */}
-            {onToggleBookmark && (
-              <button
-                onClick={() => onToggleBookmark(rightPage)}
-                className={`absolute top-2 right-2 p-1 rounded transition-opacity ${
-                  bookmarkedPages.includes(rightPage)
-                    ? 'text-yellow-500 opacity-100'
-                    : 'text-gray-400 opacity-60 hover:opacity-100 hover:text-gray-300'
-                }`}
-                title={bookmarkedPages.includes(rightPage) ? 'Remove Bookmark' : 'Add Bookmark'}
-                style={{ zIndex: 10 }}
-              >
-                <Bookmark className={`w-5 h-5 ${bookmarkedPages.includes(rightPage) ? 'fill-yellow-500' : ''}`} />
-              </button>
-            )}
-            <div className="absolute inset-0 border-2 border-transparent group-hover:border-accent/50 transition-colors pointer-events-none rounded" />
-          </div>
+          <PageWithCustomTextLayer
+            pageNumber={rightPage}
+            scale={scale}
+            searchQuery={searchQuery}
+            pdfDocument={pdfDocument}
+            bookmarkedPages={bookmarkedPages}
+            onToggleBookmark={onToggleBookmark}
+          />
         )}
         </Document>
       </div>
