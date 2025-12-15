@@ -375,28 +375,62 @@ fn parse_outline_item(
 }
 
 fn extract_toc(doc: &Document) -> Vec<TocEntry> {
+    eprintln!("[Dorper] extract_toc called");
     let mut toc = Vec::new();
 
     let named_dests = build_named_destinations(doc);
+    eprintln!("[Dorper] Named destinations count: {}", named_dests.len());
 
     let catalog = match doc.catalog() {
-        Ok(c) => c,
-        Err(_) => return toc,
+        Ok(c) => {
+            eprintln!("[Dorper] Got catalog successfully");
+            c
+        }
+        Err(e) => {
+            eprintln!("[Dorper] Failed to get catalog: {:?}", e);
+            return toc;
+        }
     };
 
     let outlines_ref = match catalog.get(b"Outlines") {
-        Ok(lopdf::Object::Reference(r)) => *r,
-        _ => return toc,
+        Ok(lopdf::Object::Reference(r)) => {
+            eprintln!("[Dorper] Got Outlines reference: {:?}", r);
+            *r
+        }
+        Ok(other) => {
+            eprintln!("[Dorper] Outlines is not a reference: {:?}", other);
+            return toc;
+        }
+        Err(e) => {
+            eprintln!("[Dorper] No Outlines in catalog: {:?}", e);
+            return toc;
+        }
     };
 
     let outlines = match doc.get_dictionary(outlines_ref) {
-        Ok(o) => o,
-        Err(_) => return toc,
+        Ok(o) => {
+            eprintln!("[Dorper] Got Outlines dictionary");
+            o
+        }
+        Err(e) => {
+            eprintln!("[Dorper] Failed to get Outlines dictionary: {:?}", e);
+            return toc;
+        }
     };
 
     let first_ref = match outlines.get(b"First") {
-        Ok(lopdf::Object::Reference(r)) => *r,
-        _ => return toc,
+        Ok(lopdf::Object::Reference(r)) => {
+            eprintln!("[Dorper] Got First reference: {:?}", r);
+            *r
+        }
+        Ok(other) => {
+            eprintln!("[Dorper] First is not a reference: {:?}", other);
+            return toc;
+        }
+        Err(e) => {
+            eprintln!("[Dorper] No First in Outlines: {:?}", e);
+            return toc;
+        }
     };
 
     let mut current = Some(first_ref);
@@ -417,29 +451,20 @@ fn extract_toc(doc: &Document) -> Vec<TocEntry> {
             });
     }
 
+    eprintln!(
+        "[Dorper] extract_toc finished, found {} top-level entries",
+        toc.len()
+    );
     toc
 }
 
 #[tauri::command]
 fn get_pdf_info(path: String) -> Result<PdfInfo, String> {
+    eprintln!("[Dorper] get_pdf_info called for: {}", path);
+
     // Load document from file
-    let mut doc = Document::load(&path).map_err(|e| format!("Failed to load PDF: {}", e))?;
-
-    // Decrypt if needed (for extracting metadata)
-    if doc.is_encrypted() {
-        if doc.authenticate_password("").is_err() {
-            return Err("PDF is password protected and requires a password".to_string());
-        }
-        doc.decrypt("")
-            .map_err(|e| format!("Failed to decrypt PDF: {}", e))?;
-
-        // Re-serialize and reload to ensure all streams are properly decrypted
-        let mut buffer = Vec::new();
-        doc.save_modern(&mut buffer)
-            .map_err(|e| format!("Failed to save decrypted PDF: {}", e))?;
-        doc = Document::load_mem(&buffer)
-            .map_err(|e| format!("Failed to reload decrypted PDF: {}", e))?;
-    }
+    let doc = Document::load(&path).map_err(|e| format!("Failed to load PDF: {}", e))?;
+    eprintln!("[Dorper] PDF loaded successfully");
 
     let mut title = None;
     let mut author = None;

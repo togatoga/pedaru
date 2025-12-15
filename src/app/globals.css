@@ -119,3 +119,24 @@ button:focus-visible {
 .react-pdf__Page__annotations a:hover {
   background-color: rgba(59, 130, 246, 0.2);
 }
+
+/* Custom text layer styles */
+.custom-text-layer {
+  pointer-events: auto !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+.custom-text-layer > span {
+  pointer-events: auto !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+.custom-text-layer ::selection {
+  background: rgba(59, 130, 246, 0.4);
+}
+
+.custom-text-layer ::-moz-selection {
+  background: rgba(59, 130, 246, 0.4);
+}

@@ -18,6 +18,11 @@ export interface BookmarkState {
   createdAt: number;
 }
 
+export interface HistoryEntry {
+  page: number;
+  timestamp: string;
+}
+
 export interface PdfSessionState {
   lastOpened: number;
   page: number;
@@ -27,6 +32,8 @@ export interface PdfSessionState {
   tabs: TabState[];
   windows: WindowState[];
   bookmarks: BookmarkState[];
+  pageHistory?: HistoryEntry[];
+  historyIndex?: number;
 }
 
 // Constants

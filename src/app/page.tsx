@@ -202,6 +202,12 @@ export default function Home() {
           setBookmarks([]);
         }
 
+        // Restore page history
+        if (session.pageHistory && session.pageHistory.length > 0) {
+          setPageHistory(session.pageHistory);
+          setHistoryIndex(session.historyIndex ?? session.pageHistory.length - 1);
+        }
+
         // Set pending states for tabs and windows restoration
         if (session.tabs && session.tabs.length > 0) {
           setPendingTabsRestore(session.tabs);
@@ -433,6 +439,12 @@ export default function Home() {
               setBookmarks(session.bookmarks);
             }
 
+            // Restore page history
+            if (session.pageHistory && session.pageHistory.length > 0) {
+              setPageHistory(session.pageHistory);
+              setHistoryIndex(session.historyIndex ?? session.pageHistory.length - 1);
+            }
+
             // Set pending states for tabs and windows restoration
             if (session.tabs && session.tabs.length > 0) {
               setPendingTabsRestore(session.tabs);
@@ -565,8 +577,9 @@ export default function Home() {
             setActiveTabId(newId);
           }
         });
-      } else if (tabs.length === 0) {
+      } else if (tabs.length === 0 && !pendingTabsRestore) {
         // No tabs to restore and no existing tabs - create initial tab
+        // Only create if there's no pending restore (to avoid race condition)
         const newId = tabIdRef.current++;
         const chapter = getChapterForPage(currentPage);
         const label = chapter ? `P${currentPage}: ${chapter}` : `Page ${currentPage}`;
@@ -574,7 +587,7 @@ export default function Home() {
         setActiveTabId(newId);
       }
     }
-  }, [pdfInfo, isStandaloneMode, getChapterForPage]);
+  }, [pdfInfo, isStandaloneMode, getChapterForPage, pendingTabsRestore]);
 
   // Save current session state (debounced)
   const saveCurrentSession = useCallback(() => {
@@ -603,17 +616,19 @@ export default function Home() {
           label: b.label,
           createdAt: b.createdAt,
         })),
+        pageHistory: pageHistory.slice(-50), // Keep last 50 history entries
+        historyIndex,
       };
       saveSessionState(filePath, state);
     }, 500);
-  }, [filePath, isStandaloneMode, currentPage, zoom, viewMode, tabs, activeTabId, openWindows, bookmarks]);
+  }, [filePath, isStandaloneMode, currentPage, zoom, viewMode, tabs, activeTabId, openWindows, bookmarks, pageHistory, historyIndex]);
 
   // Auto-save session on state changes (main window only)
   useEffect(() => {
     if (!isStandaloneMode && filePath) {
       saveCurrentSession();
     }
-  }, [currentPage, zoom, viewMode, tabs, activeTabId, openWindows, bookmarks, filePath, isStandaloneMode, saveCurrentSession]);
+  }, [currentPage, zoom, viewMode, tabs, activeTabId, openWindows, bookmarks, pageHistory, historyIndex, filePath, isStandaloneMode, saveCurrentSession]);
 
   const goToPage = useCallback((page: number) => {
     if (page >= 1 && page <= totalPages) {
