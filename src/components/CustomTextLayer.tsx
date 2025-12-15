@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // TextItem type definition (not exported from pdfjs-dist main module)
@@ -14,6 +14,13 @@ interface TextItem {
   hasEOL: boolean;
 }
 
+interface ProcessedTextItem extends TextItem {
+  tx: number[];
+  fontSize: number;
+  angle: number;
+  targetWidth: number;
+}
+
 interface CustomTextLayerProps {
   page: pdfjsLib.PDFPageProxy;
   scale: number;
@@ -22,8 +29,10 @@ interface CustomTextLayerProps {
 
 export default function CustomTextLayer({ page, scale, searchQuery }: CustomTextLayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [textItems, setTextItems] = useState<TextItem[]>([]);
+  const textSpanRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
+  const [processedItems, setProcessedItems] = useState<ProcessedTextItem[]>([]);
   const [viewport, setViewport] = useState<pdfjsLib.PageViewport | null>(null);
+  const [scaleXValues, setScaleXValues] = useState<Map<number, number>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -45,7 +54,26 @@ export default function CustomTextLayer({ page, scale, searchQuery }: CustomText
         const items = textContent.items.filter(
           (item): item is TextItem => 'str' in item && !!(item as TextItem).str
         ) as TextItem[];
-        setTextItems(items);
+
+        // Pre-process items with transform calculations
+        const processed = items.map((item) => {
+          const tx = pdfjsLib.Util.transform(vp.transform, item.transform);
+          const fontSize = Math.hypot(tx[0], tx[1]);
+          const angle = Math.atan2(tx[1], tx[0]);
+          const targetWidth = item.width * vp.scale;
+
+          return {
+            ...item,
+            tx,
+            fontSize,
+            angle,
+            targetWidth,
+          };
+        });
+
+        setProcessedItems(processed);
+        // Reset scale values when content changes
+        setScaleXValues(new Map());
       } catch (error) {
         // Ignore errors if component was unmounted or page was destroyed
         if (!cancelled) {
@@ -60,6 +88,67 @@ export default function CustomTextLayer({ page, scale, searchQuery }: CustomText
       cancelled = true;
     };
   }, [page, scale]);
+
+  // Calculate --scale-x values after render
+  const calculateScaleX = useCallback(() => {
+    if (processedItems.length === 0) return;
+
+    const newScaleXValues = new Map<number, number>();
+
+    processedItems.forEach((item, index) => {
+      const span = textSpanRefs.current.get(index);
+      if (span && item.targetWidth > 0) {
+        // Get the actual rendered width of the text
+        const actualWidth = span.getBoundingClientRect().width;
+        // Get current scaleX to account for it in measurement
+        const currentScaleX = scaleXValues.get(index) || 1;
+        // Calculate the unscaled width
+        const unscaledWidth = actualWidth / currentScaleX;
+
+        if (unscaledWidth > 0) {
+          const scaleX = item.targetWidth / unscaledWidth;
+          // Only update if significantly different (avoid infinite loops)
+          const currentValue = scaleXValues.get(index);
+          if (currentValue === undefined || Math.abs(scaleX - currentValue) > 0.001) {
+            newScaleXValues.set(index, scaleX);
+          }
+        }
+      }
+    });
+
+    if (newScaleXValues.size > 0) {
+      setScaleXValues((prev) => {
+        const merged = new Map(prev);
+        newScaleXValues.forEach((value, key) => merged.set(key, value));
+        return merged;
+      });
+    }
+  }, [processedItems, scaleXValues]);
+
+  // Run scale calculation after initial render and font loading
+  useEffect(() => {
+    if (processedItems.length === 0) return;
+
+    // Initial calculation
+    const timeoutId = setTimeout(calculateScaleX, 0);
+
+    // Recalculate after fonts are loaded
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        setTimeout(calculateScaleX, 0);
+      });
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [processedItems, calculateScaleX]);
+
+  const setSpanRef = useCallback((index: number, el: HTMLSpanElement | null) => {
+    if (el) {
+      textSpanRefs.current.set(index, el);
+    } else {
+      textSpanRefs.current.delete(index);
+    }
+  }, []);
 
   if (!viewport) return null;
 
@@ -78,14 +167,9 @@ export default function CustomTextLayer({ page, scale, searchQuery }: CustomText
         pointerEvents: 'auto',
       }}
     >
-      {textItems.map((item, index) => {
-        // Use PDF.js transform utility to calculate exact position
-        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-        const fontSize = Math.hypot(tx[0], tx[1]);
-        const angle = Math.atan2(tx[1], tx[0]);
-
-        // Calculate the width in viewport coordinates
-        const width = item.width * viewport.scale;
+      {processedItems.map((item, index) => {
+        const { tx, fontSize, angle, targetWidth } = item;
+        const scaleX = scaleXValues.get(index) || 1;
 
         // Highlight search matches if searchQuery is provided
         let content: React.ReactNode = item.str;
@@ -120,6 +204,12 @@ export default function CustomTextLayer({ page, scale, searchQuery }: CustomText
           }
         }
 
+        // Build transform string with scaleX and rotation
+        const transforms: string[] = [`scaleX(${scaleX})`];
+        if (angle !== 0) {
+          transforms.push(`rotate(${angle}rad)`);
+        }
+
         const style: React.CSSProperties = {
           position: 'absolute',
           left: `${tx[4]}px`,
@@ -129,23 +219,16 @@ export default function CustomTextLayer({ page, scale, searchQuery }: CustomText
           color: 'transparent',
           whiteSpace: 'pre',
           transformOrigin: '0% 0%',
-          width: 'auto',
-          minWidth: `${width}px`,
-          maxWidth: `${width}px`,
+          transform: transforms.join(' '),
         };
 
-        // Build transform string with rotation
-        const transforms: string[] = [];
-        if (angle !== 0) {
-          transforms.push(`rotate(${angle}rad)`);
-        }
-
-        if (transforms.length > 0) {
-          style.transform = transforms.join(' ');
-        }
-
         return (
-          <span key={index} style={style}>
+          <span
+            key={index}
+            ref={(el) => setSpanRef(index, el)}
+            style={style}
+            data-target-width={targetWidth}
+          >
             {content}
           </span>
         );
