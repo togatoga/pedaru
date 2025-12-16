@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import type { Dispatch, SetStateAction } from 'react';
 import { useBookmarks } from './useBookmarks';
 import type { Bookmark } from './types';
 
@@ -14,8 +15,8 @@ vi.mock('@tauri-apps/api/webviewWindow', () => ({
 
 describe('useBookmarks', () => {
   let mockBookmarks: Bookmark[];
-  let mockSetBookmarks: ReturnType<typeof vi.fn>;
-  let mockGetChapterForPage: ReturnType<typeof vi.fn>;
+  let mockSetBookmarks: Mock<Dispatch<SetStateAction<Bookmark[]>>>;
+  let mockGetChapterForPage: (page: number) => string | undefined;
 
   beforeEach(() => {
     mockBookmarks = [
