@@ -3,6 +3,8 @@
  * This file contains type definitions used across multiple hooks
  */
 
+import type { ViewMode as VMType } from '@/components/Settings';
+
 // Re-export commonly used types from other modules for convenience
 export type { Bookmark } from '@/components/BookmarkSidebar';
 export type { SearchResult } from '@/components/SearchResultsSidebar';
@@ -13,6 +15,9 @@ export type {
   WindowState,
   PdfSessionState,
 } from '@/lib/sessionStorage';
+
+// Use ViewMode locally via imported alias
+type ViewMode = VMType;
 
 /**
  * Represents a tab in the main window

@@ -34,15 +34,13 @@ import {
   WindowState,
   PdfSessionState,
 } from '@/lib/sessionStorage';
-
-// Extended window type with zoom and view settings
-interface OpenWindow {
-  page: number;
-  label: string;
-  chapter?: string;
-  zoom: number;
-  viewMode: ViewMode;
-}
+import { getChapterForPage as getChapter } from '@/lib/pdfUtils';
+import { useBookmarks } from '@/hooks/useBookmarks';
+import { useNavigation } from '@/hooks/useNavigation';
+import { useSearch } from '@/hooks/useSearch';
+import { useTabManagement } from '@/hooks/useTabManagement';
+import { useWindowManagement } from '@/hooks/useWindowManagement';
+import type { OpenWindow, Tab, HistoryEntry } from '@/hooks/types';
 
 export default function Home() {
   // Debug: Log immediately on component mount
@@ -64,14 +62,14 @@ export default function Home() {
   // Track open windows with their settings
   const [openWindows, setOpenWindows] = useState<OpenWindow[]>([]);
   // Navigation history with timestamps; newest should display first
-  const [pageHistory, setPageHistory] = useState<{ page: number; timestamp: string }[]>([]);
+  const [pageHistory, setPageHistory] = useState<HistoryEntry[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [showHistory, setShowHistory] = useState(false);
   const [showWindows, setShowWindows] = useState(false);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [sidebarWidth, setSidebarWidth] = useState(320);
-  const [tabs, setTabs] = useState<{ id: number; page: number; label: string }[]>([]);
+  const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<number | null>(null);
   const tabIdRef = useRef<number>(1);
 
@@ -116,6 +114,121 @@ export default function Home() {
       isLoading
     });
   }, [fileData, fileName, filePath, currentPage, totalPages, isStandaloneMode, isLoading]);
+
+  // Helper function for getting chapter names
+  const getChapterForPage = useCallback(
+    (page: number) => getChapter(pdfInfo, page),
+    [pdfInfo]
+  );
+
+  // Initialize custom hooks
+  const {
+    navigateToPageWithoutTabUpdate,
+    goToPage,
+    goToPrevPage,
+    goToNextPage,
+    goBack,
+    goForward,
+    canGoBack,
+    canGoForward,
+  } = useNavigation(
+    currentPage,
+    setCurrentPage,
+    totalPages,
+    viewMode,
+    pageHistory,
+    setPageHistory,
+    historyIndex,
+    setHistoryIndex,
+    isStandaloneMode,
+    tabs,
+    setTabs,
+    activeTabId,
+    pdfInfo
+  );
+
+  const {
+    toggleBookmark,
+    removeBookmark,
+    clearBookmarks,
+    isCurrentPageBookmarked,
+  } = useBookmarks(
+    bookmarks,
+    setBookmarks,
+    currentPage,
+    getChapterForPage,
+    isStandaloneMode
+  );
+
+  const {
+    performSearch,
+    handleSearchChange,
+    handleSearchNext,
+    handleSearchPrev,
+    handlePdfDocumentLoad,
+  } = useSearch(
+    searchQuery,
+    setSearchQuery,
+    searchResults,
+    setSearchResults,
+    currentSearchIndex,
+    setCurrentSearchIndex,
+    isSearching,
+    setIsSearching,
+    showSearchResults,
+    setShowSearchResults,
+    totalPages,
+    goToPage,
+    isStandaloneMode,
+    setViewMode
+  );
+
+  const {
+    addTabFromCurrent,
+    addTabForPage,
+    selectTab,
+    closeCurrentTab,
+  } = useTabManagement(
+    tabs,
+    setTabs,
+    activeTabId,
+    setActiveTabId,
+    currentPage,
+    tabIdRef,
+    getChapterForPage,
+    navigateToPageWithoutTabUpdate,
+    goToPage,
+    pdfInfo,
+    isStandaloneMode,
+    pendingTabsRestore,
+    setPendingTabsRestore,
+    pendingActiveTabIndex,
+    setPendingActiveTabIndex
+  );
+
+  const {
+    focusWindow,
+    openStandaloneWindowWithState,
+    openStandaloneWindow,
+    closeWindow,
+    closeAllWindows,
+    moveWindowToTab,
+  } = useWindowManagement(
+    filePath,
+    openWindows,
+    setOpenWindows,
+    zoom,
+    isStandaloneMode,
+    pdfInfo,
+    getChapterForPage,
+    tabs,
+    setTabs,
+    activeTabId,
+    setActiveTabId,
+    tabIdRef,
+    pendingWindowsRestore,
+    setPendingWindowsRestore
+  );
 
   // Load PDF from path (standalone function to avoid useEffect dependency issues)
   const loadPdfFromPathInternal = async (path: string, isStandalone: boolean = false) => {
@@ -508,87 +621,8 @@ export default function Home() {
     setTotalPages(numPages);
   }, []);
 
-  // Navigate to a page without updating the active tab (used when switching tabs)
-  const navigateToPageWithoutTabUpdate = useCallback((page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-      // Update window title in standalone mode
-      if (isStandaloneMode) {
-        const title = `Page ${page}`;
-        document.title = title;
-        getCurrentWebviewWindow().setTitle(title).catch(console.warn);
-      }
-
-      // Push into history when user-driven navigation occurs
-      setPageHistory(prev => {
-        // Remove duplicate pages from history
-        const filtered = prev.slice(0, historyIndex + 1).filter(entry => entry.page !== page);
-        filtered.push({ page, timestamp: new Date().toISOString() });
-        if (filtered.length > 100) {
-          const overflow = filtered.length - 100;
-          return filtered.slice(overflow);
-        }
-        return filtered;
-      });
-      setHistoryIndex(prev => {
-        // Remove duplicate pages and add new one
-        const filtered = pageHistory.slice(0, prev + 1).filter(entry => entry.page !== page);
-        return Math.min(filtered.length, 99);
-      });
-    }
-  }, [totalPages, historyIndex, isStandaloneMode, pageHistory]);
-
-  // Helper to find chapter for a given page from TOC
-  const getChapterForPage = useCallback((pageNum: number): string | undefined => {
-    if (!pdfInfo?.toc || pdfInfo.toc.length === 0) return undefined;
-
-    let currentChapter: string | undefined;
-
-    const findChapter = (entries: typeof pdfInfo.toc): void => {
-      for (const entry of entries) {
-        if (entry.page !== null && entry.page <= pageNum) {
-          currentChapter = entry.title;
-        }
-        if (entry.children && entry.children.length > 0) {
-          findChapter(entry.children);
-        }
-      }
-    };
-
-    findChapter(pdfInfo.toc);
-    return currentChapter;
-  }, [pdfInfo]);
-
-  // Restore tabs after PDF info is available and getChapterForPage is defined
-  // Or create initial tab if no tabs to restore
-  useEffect(() => {
-    if (pdfInfo && !isStandaloneMode) {
-      if (pendingTabsRestoreRef.current) {
-        // Restore tabs from session
-        const { tabs: tabsToRestore, activeIndex } = pendingTabsRestoreRef.current;
-        pendingTabsRestoreRef.current = null;
-        tabsToRestore.forEach((tab, index) => {
-          const newId = tabIdRef.current++;
-          const chapter = getChapterForPage(tab.page);
-          const label = chapter ? `P${tab.page}: ${chapter}` : `Page ${tab.page}`;
-          setTabs((prev) => [...prev, { id: newId, page: tab.page, label }]);
-
-          // Set active tab based on saved index
-          if (activeIndex !== null && index === activeIndex) {
-            setActiveTabId(newId);
-          }
-        });
-      } else if (tabs.length === 0 && !pendingTabsRestore) {
-        // No tabs to restore and no existing tabs - create initial tab
-        // Only create if there's no pending restore (to avoid race condition)
-        const newId = tabIdRef.current++;
-        const chapter = getChapterForPage(currentPage);
-        const label = chapter ? `P${currentPage}: ${chapter}` : `Page ${currentPage}`;
-        setTabs([{ id: newId, page: currentPage, label }]);
-        setActiveTabId(newId);
-      }
-    }
-  }, [pdfInfo, isStandaloneMode, getChapterForPage, pendingTabsRestore]);
+  // Note: Navigation, bookmarks, search, tabs, and window management functions
+  // are now provided by custom hooks above
 
   // Save current session state (debounced)
   const saveCurrentSession = useCallback(() => {
@@ -635,67 +669,7 @@ export default function Home() {
     }
   }, [currentPage, zoom, viewMode, tabs, activeTabId, openWindows, bookmarks, pageHistory, historyIndex, filePath, isStandaloneMode, saveCurrentSession]);
 
-  const goToPage = useCallback((page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-
-      // If in standalone mode, update window title and emit event to main window
-      if (isStandaloneMode) {
-        const win = getCurrentWebviewWindow();
-        // Update native window title
-        const chapter = getChapterForPage(page);
-        const title = chapter ? `${chapter} (Page ${page})` : `Page ${page}`;
-
-        // Update both document.title and native window title
-        document.title = title;
-        win.setTitle(title).catch(console.warn);
-
-        emit('window-page-changed', {
-          label: win.label,
-          page
-        }).catch(console.warn);
-      }
-
-      // Update active tab's page and label to match current page
-      setTabs(prev => prev.map(tab => {
-        if (tab.id === activeTabId) {
-          const chapter = getChapterForPage(page);
-          const label = chapter ? `P${page}: ${chapter}` : `Page ${page}`;
-          return { ...tab, page, label };
-        }
-        return tab;
-      }));
-
-      // Push into history when user-driven navigation occurs
-      setPageHistory(prev => {
-        // Remove duplicate pages from history
-        const filtered = prev.slice(0, historyIndex + 1).filter(entry => entry.page !== page);
-        filtered.push({ page, timestamp: new Date().toISOString() });
-        // Cap history to 100 entries
-        if (filtered.length > 100) {
-          const overflow = filtered.length - 100;
-          return filtered.slice(overflow);
-        }
-        return filtered;
-      });
-      setHistoryIndex(prev => {
-        // Remove duplicate pages and add new one
-        const filtered = pageHistory.slice(0, prev + 1).filter(entry => entry.page !== page);
-        return Math.min(filtered.length, 99);
-      });
-    }
-  }, [totalPages, historyIndex, activeTabId, isStandaloneMode, getChapterForPage, pageHistory]);
-
-  const goToPrevPage = useCallback(() => {
-    const step = viewMode === 'two-column' ? 2 : 1;
-    goToPage(currentPage - step);
-  }, [currentPage, viewMode, goToPage]);
-
-  const goToNextPage = useCallback(() => {
-    const step = viewMode === 'two-column' ? 2 : 1;
-    goToPage(currentPage + step);
-  }, [currentPage, viewMode, goToPage]);
-
+  // Zoom handlers (still needed locally)
   const handleZoomIn = useCallback(() => {
     setZoom((prev) => Math.min(prev + 0.25, 4));
   }, []);
@@ -708,429 +682,7 @@ export default function Home() {
     setZoom(1.0);
   }, []);
 
-  // Search functions - uses requestIdleCallback/setTimeout to avoid blocking UI
-  const searchIdRef = useRef<number>(0);
-  
-  const performSearch = useCallback(async (query: string) => {
-    // Increment search ID to cancel any previous search
-    const currentSearchId = ++searchIdRef.current;
-    
-    if (!query.trim() || !pdfDocRef.current) {
-      setSearchResults([]);
-      setCurrentSearchIndex(0);
-      setShowSearchResults(false);
-      setIsSearching(false);
-      return;
-    }
-
-    setIsSearching(true);
-    setShowSearchResults(true);
-    setSearchResults([]); // Clear previous results
-    
-    const results: SearchResult[] = [];
-    const lowerQuery = query.toLowerCase();
-    const doc = pdfDocRef.current;
-    const contextLength = 40;
-
-    try {
-      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-        // Check if search was cancelled
-        if (searchIdRef.current !== currentSearchId) {
-          return;
-        }
-
-        const page = await doc.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        const fullText = textContent.items
-          .map((item: any) => item.str)
-          .join(' ');
-        const lowerText = fullText.toLowerCase();
-
-        let startIndex = 0;
-        let foundIndex = lowerText.indexOf(lowerQuery, startIndex);
-        let matchIndex = 0;
-
-        while (foundIndex !== -1) {
-          const contextStart = Math.max(0, foundIndex - contextLength);
-          const contextEnd = Math.min(fullText.length, foundIndex + query.length + contextLength);
-          
-          const contextBefore = fullText.slice(contextStart, foundIndex);
-          const matchText = fullText.slice(foundIndex, foundIndex + query.length);
-          const contextAfter = fullText.slice(foundIndex + query.length, contextEnd);
-
-          results.push({
-            page: pageNum,
-            matchIndex,
-            contextBefore,
-            matchText,
-            contextAfter,
-          });
-          
-          matchIndex++;
-          startIndex = foundIndex + 1;
-          foundIndex = lowerText.indexOf(lowerQuery, startIndex);
-        }
-
-        // Yield to UI thread every few pages to keep it responsive
-        if (pageNum % 5 === 0) {
-          // Update results incrementally
-          if (searchIdRef.current === currentSearchId) {
-            setSearchResults([...results]);
-          }
-          // Allow UI to update
-          await new Promise(resolve => setTimeout(resolve, 0));
-        }
-      }
-    } catch (e) {
-      console.error('Search error:', e);
-    }
-
-    // Final update if search wasn't cancelled
-    if (searchIdRef.current === currentSearchId) {
-      setSearchResults(results);
-      setCurrentSearchIndex(0);
-      setIsSearching(false);
-    }
-  }, [totalPages]);
-
-  const handleSearchChange = useCallback((query: string) => {
-    setSearchQuery(query);
-    // Debounce search
-    const timeoutId = setTimeout(() => {
-      performSearch(query);
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [performSearch]);
-
-  const handleSearchNext = useCallback(() => {
-    if (searchResults.length === 0) return;
-    const nextIndex = (currentSearchIndex + 1) % searchResults.length;
-    setCurrentSearchIndex(nextIndex);
-    // Switch to single page mode only in standalone window
-    if (isStandaloneMode) {
-      setViewMode('single');
-    }
-    goToPage(searchResults[nextIndex].page);
-  }, [searchResults, currentSearchIndex, goToPage, isStandaloneMode]);
-
-  const handleSearchPrev = useCallback(() => {
-    if (searchResults.length === 0) return;
-    const prevIndex = (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
-    setCurrentSearchIndex(prevIndex);
-    // Switch to single page mode only in standalone window
-    if (isStandaloneMode) {
-      setViewMode('single');
-    }
-    goToPage(searchResults[prevIndex].page);
-  }, [searchResults, currentSearchIndex, goToPage, isStandaloneMode]);
-
-  // Store PDF document reference for search
-  const handlePdfDocumentLoad = useCallback((pdf: any) => {
-    pdfDocRef.current = pdf;
-  }, []);
-
-  // History navigation helpers
-  // Ensure historyIndex is within bounds of pageHistory
-  const effectiveHistoryIndex = Math.min(historyIndex, pageHistory.length - 1);
-  const canGoBack = effectiveHistoryIndex > 0 && pageHistory.length > 0;
-  const canGoForward = effectiveHistoryIndex >= 0 && effectiveHistoryIndex < pageHistory.length - 1;
-  const goBack = useCallback(() => {
-    // Ensure index is within bounds
-    const currentIdx = Math.min(historyIndex, pageHistory.length - 1);
-    if (currentIdx > 0 && pageHistory.length > 0) {
-      const idx = currentIdx - 1;
-      const entry = pageHistory[idx];
-      if (!entry) return;
-      setHistoryIndex(idx);
-      const page = entry.page;
-      setCurrentPage(page);
-      // Update active tab's page and label
-      setTabs(prev => prev.map(tab => {
-        if (tab.id === activeTabId) {
-          const chapter = getChapterForPage(page);
-          const label = chapter ? `P${page}: ${chapter}` : `Page ${page}`;
-          return { ...tab, page, label };
-        }
-        return tab;
-      }));
-      // Update window title in standalone mode
-      if (isStandaloneMode) {
-        const chapter = getChapterForPage(page);
-        const title = chapter ? `${chapter} (Page ${page})` : `Page ${page}`;
-        document.title = title;
-        getCurrentWebviewWindow().setTitle(title).catch(console.warn);
-      }
-    }
-  }, [historyIndex, pageHistory, isStandaloneMode, getChapterForPage, activeTabId]);
-  const goForward = useCallback(() => {
-    // Ensure index is within bounds
-    const currentIdx = Math.min(historyIndex, pageHistory.length - 1);
-    if (currentIdx >= 0 && currentIdx < pageHistory.length - 1) {
-      const idx = currentIdx + 1;
-      const entry = pageHistory[idx];
-      if (!entry) return;
-      setHistoryIndex(idx);
-      const page = entry.page;
-      setCurrentPage(page);
-      // Update active tab's page and label
-      setTabs(prev => prev.map(tab => {
-        if (tab.id === activeTabId) {
-          const chapter = getChapterForPage(page);
-          const label = chapter ? `P${page}: ${chapter}` : `Page ${page}`;
-          return { ...tab, page, label };
-        }
-        return tab;
-      }));
-      // Update window title in standalone mode
-      if (isStandaloneMode) {
-        const chapter = getChapterForPage(page);
-        const title = chapter ? `${chapter} (Page ${page})` : `Page ${page}`;
-        document.title = title;
-        getCurrentWebviewWindow().setTitle(title).catch(console.warn);
-      }
-    }
-  }, [historyIndex, pageHistory, isStandaloneMode, getChapterForPage, activeTabId]);
-
-  const addTabFromCurrent = useCallback(() => {
-    setTabs((prev) => {
-      const id = tabIdRef.current++;
-      const chapter = getChapterForPage(currentPage);
-      const label = chapter ? `P${currentPage}: ${chapter}` : `Page ${currentPage}`;
-      return [...prev, { id, page: currentPage, label }];
-    });
-    setActiveTabId(tabIdRef.current - 1);
-  }, [currentPage, getChapterForPage]);
-
-  // Add a new tab for a specific page and switch to it
-  const addTabForPage = useCallback((pageNumber: number) => {
-    const newId = tabIdRef.current++;
-    const chapter = getChapterForPage(pageNumber);
-    const label = chapter ? `P${pageNumber}: ${chapter}` : `Page ${pageNumber}`;
-    setTabs((prev) => [...prev, { id: newId, page: pageNumber, label }]);
-    setActiveTabId(newId);
-    navigateToPageWithoutTabUpdate(pageNumber);
-  }, [navigateToPageWithoutTabUpdate, getChapterForPage]);
-
-  // Emit bookmark sync event to other windows
-  const emitBookmarkSync = useCallback((newBookmarks: Bookmark[]) => {
-    emit('bookmark-sync', {
-      bookmarks: newBookmarks,
-      sourceLabel: isStandaloneMode ? getCurrentWebviewWindow().label : 'main',
-    }).catch(console.warn);
-  }, [isStandaloneMode]);
-
-  // Toggle bookmark for current page
-  const toggleBookmark = useCallback(() => {
-    const existingIndex = bookmarks.findIndex((b) => b.page === currentPage);
-    let newBookmarks: Bookmark[];
-    if (existingIndex >= 0) {
-      // Remove bookmark
-      newBookmarks = bookmarks.filter((b) => b.page !== currentPage);
-    } else {
-      // Add bookmark
-      const chapter = getChapterForPage(currentPage);
-      const label = chapter ? `P${currentPage}: ${chapter}` : `Page ${currentPage}`;
-      newBookmarks = [...bookmarks, { page: currentPage, label, createdAt: Date.now() }];
-    }
-    setBookmarks(newBookmarks);
-    emitBookmarkSync(newBookmarks);
-  }, [currentPage, bookmarks, getChapterForPage, emitBookmarkSync]);
-
-  // Remove a specific bookmark
-  const removeBookmark = useCallback((page: number) => {
-    const newBookmarks = bookmarks.filter((b) => b.page !== page);
-    setBookmarks(newBookmarks);
-    emitBookmarkSync(newBookmarks);
-  }, [bookmarks, emitBookmarkSync]);
-
-  // Clear all bookmarks
-  const clearBookmarks = useCallback(() => {
-    setBookmarks([]);
-    emitBookmarkSync([]);
-  }, [emitBookmarkSync]);
-
-  // Check if current page is bookmarked
-  const isCurrentPageBookmarked = bookmarks.some((b) => b.page === currentPage);
-
-  const selectTab = useCallback((id: number) => {
-    const tab = tabs.find((t) => t.id === id);
-    if (!tab) return;
-    setActiveTabId(id);
-    // Use navigateToPageWithoutTabUpdate to avoid overwriting the tab we're switching from
-    navigateToPageWithoutTabUpdate(tab.page);
-  }, [tabs, navigateToPageWithoutTabUpdate]);
-
-  const focusWindow = useCallback(async (label: string) => {
-    try {
-      // Get all windows and find the one with matching label
-      const allWindows = await getAllWebviewWindows();
-      const win = allWindows.find(w => w.label === label);
-
-      if (!win) {
-        console.warn('No window found for label', label);
-        return;
-      }
-
-      // Unminimize if minimized, then show and focus
-      await win.unminimize();
-      await win.show();
-      await win.setFocus();
-    } catch (e) {
-      console.error('Failed to focus window', label, e);
-    }
-  }, []);
-
-  // Open a standalone window with optional custom settings
-  const openStandaloneWindowWithState = useCallback(async (
-    pageNumber: number,
-    windowZoom: number = 1.0,
-    windowViewMode: ViewMode = 'single',
-    label?: string
-  ) => {
-    if (!filePath) {
-      console.warn('Cannot open standalone window without file path');
-      return;
-    }
-    const origin = window.location.origin;
-    const url = `${origin}/?page=${pageNumber}&file=${encodeURIComponent(filePath)}&standalone=true&zoom=${windowZoom}&viewMode=${windowViewMode}`;
-    const windowLabel = label || `page-${Date.now()}-${pageNumber}`;
-    const chapter = getChapterForPage(pageNumber);
-    try {
-      const webview = new WebviewWindow(windowLabel, {
-        url,
-        title: chapter ? `${chapter} (Page ${pageNumber})` : `Page ${pageNumber}`,
-        width: 900,
-        height: 1100,
-        resizable: true,
-        center: true,
-      });
-
-      // Wait for window to be created before adding to openWindows
-      webview.once('tauri://created', () => {
-        setOpenWindows((prev) => {
-          if (prev.some((w) => w.label === windowLabel)) return prev;
-          return [...prev, {
-            page: pageNumber,
-            label: windowLabel,
-            chapter,
-            zoom: windowZoom,
-            viewMode: windowViewMode,
-          }];
-        });
-      });
-
-      // Listen for window destroyed (after close)
-      webview.once('tauri://destroyed', () => {
-        setOpenWindows((prev) => prev.filter((w) => w.label !== windowLabel));
-      });
-
-      webview.once('tauri://error', (e) => {
-        console.error('Failed to create window:', e);
-      });
-    } catch (e) {
-      console.error('Failed to open standalone window:', e);
-    }
-  }, [filePath, getChapterForPage]);
-
-  // Convenience function to open a standalone window - always opens in single page mode
-  const openStandaloneWindow = useCallback(async (pageNumber: number, label?: string) => {
-    await openStandaloneWindowWithState(pageNumber, zoom, 'single', label);
-  }, [openStandaloneWindowWithState, zoom]);
-
-  // Restore windows after PDF info is available (using ref to avoid circular dependencies)
-  useEffect(() => {
-    if (pendingWindowsRestoreRef.current && pdfInfo && filePath && !isStandaloneMode) {
-      const windowsToRestore = pendingWindowsRestoreRef.current;
-      pendingWindowsRestoreRef.current = null;
-      setPendingWindowsRestore(null);
-      windowsToRestore.forEach((win) => {
-        openStandaloneWindowWithState(win.page, win.zoom, win.viewMode);
-      });
-    }
-  }, [pdfInfo, filePath, isStandaloneMode, openStandaloneWindowWithState]);
-
-  const closeWindow = useCallback(async (label: string) => {
-    try {
-      const win = await WebviewWindow.getByLabel(label);
-      if (win) {
-        await win.close();
-      }
-    } catch (e) {
-      console.warn('Failed to close window', label, e);
-    }
-  }, []);
-
-  const closeAllWindows = useCallback(async () => {
-    for (const w of openWindows) {
-      try {
-        const win = await WebviewWindow.getByLabel(w.label);
-        if (win) {
-          await win.close();
-        }
-      } catch (e) {
-        console.warn('Failed to close window', w.label, e);
-      }
-    }
-    setOpenWindows([]);
-  }, [openWindows]);
-
-  const moveWindowToTab = useCallback((label: string, page: number) => {
-    // Add tab and close window
-    setTabs((prev) => {
-      const id = tabIdRef.current++;
-      const chapter = getChapterForPage(page);
-      const tabLabel = chapter ? `P${page}: ${chapter}` : `Page ${page}`;
-      const next = [...prev, { id, page, label: tabLabel }];
-      setActiveTabId(id);
-      return next;
-    });
-    closeWindow(label);
-    setOpenWindows((prev) => prev.filter((w) => w.label !== label));
-  }, [closeWindow, getChapterForPage]);
-
-  const closeCurrentTab = useCallback(async () => {
-    const mainWindow = getCurrentWebviewWindow();
-    
-    if (tabs.length === 0) {
-      // No tabs open, close the window (which quits the app if it's the main window)
-      try {
-        await mainWindow.close();
-      } catch (e) {
-        console.error('Failed to close window:', e);
-      }
-      return;
-    }
-
-    // Find and close the active tab
-    const activeIndex = tabs.findIndex((t) => t.id === activeTabId);
-    if (activeIndex === -1) {
-      // No active tab, close the window
-      try {
-        await mainWindow.close();
-      } catch (e) {
-        console.error('Failed to close window:', e);
-      }
-      return;
-    }
-
-    const newTabs = tabs.filter((t) => t.id !== activeTabId);
-    setTabs(newTabs);
-
-    if (newTabs.length === 0) {
-      // No more tabs, close the window
-      setActiveTabId(null);
-      try {
-        await mainWindow.close();
-      } catch (e) {
-        console.error('Failed to close window:', e);
-      }
-    } else {
-      // Switch to adjacent tab
-      const newIndex = Math.min(activeIndex, newTabs.length - 1);
-      setActiveTabId(newTabs[newIndex].id);
-      goToPage(newTabs[newIndex].page);
-    }
-  }, [tabs, activeTabId, goToPage]);
+  // Old tab/window/bookmark/search functions removed - now provided by custom hooks
 
   // Keyboard shortcuts
   useEffect(() => {

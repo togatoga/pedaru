@@ -7,6 +7,7 @@ describe('pdfUtils', () => {
     const mockPdfInfo: PdfInfo = {
       title: 'Test PDF',
       author: null,
+      subject: null,
       toc: [
         { title: 'Chapter 1', page: 1, children: [] },
         {
@@ -29,6 +30,7 @@ describe('pdfUtils', () => {
       const emptyTocInfo: PdfInfo = {
         title: 'Test PDF',
         author: null,
+        subject: null,
         toc: [],
       };
       expect(getChapterForPage(emptyTocInfo, 5)).toBeUndefined();

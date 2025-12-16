@@ -69,5 +69,7 @@ export function formatPageLabel(page: number, chapter?: string): string {
  * @returns Formatted tab label
  */
 export function formatTabLabel(page: number, chapter?: string): string {
-  return chapter ? `${chapter.substring(0, 20)}... (P${page})` : `Page ${page}`;
+  if (!chapter) return `Page ${page}`;
+  if (chapter.length <= 20) return `${chapter} (P${page})`;
+  return `${chapter.substring(0, 20)}... (P${page})`;
 }
