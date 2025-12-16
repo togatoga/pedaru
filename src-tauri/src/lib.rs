@@ -674,6 +674,7 @@ pub fn run() {
             match &event {
                 // Handle macOS file open events (when file is opened while app is already running)
                 // Each PDF opens in its own independent window (like Preview app)
+                #[cfg(target_os = "macos")]
                 tauri::RunEvent::Opened { urls } => {
                     eprintln!("[Pedaru] Received Opened event with {} urls", urls.len());
 
