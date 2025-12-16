@@ -758,3 +758,159 @@ pub fn run() {
             }
         });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_decode_utf8_string() {
+        // Test UTF-8 encoded string
+        let utf8_bytes = "Hello World".as_bytes().to_vec();
+        let obj = lopdf::Object::String(utf8_bytes, lopdf::StringFormat::Literal);
+        let result = decode_pdf_string(&obj);
+        assert_eq!(result, Some("Hello World".to_string()));
+    }
+
+    #[test]
+    fn test_decode_utf16be_string() {
+        // Test UTF-16BE with BOM (0xFE 0xFF)
+        // "Hello" in UTF-16BE: FE FF 00 48 00 65 00 6C 00 6C 00 6F
+        let mut utf16_bytes = vec![0xFE, 0xFF];
+        utf16_bytes.extend_from_slice(&[0x00, 0x48]); // H
+        utf16_bytes.extend_from_slice(&[0x00, 0x65]); // e
+        utf16_bytes.extend_from_slice(&[0x00, 0x6C]); // l
+        utf16_bytes.extend_from_slice(&[0x00, 0x6C]); // l
+        utf16_bytes.extend_from_slice(&[0x00, 0x6F]); // o
+
+        let obj = lopdf::Object::String(utf16_bytes, lopdf::StringFormat::Literal);
+        let result = decode_pdf_string(&obj);
+        assert_eq!(result, Some("Hello".to_string()));
+    }
+
+    #[test]
+    fn test_decode_japanese_utf16be() {
+        // Test Japanese text "こんにちは" in UTF-16BE
+        // こ: U+3053 (0x30, 0x53)
+        // ん: U+3093 (0x30, 0x93)
+        // に: U+306B (0x30, 0x6B)
+        // ち: U+3061 (0x30, 0x61)
+        // は: U+306F (0x30, 0x6F)
+        let mut utf16_bytes = vec![0xFE, 0xFF]; // BOM
+        utf16_bytes.extend_from_slice(&[0x30, 0x53]); // こ
+        utf16_bytes.extend_from_slice(&[0x30, 0x93]); // ん
+        utf16_bytes.extend_from_slice(&[0x30, 0x6B]); // に
+        utf16_bytes.extend_from_slice(&[0x30, 0x61]); // ち
+        utf16_bytes.extend_from_slice(&[0x30, 0x6F]); // は
+
+        let obj = lopdf::Object::String(utf16_bytes, lopdf::StringFormat::Literal);
+        let result = decode_pdf_string(&obj);
+        assert_eq!(result, Some("こんにちは".to_string()));
+    }
+
+    #[test]
+    fn test_decode_shift_jis_string() {
+        // Test Shift-JIS encoded string "日本語"
+        // 日: 0x93, 0xFA
+        // 本: 0x96, 0x7B
+        // 語: 0x8C, 0xEA
+        let shift_jis_bytes = vec![0x93, 0xFA, 0x96, 0x7B, 0x8C, 0xEA];
+        let obj = lopdf::Object::String(shift_jis_bytes, lopdf::StringFormat::Literal);
+        let result = decode_pdf_string(&obj);
+        assert_eq!(result, Some("日本語".to_string()));
+    }
+
+    #[test]
+    fn test_decode_name_string_utf8() {
+        // Test name string with UTF-8
+        let utf8_bytes = "TestName".as_bytes().to_vec();
+        let obj = lopdf::Object::String(utf8_bytes, lopdf::StringFormat::Literal);
+        let result = decode_name_string(&obj);
+        assert_eq!(result, Some("TestName".to_string()));
+    }
+
+    #[test]
+    fn test_decode_name_string_from_name_object() {
+        // Test decoding from lopdf::Object::Name
+        let name_bytes = b"SomeName".to_vec();
+        let obj = lopdf::Object::Name(name_bytes);
+        let result = decode_name_string(&obj);
+        assert_eq!(result, Some("SomeName".to_string()));
+    }
+
+    #[test]
+    fn test_decode_empty_string() {
+        // Test empty string
+        let empty_bytes = vec![];
+        let obj = lopdf::Object::String(empty_bytes, lopdf::StringFormat::Literal);
+        let result = decode_pdf_string(&obj);
+        // Empty string should return Some("")
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_decode_latin1_fallback() {
+        // Test Latin-1/PDFDocEncoding fallback
+        // Characters that are not valid UTF-8 but valid Latin-1
+        let latin1_bytes = vec![0xE9, 0xE8, 0xE0]; // é è à in Latin-1
+        let obj = lopdf::Object::String(latin1_bytes, lopdf::StringFormat::Literal);
+        let result = decode_pdf_string(&obj);
+        assert!(result.is_some());
+        // Latin-1 characters should be decoded
+        let decoded = result.unwrap();
+        assert!(!decoded.is_empty());
+    }
+
+    #[test]
+    fn test_decode_non_string_object() {
+        // Test that non-string objects return None
+        let obj = lopdf::Object::Integer(42);
+        let result = decode_pdf_string(&obj);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_build_toc_entry() {
+        // Test TocEntry structure
+        let entry = TocEntry {
+            title: "Chapter 1".to_string(),
+            page: Some(1),
+            children: vec![],
+        };
+        assert_eq!(entry.title, "Chapter 1");
+        assert_eq!(entry.page, Some(1));
+        assert!(entry.children.is_empty());
+    }
+
+    #[test]
+    fn test_toc_entry_with_children() {
+        // Test nested TocEntry
+        let child = TocEntry {
+            title: "Section 1.1".to_string(),
+            page: Some(2),
+            children: vec![],
+        };
+        let parent = TocEntry {
+            title: "Chapter 1".to_string(),
+            page: Some(1),
+            children: vec![child],
+        };
+        assert_eq!(parent.children.len(), 1);
+        assert_eq!(parent.children[0].title, "Section 1.1");
+    }
+
+    #[test]
+    fn test_pdf_info_structure() {
+        // Test PdfInfo structure
+        let info = PdfInfo {
+            title: Some("Test PDF".to_string()),
+            author: Some("Test Author".to_string()),
+            subject: Some("Test Subject".to_string()),
+            toc: vec![],
+        };
+        assert_eq!(info.title, Some("Test PDF".to_string()));
+        assert_eq!(info.author, Some("Test Author".to_string()));
+        assert_eq!(info.subject, Some("Test Subject".to_string()));
+        assert!(info.toc.is_empty());
+    }
+}
