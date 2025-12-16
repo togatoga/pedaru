@@ -29,13 +29,13 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@vitejs/plugin-react": "^4.2.1",
-    "@vitest/ui": "^1.0.4",
+    "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/ui": "^4.0.15",
     "autoprefixer": "^10.4.16",
     "jsdom": "^23.0.1",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.4.0",
     "typescript": "^5",
-    "vitest": "^1.0.4"
+    "vitest": "^4.0.15"
   }
 }
