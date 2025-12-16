@@ -21,9 +21,16 @@ npm run tauri build -- --debug   # Build with debug symbols
 
 # Testing
 cargo test --verbose             # Run Rust tests
+npm test                         # Run frontend unit tests
+npm run test:coverage            # Run tests with coverage report
 npx tsc --noEmit                 # TypeScript type checking
 cargo clippy -- -D warnings      # Rust linting
 cargo fmt -- --check             # Rust formatting check
+```
+
+**Test Documentation:**
+- See [TESTING.md](./TESTING.md) for comprehensive testing guide
+- See [TESTING_TABS.md](./TESTING_TABS.md) for manual tab testing checklist
 ```
 
 ## Architecture
