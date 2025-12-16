@@ -9,7 +9,8 @@
     "tauri": "tauri",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "generate:icons": "bash scripts/generate-icons.sh"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
