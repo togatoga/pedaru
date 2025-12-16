@@ -1,6 +1,6 @@
-# Pedaru
+# <img src="./app-icon.png" alt="Pedaru Icon" height="32" align="center"/> Pedaru
 
-A modern, feature-rich PDF reader built with [Tauri](https://tauri.app/) and [React](https://react.dev/)/[Next.js](https://nextjs.org/).
+AI-enhanced PDF reader
 
 ![Pedaru PDF Viewer](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -81,28 +81,6 @@ npm run tauri dev
 
 # Build for production
 npm run tauri build
-```
-
-### Project Structure
-
-```
-pedaru/
-├── src/                    # Next.js frontend
-│   ├── app/               # App router pages
-│   ├── components/        # React components
-│   │   ├── Header.tsx     # Top navigation bar
-│   │   ├── PdfViewer.tsx  # PDF rendering component
-│   │   ├── TocSidebar.tsx # Table of contents
-│   │   ├── HistorySidebar.tsx
-│   │   ├── WindowSidebar.tsx
-│   │   ├── SearchResultsSidebar.tsx
-│   │   └── Settings.tsx
-│   ├── lib/               # Utility functions
-│   └── types/             # TypeScript types
-├── src-tauri/             # Tauri backend (Rust)
-│   ├── src/               # Rust source code
-│   └── tauri.conf.json    # Tauri configuration
-└── package.json
 ```
 
 ### Debugging
