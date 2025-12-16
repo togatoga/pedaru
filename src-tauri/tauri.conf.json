@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Dorper",
+  "productName": "Pedaru",
   "version": "0.1.0",
-  "identifier": "com.togatoga.dorper",
+  "identifier": "com.togatoga.pedaru",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Dorper - PDF Viewer",
+        "title": "Pedaru - PDF Viewer",
         "width": 1200,
         "height": 800,
         "minWidth": 800,

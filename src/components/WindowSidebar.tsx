@@ -33,7 +33,7 @@ export default function WindowSidebar({ windows, currentPage, onFocus, onClose, 
             draggable
             onDragStart={(e) => {
               e.dataTransfer.effectAllowed = 'move';
-              e.dataTransfer.setData('application/x-dorper-window', JSON.stringify({ label: w.label, page: w.page }));
+              e.dataTransfer.setData('application/x-pedaru-window', JSON.stringify({ label: w.label, page: w.page }));
             }}
             className="px-3 py-2 hover:bg-bg-tertiary transition-colors cursor-grab active:cursor-grabbing"
             onClick={async () => {

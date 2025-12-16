@@ -156,7 +156,7 @@ export default function Home() {
     console.log('Path argument:', path);
 
     // Immediately update last opened path so it's not confused with old files
-    localStorage.setItem('dorper_last_opened_path', path);
+    localStorage.setItem('pedaru_last_opened_path', path);
     console.log('Updated last_opened_path in localStorage');
 
     // Reset all state immediately when opening a new PDF
@@ -253,7 +253,7 @@ export default function Home() {
         const keysToRemove: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (key && key.startsWith('dorper_')) {
+          if (key && key.startsWith('pedaru_')) {
             keysToRemove.push(key);
           }
         }
@@ -1295,11 +1295,11 @@ export default function Home() {
   // Update document title
   useEffect(() => {
     if (pdfInfo?.title) {
-      document.title = `${pdfInfo.title} - Dorper`;
+      document.title = `${pdfInfo.title} - Pedaru`;
     } else if (fileName) {
-      document.title = `${fileName} - Dorper`;
+      document.title = `${fileName} - Pedaru`;
     } else {
-      document.title = 'Dorper - PDF Viewer';
+      document.title = 'Pedaru - PDF Viewer';
     }
   }, [pdfInfo, fileName]);
 
@@ -1515,13 +1515,13 @@ export default function Home() {
           className="flex items-center gap-2 px-4 py-2 bg-bg-secondary border-b border-bg-tertiary min-h-[44px] overflow-x-auto scrollbar-thin scrollbar-thumb-bg-tertiary scrollbar-track-transparent"
           onDragOver={(e) => {
             // Accept window drops
-            if (e.dataTransfer.types.includes('application/x-dorper-window')) {
+            if (e.dataTransfer.types.includes('application/x-pedaru-window')) {
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';
             }
           }}
           onDrop={(e) => {
-            const windowData = e.dataTransfer.getData('application/x-dorper-window');
+            const windowData = e.dataTransfer.getData('application/x-pedaru-window');
             if (windowData) {
               e.preventDefault();
               try {
@@ -1537,13 +1537,13 @@ export default function Home() {
             <span
               className="text-text-secondary text-sm flex-1 py-2"
               onDragOver={(e) => {
-                if (e.dataTransfer.types.includes('application/x-dorper-window')) {
+                if (e.dataTransfer.types.includes('application/x-pedaru-window')) {
                   e.preventDefault();
                   e.dataTransfer.dropEffect = 'move';
                 }
               }}
               onDrop={(e) => {
-                const windowData = e.dataTransfer.getData('application/x-dorper-window');
+                const windowData = e.dataTransfer.getData('application/x-pedaru-window');
                 if (windowData) {
                   e.preventDefault();
                   try {
@@ -1564,11 +1564,11 @@ export default function Home() {
               draggable
               onDragStart={(e) => {
                 e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('application/x-dorper-tab', JSON.stringify({ id: tab.id, page: tab.page }));
+                e.dataTransfer.setData('application/x-pedaru-tab', JSON.stringify({ id: tab.id, page: tab.page }));
               }}
               onDragOver={(e) => {
                 // Accept window drops on tabs
-                if (e.dataTransfer.types.includes('application/x-dorper-window')) {
+                if (e.dataTransfer.types.includes('application/x-pedaru-window')) {
                   e.preventDefault();
                   e.stopPropagation();
                   e.dataTransfer.dropEffect = 'move';
@@ -1576,7 +1576,7 @@ export default function Home() {
               }}
               onDrop={(e) => {
                 // Handle window drops on tabs
-                const windowData = e.dataTransfer.getData('application/x-dorper-window');
+                const windowData = e.dataTransfer.getData('application/x-pedaru-window');
                 if (windowData) {
                   e.preventDefault();
                   e.stopPropagation();

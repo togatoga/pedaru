@@ -37,9 +37,9 @@ export interface PdfSessionState {
 }
 
 // Constants
-const STORAGE_PREFIX = 'dorper_pdf_session_';
-const LAST_OPENED_KEY = 'dorper_last_opened_path';
-const OLD_STORAGE_KEY = 'dorper_last_pdf';
+const STORAGE_PREFIX = 'pedaru_pdf_session_';
+const LAST_OPENED_KEY = 'pedaru_last_opened_path';
+const OLD_STORAGE_KEY = 'pedaru_last_pdf';
 const MAX_STORED_PDFS = 50;
 
 // Simple hash function for file paths

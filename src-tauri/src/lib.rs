@@ -25,14 +25,14 @@ fn decode_pdf_string(obj: &lopdf::Object) -> Option<String> {
     match obj {
         lopdf::Object::String(bytes, _) => {
             eprintln!(
-                "[Dorper] decode_pdf_string: bytes len={}, first bytes={:?}",
+                "[Pedaru] decode_pdf_string: bytes len={}, first bytes={:?}",
                 bytes.len(),
                 &bytes[..std::cmp::min(20, bytes.len())]
             );
 
             // Try UTF-16BE first (starts with BOM 0xFE 0xFF)
             if bytes.len() >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF {
-                eprintln!("[Dorper] Detected UTF-16BE");
+                eprintln!("[Pedaru] Detected UTF-16BE");
                 let utf16: Vec<u16> = bytes[2..]
                     .chunks(2)
                     .filter_map(|chunk| {
@@ -44,11 +44,11 @@ fn decode_pdf_string(obj: &lopdf::Object) -> Option<String> {
                     })
                     .collect();
                 let result = String::from_utf16(&utf16).ok();
-                eprintln!("[Dorper] UTF-16BE result: {:?}", result);
+                eprintln!("[Pedaru] UTF-16BE result: {:?}", result);
                 result
             } else if let Ok(s) = String::from_utf8(bytes.clone()) {
                 // Try UTF-8
-                eprintln!("[Dorper] Detected UTF-8: {:?}", s);
+                eprintln!("[Pedaru] Detected UTF-8: {:?}", s);
                 Some(s)
             } else {
                 // Try multiple Japanese encodings and pick the best result
@@ -88,7 +88,7 @@ fn decode_pdf_string(obj: &lopdf::Object) -> Option<String> {
                         - (control_count as i32 * 50);
 
                     eprintln!(
-                        "[Dorper] Trying {}: had_errors={}, replacement={}, control={}, japanese={}, score={}, result={:?}",
+                        "[Pedaru] Trying {}: had_errors={}, replacement={}, control={}, japanese={}, score={}, result={:?}",
                         name, had_errors, replacement_count, control_count, valid_japanese, score, decoded_str
                     );
 
@@ -102,12 +102,12 @@ fn decode_pdf_string(obj: &lopdf::Object) -> Option<String> {
                 }
 
                 if let Some(result) = best_result {
-                    eprintln!("[Dorper] Best encoding result: {:?}", result);
+                    eprintln!("[Pedaru] Best encoding result: {:?}", result);
                     Some(result)
                 } else {
                     // Fall back to Latin-1/PDFDocEncoding
                     let result: String = bytes.iter().map(|&b| b as char).collect();
-                    eprintln!("[Dorper] Fallback to Latin-1: {:?}", result);
+                    eprintln!("[Pedaru] Fallback to Latin-1: {:?}", result);
                     Some(result)
                 }
             }
@@ -375,60 +375,60 @@ fn parse_outline_item(
 }
 
 fn extract_toc(doc: &Document) -> Vec<TocEntry> {
-    eprintln!("[Dorper] extract_toc called");
+    eprintln!("[Pedaru] extract_toc called");
     let mut toc = Vec::new();
 
     let named_dests = build_named_destinations(doc);
-    eprintln!("[Dorper] Named destinations count: {}", named_dests.len());
+    eprintln!("[Pedaru] Named destinations count: {}", named_dests.len());
 
     let catalog = match doc.catalog() {
         Ok(c) => {
-            eprintln!("[Dorper] Got catalog successfully");
+            eprintln!("[Pedaru] Got catalog successfully");
             c
         }
         Err(e) => {
-            eprintln!("[Dorper] Failed to get catalog: {:?}", e);
+            eprintln!("[Pedaru] Failed to get catalog: {:?}", e);
             return toc;
         }
     };
 
     let outlines_ref = match catalog.get(b"Outlines") {
         Ok(lopdf::Object::Reference(r)) => {
-            eprintln!("[Dorper] Got Outlines reference: {:?}", r);
+            eprintln!("[Pedaru] Got Outlines reference: {:?}", r);
             *r
         }
         Ok(other) => {
-            eprintln!("[Dorper] Outlines is not a reference: {:?}", other);
+            eprintln!("[Pedaru] Outlines is not a reference: {:?}", other);
             return toc;
         }
         Err(e) => {
-            eprintln!("[Dorper] No Outlines in catalog: {:?}", e);
+            eprintln!("[Pedaru] No Outlines in catalog: {:?}", e);
             return toc;
         }
     };
 
     let outlines = match doc.get_dictionary(outlines_ref) {
         Ok(o) => {
-            eprintln!("[Dorper] Got Outlines dictionary");
+            eprintln!("[Pedaru] Got Outlines dictionary");
             o
         }
         Err(e) => {
-            eprintln!("[Dorper] Failed to get Outlines dictionary: {:?}", e);
+            eprintln!("[Pedaru] Failed to get Outlines dictionary: {:?}", e);
             return toc;
         }
     };
 
     let first_ref = match outlines.get(b"First") {
         Ok(lopdf::Object::Reference(r)) => {
-            eprintln!("[Dorper] Got First reference: {:?}", r);
+            eprintln!("[Pedaru] Got First reference: {:?}", r);
             *r
         }
         Ok(other) => {
-            eprintln!("[Dorper] First is not a reference: {:?}", other);
+            eprintln!("[Pedaru] First is not a reference: {:?}", other);
             return toc;
         }
         Err(e) => {
-            eprintln!("[Dorper] No First in Outlines: {:?}", e);
+            eprintln!("[Pedaru] No First in Outlines: {:?}", e);
             return toc;
         }
     };
@@ -452,7 +452,7 @@ fn extract_toc(doc: &Document) -> Vec<TocEntry> {
     }
 
     eprintln!(
-        "[Dorper] extract_toc finished, found {} top-level entries",
+        "[Pedaru] extract_toc finished, found {} top-level entries",
         toc.len()
     );
     toc
@@ -460,11 +460,11 @@ fn extract_toc(doc: &Document) -> Vec<TocEntry> {
 
 #[tauri::command]
 fn get_pdf_info(path: String) -> Result<PdfInfo, String> {
-    eprintln!("[Dorper] get_pdf_info called for: {}", path);
+    eprintln!("[Pedaru] get_pdf_info called for: {}", path);
 
     // Load document from file
     let doc = Document::load(&path).map_err(|e| format!("Failed to load PDF: {}", e))?;
-    eprintln!("[Dorper] PDF loaded successfully");
+    eprintln!("[Pedaru] PDF loaded successfully");
 
     let mut title = None;
     let mut author = None;
@@ -532,13 +532,13 @@ pub fn run() {
     let args: Vec<String> = std::env::args_os()
         .map(|arg| arg.to_string_lossy().to_string())
         .collect();
-    eprintln!("[Dorper] CLI args: {:?}", args);
+    eprintln!("[Pedaru] CLI args: {:?}", args);
 
     if args.len() > 1 {
         let file_path = &args[1];
-        eprintln!("[Dorper] Checking file path: {}", file_path);
+        eprintln!("[Pedaru] Checking file path: {}", file_path);
         if file_path.to_lowercase().ends_with(".pdf") {
-            eprintln!("[Dorper] Setting pending file: {}", file_path);
+            eprintln!("[Pedaru] Setting pending file: {}", file_path);
             let pending = get_pending_file();
             *pending.lock().unwrap() = Some(file_path.clone());
         }
@@ -567,10 +567,10 @@ pub fn run() {
 
             let app_submenu = Submenu::with_items(
                 app,
-                "Dorper",
+                "Pedaru",
                 true,
                 &[
-                    &PredefinedMenuItem::about(app, Some("About Dorper"), None)?,
+                    &PredefinedMenuItem::about(app, Some("About Pedaru"), None)?,
                     &PredefinedMenuItem::separator(app)?,
                     &reset_item,
                     &PredefinedMenuItem::separator(app)?,
@@ -675,13 +675,13 @@ pub fn run() {
                 // Handle macOS file open events (when file is opened while app is already running)
                 // Each PDF opens in its own independent window (like Preview app)
                 tauri::RunEvent::Opened { urls } => {
-                    eprintln!("[Dorper] Received Opened event with {} urls", urls.len());
+                    eprintln!("[Pedaru] Received Opened event with {} urls", urls.len());
 
                     for url in urls {
-                        eprintln!("[Dorper] URL: {:?}", url);
+                        eprintln!("[Pedaru] URL: {:?}", url);
                         if let Ok(path) = url.to_file_path() {
                             let path_str = path.to_string_lossy().to_string();
-                            eprintln!("[Dorper] File path: {}", path_str);
+                            eprintln!("[Pedaru] File path: {}", path_str);
                             if path_str.to_lowercase().ends_with(".pdf") {
                                 // Check if this is the initial startup (OPENED_VIA_EVENT is false)
                                 // If so, store in PENDING_FILE for main window to load
@@ -692,7 +692,7 @@ pub fn run() {
                                 if !was_already_opened {
                                     // First file open during startup - let main window handle it
                                     eprintln!(
-                                        "[Dorper] Initial startup, storing in PENDING_FILE: {}",
+                                        "[Pedaru] Initial startup, storing in PENDING_FILE: {}",
                                         path_str
                                     );
                                     let pending = get_pending_file();
@@ -710,7 +710,7 @@ pub fn run() {
                                     );
 
                                     eprintln!(
-                                        "[Dorper] Creating new window: {} with URL: {}",
+                                        "[Pedaru] Creating new window: {} with URL: {}",
                                         window_label, window_url
                                     );
 
@@ -729,7 +729,7 @@ pub fn run() {
                                     .min_inner_size(800.0, 600.0)
                                     .build()
                                     {
-                                        eprintln!("[Dorper] Failed to create window: {:?}", e);
+                                        eprintln!("[Pedaru] Failed to create window: {:?}", e);
                                     }
                                 }
                             }
@@ -742,13 +742,13 @@ pub fn run() {
                     event: tauri::WindowEvent::CloseRequested { .. },
                     ..
                 } => {
-                    eprintln!("[Dorper] CloseRequested event for window: {}", label);
+                    eprintln!("[Pedaru] CloseRequested event for window: {}", label);
                     if label == "main" {
-                        eprintln!("[Dorper] Main window closing, closing all child windows");
+                        eprintln!("[Pedaru] Main window closing, closing all child windows");
                         for (win_label, window) in app.webview_windows() {
-                            eprintln!("[Dorper] Found window: {}", win_label);
+                            eprintln!("[Pedaru] Found window: {}", win_label);
                             if win_label != "main" {
-                                eprintln!("[Dorper] Closing window: {}", win_label);
+                                eprintln!("[Pedaru] Closing window: {}", win_label);
                                 let _ = window.close();
                             }
                         }

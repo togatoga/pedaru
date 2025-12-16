@@ -1,15 +1,15 @@
 [package]
-name = "dorper"
+name = "pedaru"
 version = "0.1.0"
 description = "A PDF Viewer built with Tauri"
 authors = ["you"]
 edition = "2021"
-default-run = "dorper"
+default-run = "pedaru"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name = "dorper_lib"
+name = "pedaru_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

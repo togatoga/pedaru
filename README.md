@@ -1,8 +1,8 @@
-# Dorper
+# Pedaru
 
 A modern, feature-rich PDF reader built with [Tauri](https://tauri.app/) and [React](https://react.dev/)/[Next.js](https://nextjs.org/).
 
-![Dorper PDF Viewer](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)
+![Pedaru PDF Viewer](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## Features
@@ -86,7 +86,7 @@ npm run tauri build
 ### Project Structure
 
 ```
-dorper/
+pedaru/
 ├── src/                    # Next.js frontend
 │   ├── app/               # App router pages
 │   ├── components/        # React components
@@ -138,7 +138,7 @@ npm run tauri dev
 npm run tauri build -- --debug
 
 # Run the app and view logs in Console.app (macOS)
-# Filter by "Dorper" to see app-specific logs
+# Filter by "Pedaru" to see app-specific logs
 open /Applications/Utilities/Console.app
 ```
 
@@ -146,7 +146,7 @@ Or run the built app from terminal to see logs:
 
 ```bash
 # After building
-./src-tauri/target/release/bundle/macos/Dorper.app/Contents/MacOS/Dorper
+./src-tauri/target/release/bundle/macos/Pedaru.app/Contents/MacOS/Pedaru
 ```
 
 #### Testing File Associations (macOS)
@@ -158,12 +158,12 @@ File associations only work with the built app:
 npm run tauri build
 
 # The app is created at:
-# src-tauri/target/release/bundle/macos/Dorper.app
+# src-tauri/target/release/bundle/macos/Pedaru.app
 
 # Test by:
-# 1. Right-click a PDF in Finder → Open With → Dorper
-# 2. Or drag a PDF onto Dorper.app icon
-# 3. Or double-click a PDF after setting Dorper as default PDF app
+# 1. Right-click a PDF in Finder → Open With → Pedaru
+# 2. Or drag a PDF onto Pedaru.app icon
+# 3. Or double-click a PDF after setting Pedaru as default PDF app
 ```
 
 ## License

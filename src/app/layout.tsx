@@ -5,7 +5,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Dorper - PDF Viewer',
+  title: 'Pedaru - PDF Viewer',
   description: 'A beautiful PDF viewer built with Tauri and Next.js',
 }
 

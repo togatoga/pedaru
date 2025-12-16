@@ -413,7 +413,7 @@ export default function PdfViewer({
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-bg-primary text-text-secondary">
         <FileQuestion className="w-24 h-24 opacity-20 mb-6" />
-        <h2 className="text-2xl font-light text-text-primary mb-2">Dorper PDF Viewer</h2>
+        <h2 className="text-2xl font-light text-text-primary mb-2">Pedaru PDF Viewer</h2>
         <p className="text-sm">Click "Open PDF" to get started</p>
         {filePath && (
           <p className="text-xs text-red-400 mt-4">Failed to load: {filePath}</p>
