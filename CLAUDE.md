@@ -158,6 +158,28 @@ The SQLite database is initialized in `src-tauri/src/lib.rs` using `tauri-plugin
 **Database Operations:**
 All database operations are performed directly from the frontend using `@tauri-apps/plugin-sql`. No custom Rust commands needed - the plugin provides SQL query functionality via JavaScript/TypeScript.
 
+### Open Recent Files
+
+Users can quickly reopen recently accessed PDFs via the menu bar:
+
+**Menu Location:** File → Open Recent
+
+**Implementation:**
+- Recent files are stored in `recent_files.json` in the app data directory
+- Menu is built dynamically at app startup from `recent_files.json` (up to 10 most recent files)
+- Each menu item's ID contains the base64-encoded file path: `open-recent-{base64(file_path)}`
+- When clicked, the file path is decoded from the menu ID and sent directly to the frontend
+- Frontend receives the file path and loads the PDF via `loadPdfFromPath()`
+
+**Key Design Decision:**
+The menu item ID includes the base64-encoded file path rather than an index. This ensures that even if `recent_files.json` is updated after the menu is created (e.g., when opening a new PDF), clicking a menu item will always open the correct file. Using an index would cause a bug where the wrong file opens after `recent_files.json` changes.
+
+**Code Locations:**
+- Menu creation: `src-tauri/src/lib.rs` (lines ~711-745)
+- Menu click handler: `src-tauri/src/lib.rs` (lines ~879-889)
+- Frontend handler: `src/app/page.tsx` (lines ~500-510)
+- Recent files management: `src-tauri/src/lib.rs` (`load_recent_files()`, `save_recent_files()`, `update_recent_file()`)
+
 ### Session Data Export
 
 Users can export all session data via the menu bar:

@@ -46,6 +46,7 @@ AI-enhanced PDF reader
 - **Auto-Save**: Page position, zoom, bookmarks, tabs, and windows saved automatically
 - **Cross-Session**: Resume exactly where you left off when reopening PDFs
 - **Export**: Export all session data as JSON (Pedaru → Export Session Data...)
+- **Open Recent**: Quick access to recently opened PDFs from File → Open Recent menu
 
 ### 🔖 Bookmarks
 - **Add Bookmarks**: Use Cmd+B (macOS) / Ctrl+B (Windows/Linux) to bookmark current page
