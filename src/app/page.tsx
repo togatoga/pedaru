@@ -56,6 +56,7 @@ export default function Home() {
   const [fileData, setFileData] = useState<Uint8Array | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [filePath, setFilePath] = useState<string | null>(null);
+  const filePathRef = useRef<string | null>(null);
   const [pdfInfo, setPdfInfo] = useState<PdfInfo | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -77,6 +78,11 @@ export default function Home() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<number | null>(null);
   const tabIdRef = useRef<number>(1);
+
+  // Keep filePathRef in sync with filePath state
+  useEffect(() => {
+    filePathRef.current = filePath;
+  }, [filePath]);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -502,8 +508,15 @@ export default function Home() {
 
       try {
         // Event payload now contains the file path directly (not an index)
-        const filePath = event.payload as string;
-        await loadPdfFromPath(filePath);
+        const selectedFilePath = event.payload as string;
+
+        // Don't reload if it's the same file that's already open
+        if (selectedFilePath === filePathRef.current) {
+          console.log('File already open, skipping reload');
+          return;
+        }
+
+        await loadPdfFromPath(selectedFilePath);
       } catch (error) {
         console.error('Failed to open recent file:', error);
       }

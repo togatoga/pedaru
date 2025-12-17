@@ -1,5 +1,6 @@
 use encoding_rs::SHIFT_JIS;
 use lopdf::Document;
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -537,7 +538,8 @@ fn was_opened_via_event() -> bool {
     OPENED_VIA_EVENT.load(Ordering::SeqCst)
 }
 
-fn get_recent_files_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+/// Get the path to the SQLite database
+fn get_db_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let app_data_dir = app
         .path()
         .app_data_dir()
@@ -549,90 +551,72 @@ fn get_recent_files_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
             .map_err(|e| format!("Failed to create app data dir: {}", e))?;
     }
 
-    Ok(app_data_dir.join("recent_files.json"))
+    Ok(app_data_dir.join("pedaru.db"))
 }
 
-fn load_recent_files(app: &tauri::AppHandle) -> Vec<RecentFile> {
-    match get_recent_files_path(app) {
-        Ok(path) => {
-            if path.exists() {
-                match fs::read_to_string(&path) {
-                    Ok(content) => match serde_json::from_str::<Vec<RecentFile>>(&content) {
-                        Ok(files) => files,
+/// Load recent files from SQLite database
+/// Excludes the currently open file from the results
+fn load_recent_files(app: &tauri::AppHandle, exclude_path: Option<&str>) -> Vec<RecentFile> {
+    match get_db_path(app) {
+        Ok(db_path) => {
+            if !db_path.exists() {
+                eprintln!(
+                    "[Pedaru] Database not found at {:?}, returning empty list",
+                    db_path
+                );
+                return Vec::new();
+            }
+
+            match Connection::open(&db_path) {
+                Ok(conn) => {
+                    let query = if let Some(exclude) = exclude_path {
+                        format!(
+                            "SELECT file_path, name, last_opened FROM sessions
+                             WHERE file_path != '{}'
+                             ORDER BY last_opened DESC LIMIT 10",
+                            exclude.replace("'", "''")
+                        )
+                    } else {
+                        "SELECT file_path, name, last_opened FROM sessions
+                         ORDER BY last_opened DESC LIMIT 10"
+                            .to_string()
+                    };
+
+                    match conn.prepare(&query) {
+                        Ok(mut stmt) => {
+                            let files_iter = stmt.query_map([], |row| {
+                                Ok(RecentFile {
+                                    file_path: row.get(0)?,
+                                    name: row.get(1)?,
+                                    last_opened: row.get(2)?,
+                                })
+                            });
+
+                            match files_iter {
+                                Ok(files) => files.filter_map(|f| f.ok()).collect(),
+                                Err(e) => {
+                                    eprintln!("[Pedaru] Failed to query recent files: {}", e);
+                                    Vec::new()
+                                }
+                            }
+                        }
                         Err(e) => {
-                            eprintln!("[Pedaru] Failed to parse recent_files.json: {}", e);
+                            eprintln!("[Pedaru] Failed to prepare query: {}", e);
                             Vec::new()
                         }
-                    },
-                    Err(e) => {
-                        eprintln!("[Pedaru] Failed to read recent_files.json: {}", e);
-                        Vec::new()
                     }
                 }
-            } else {
-                Vec::new()
+                Err(e) => {
+                    eprintln!("[Pedaru] Failed to open database: {}", e);
+                    Vec::new()
+                }
             }
         }
         Err(e) => {
-            eprintln!("[Pedaru] Failed to get recent files path: {}", e);
+            eprintln!("[Pedaru] Failed to get database path: {}", e);
             Vec::new()
         }
     }
-}
-
-fn save_recent_files(app: &tauri::AppHandle, files: &[RecentFile]) -> Result<(), String> {
-    let path = get_recent_files_path(app)?;
-    let content = serde_json::to_string_pretty(files)
-        .map_err(|e| format!("Failed to serialize recent files: {}", e))?;
-    fs::write(&path, content).map_err(|e| format!("Failed to write recent_files.json: {}", e))?;
-    Ok(())
-}
-
-#[tauri::command]
-fn update_recent_file(
-    app: tauri::AppHandle,
-    file_path: String,
-    name: String,
-) -> Result<(), String> {
-    eprintln!(
-        "[Pedaru] update_recent_file called: {} - {}",
-        name, file_path
-    );
-
-    let mut recent_files = load_recent_files(&app);
-
-    // Remove existing entry for this file if present
-    recent_files.retain(|f| f.file_path != file_path);
-
-    // Add to front
-    recent_files.insert(
-        0,
-        RecentFile {
-            name: name.clone(),
-            file_path: file_path.clone(),
-            last_opened: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as i64,
-        },
-    );
-
-    // Keep only 10 most recent
-    recent_files.truncate(10);
-
-    // Save to file
-    save_recent_files(&app, &recent_files)?;
-
-    eprintln!(
-        "[Pedaru] Updated recent files, now have {} entries",
-        recent_files.len()
-    );
-    Ok(())
-}
-
-#[tauri::command]
-fn get_recent_files_list(app: tauri::AppHandle) -> Result<Vec<RecentFile>, String> {
-    Ok(load_recent_files(&app))
 }
 
 // Note: Database operations are handled directly from the frontend using tauri-plugin-sql
@@ -674,9 +658,7 @@ pub fn run() {
             get_pdf_info,
             read_pdf_file,
             get_opened_file,
-            was_opened_via_event,
-            update_recent_file,
-            get_recent_files_list
+            was_opened_via_event
         ])
         .setup(|app| {
             // Create app menu
@@ -708,8 +690,8 @@ pub fn run() {
             let open_file_item =
                 MenuItem::with_id(app, "open_file", "Open...", true, Some("CmdOrCtrl+O"))?;
 
-            // Open Recent submenu - load from recent_files.json
-            let recent_files = load_recent_files(app.handle());
+            // Open Recent submenu - load from SQLite database
+            let recent_files = load_recent_files(app.handle(), None);
 
             // Build menu items dynamically
             let mut recent_items = Vec::new();
