@@ -40,6 +40,8 @@ import { useNavigation } from '@/hooks/useNavigation';
 import { useSearch } from '@/hooks/useSearch';
 import { useTabManagement } from '@/hooks/useTabManagement';
 import { useWindowManagement } from '@/hooks/useWindowManagement';
+import { usePdfLoader } from '@/hooks/usePdfLoader';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import type { OpenWindow, Tab, HistoryEntry } from '@/hooks/types';
 
 export default function Home() {
@@ -235,110 +237,77 @@ export default function Home() {
     setPendingWindowsRestore
   );
 
-  // Load PDF from path (standalone function to avoid useEffect dependency issues)
-  const loadPdfFromPathInternal = async (path: string, isStandalone: boolean = false) => {
-    try {
-      console.log('=== loadPdfFromPathInternal called ===');
-      console.log('Path:', path);
-      console.log('isStandalone:', isStandalone);
-      setIsLoading(true);
+  const { loadPdfFromPath, loadPdfInternal: loadPdfFromPathInternal } = usePdfLoader({
+    setFileData,
+    setFileName,
+    setFilePath,
+    setPdfInfo,
+    setCurrentPage,
+    setZoom,
+    setViewMode,
+    setBookmarks,
+    setPageHistory,
+    setHistoryIndex,
+    setSearchQuery,
+    setSearchResults,
+    setShowSearchResults,
+    setIsLoading,
+    setOpenWindows,
+    setTabs,
+    setActiveTabId,
+    setPendingTabsRestore,
+    setPendingActiveTabIndex,
+    setPendingWindowsRestore,
+    openWindows,
+  });
 
-      // Get PDF info from Rust backend first
-      const info = await invoke<PdfInfo>('get_pdf_info', { path });
-      console.log('PDF info received:', info);
-      setPdfInfo(info);
+  // Zoom handlers (needed by keyboard shortcuts)
+  const handleZoomIn = useCallback(() => {
+    setZoom((prev) => Math.min(prev + 0.25, 4));
+  }, []);
 
-      // Read PDF file (automatically decrypted if encrypted)
-      const data = await invoke<number[]>('read_pdf_file', { path });
-      console.log('File read successfully, size:', data.length);
-      setFileData(new Uint8Array(data));
-      setFilePath(path); // Keep original path for display
+  const handleZoomOut = useCallback(() => {
+    setZoom((prev) => Math.max(prev - 0.25, 0.25));
+  }, []);
 
-      // Get file name from original path
-      const name = path.split('/').pop() || path;
-      setFileName(name);
-
-      setIsLoading(false);
-      console.log('PDF loaded successfully');
-      return true;
-    } catch (error) {
-      console.error('Error loading PDF:', error);
-      setIsLoading(false);
-      return false;
-    }
-  };
-
-  // Wrapper for external use - loads PDF and restores session if available
-  const loadPdfFromPath = useCallback(async (path: string) => {
-    console.log('=== loadPdfFromPath called ===');
-    console.log('Path argument:', path);
-
-    // Immediately update last opened path so it's not confused with old files
-    localStorage.setItem('pedaru_last_opened_path', path);
-    console.log('Updated last_opened_path in localStorage');
-
-    // Reset all state immediately when opening a new PDF
-    setPdfInfo(null); // Clear old PDF info (including ToC)
-    setCurrentPage(1);
+  const handleZoomReset = useCallback(() => {
     setZoom(1.0);
-    setViewMode('single');
-    setBookmarks([]);
-    setPageHistory([]);
-    setHistoryIndex(-1);
-    setSearchQuery('');
-    setSearchResults([]);
-    setShowSearchResults(false);
+  }, []);
 
-    // Close all existing windows and clear tabs before loading new PDF
-    for (const w of openWindows) {
-      try {
-        const win = await WebviewWindow.getByLabel(w.label);
-        if (win) await win.close();
-      } catch (e) {
-        console.warn('Failed to close window', w.label, e);
-      }
-    }
-    setOpenWindows([]);
-    setTabs([]);
-    setActiveTabId(null);
+  // Initialize keyboard shortcuts
+  useKeyboardShortcuts({
+    currentPage,
+    totalPages,
+    goToPage,
+    goToPrevPage,
+    goToNextPage,
+    goBack,
+    goForward,
+    handleZoomIn,
+    handleZoomOut,
+    handleZoomReset,
+    isStandaloneMode,
+    searchQuery,
+    searchResults,
+    handleSearchNextPreview,
+    handleSearchPrevPreview,
+    handleSearchConfirm,
+    showSearchResults,
+    setSearchQuery,
+    setSearchResults,
+    setShowSearchResults,
+    setShowStandaloneSearch,
+    standaloneSearchInputRef,
+    tabs,
+    activeTabId,
+    addTabFromCurrent,
+    closeCurrentTab,
+    selectTab,
+    toggleBookmark,
+    openStandaloneWindow,
+  });
 
-    const success = await loadPdfFromPathInternal(path, false);
-    if (success) {
-      // Check if there's a saved session for this PDF
-      const session = loadSessionState(path);
-      if (session) {
-        // Restore session state
-        setCurrentPage(session.page || 1);
-        setZoom(session.zoom || 1.0);
-        setViewMode(session.viewMode || 'single');
-
-        // Restore bookmarks
-        if (session.bookmarks && session.bookmarks.length > 0) {
-          setBookmarks(session.bookmarks);
-        } else {
-          setBookmarks([]);
-        }
-
-        // Restore page history
-        if (session.pageHistory && session.pageHistory.length > 0) {
-          setPageHistory(session.pageHistory);
-          setHistoryIndex(session.historyIndex ?? session.pageHistory.length - 1);
-        }
-
-        // Set pending states for tabs and windows restoration
-        if (session.tabs && session.tabs.length > 0) {
-          setPendingTabsRestore(session.tabs);
-          setPendingActiveTabIndex(session.activeTabIndex);
-        }
-        if (session.windows && session.windows.length > 0) {
-          setPendingWindowsRestore(session.windows);
-        }
-      } else {
-        // No saved session - defaults already set at start of loadPdfFromPath
-      }
-    }
-  }, [openWindows]);
-
+  // Note: loadPdfFromPathInternal and loadPdfFromPath now provided by usePdfLoader hook
   // Note: New PDFs are opened in new windows via the Opened event in Rust (like Preview app).
 
   // Listen for reset all data request from app menu (main window only)
@@ -674,194 +643,7 @@ export default function Home() {
     }
   }, [currentPage, zoom, viewMode, tabs, activeTabId, openWindows, bookmarks, pageHistory, historyIndex, filePath, isStandaloneMode, saveCurrentSession]);
 
-  // Zoom handlers (still needed locally)
-  const handleZoomIn = useCallback(() => {
-    setZoom((prev) => Math.min(prev + 0.25, 4));
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    setZoom((prev) => Math.max(prev - 0.25, 0.25));
-  }, []);
-
-  const handleZoomReset = useCallback(() => {
-    setZoom(1.0);
-  }, []);
-
-  // Old tab/window/bookmark/search functions removed - now provided by custom hooks
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!totalPages) return;
-
-      switch (e.key) {
-        case 'ArrowUp':
-          // If search results are active, preview previous result
-          if (searchQuery && searchResults.length > 0) {
-            e.preventDefault();
-            handleSearchPrevPreview();
-          }
-          break;
-        case 'ArrowDown':
-          // If search results are active, preview next result
-          if (searchQuery && searchResults.length > 0) {
-            e.preventDefault();
-            handleSearchNextPreview();
-          }
-          break;
-        case 'ArrowLeft':
-        case 'PageUp':
-          e.preventDefault();
-          goToPrevPage();
-          break;
-        case 'ArrowRight':
-        case 'PageDown':
-          e.preventDefault();
-          goToNextPage();
-          break;
-        case 'Home':
-          if (!isStandaloneMode) {
-            e.preventDefault();
-            goToPage(1);
-          }
-          break;
-        case 'End':
-          if (!isStandaloneMode) {
-            e.preventDefault();
-            goToPage(totalPages);
-          }
-          break;
-        case '+':
-        case '=':
-          if (e.ctrlKey || e.metaKey) {
-            e.preventDefault();
-            handleZoomIn();
-          }
-          break;
-        case '-':
-          if (e.ctrlKey || e.metaKey) {
-            e.preventDefault();
-            handleZoomOut();
-          }
-          break;
-        case '0':
-          if (e.ctrlKey || e.metaKey) {
-            e.preventDefault();
-            handleZoomReset();
-          }
-          break;
-        case 't':
-        case 'T':
-          if (e.metaKey || e.ctrlKey) {
-            e.preventDefault();
-            addTabFromCurrent();
-          }
-          break;
-        case 'n':
-        case 'N':
-          if ((e.metaKey || e.ctrlKey) && !isStandaloneMode) {
-            e.preventDefault();
-            openStandaloneWindow(currentPage);
-          }
-          break;
-        case 'b':
-        case 'B':
-          if (e.metaKey || e.ctrlKey) {
-            e.preventDefault();
-            toggleBookmark();
-          }
-          break;
-        case 'f':
-        case 'F':
-          if (e.metaKey || e.ctrlKey) {
-            e.preventDefault();
-            if (isStandaloneMode) {
-              // Toggle standalone search
-              setShowStandaloneSearch(true);
-              setTimeout(() => standaloneSearchInputRef.current?.focus(), 0);
-            } else {
-              // Focus search input in main window
-              const searchInput = document.querySelector('input[placeholder="Search..."]') as HTMLInputElement;
-              if (searchInput) {
-                searchInput.focus();
-                searchInput.select();
-              }
-              // If there's a search query, show the results panel
-              if (searchQuery && searchResults.length > 0) {
-                setShowSearchResults(true);
-              }
-            }
-          }
-          break;
-        case 'w':
-        case 'W':
-          if (e.metaKey || e.ctrlKey) {
-            e.preventDefault();
-            closeCurrentTab();
-          }
-          break;
-        case 'Enter':
-          // Confirm search result when search is active
-          if (searchQuery && searchResults.length > 0) {
-            e.preventDefault();
-            handleSearchConfirm();
-          }
-          break;
-        case 'Escape':
-          // Clear search and close sidebar
-          if (searchQuery || showSearchResults) {
-            e.preventDefault();
-            setSearchQuery('');
-            setSearchResults([]);
-            setShowSearchResults(false);
-          }
-          break;
-        case ',':
-          // Ctrl+, - go back in history (without updating history)
-          if (e.ctrlKey && !e.metaKey && !e.shiftKey) {
-            e.preventDefault();
-            goBack();
-          }
-          break;
-        case '.':
-          // Ctrl+. - go forward in history (without updating history)
-          if (e.ctrlKey && !e.metaKey && !e.shiftKey) {
-            e.preventDefault();
-            goForward();
-          }
-          break;
-        case '[':
-          // Cmd+Shift+[ - go to previous tab (like Chrome)
-          if ((e.metaKey || e.ctrlKey) && e.shiftKey && tabs.length > 1) {
-            e.preventDefault();
-            const currentIndex = tabs.findIndex((t) => t.id === activeTabId);
-            if (currentIndex > 0) {
-              selectTab(tabs[currentIndex - 1].id);
-            } else {
-              // Wrap to last tab
-              selectTab(tabs[tabs.length - 1].id);
-            }
-          }
-          break;
-        case ']':
-          // Cmd+Shift+] - go to next tab (like Chrome)
-          if ((e.metaKey || e.ctrlKey) && e.shiftKey && tabs.length > 1) {
-            e.preventDefault();
-            const currentIndex = tabs.findIndex((t) => t.id === activeTabId);
-            if (currentIndex < tabs.length - 1) {
-              selectTab(tabs[currentIndex + 1].id);
-            } else {
-              // Wrap to first tab
-              selectTab(tabs[0].id);
-            }
-          }
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentPage, totalPages, goToPage, goToPrevPage, goToNextPage, handleZoomIn, handleZoomOut, handleZoomReset, isStandaloneMode, searchQuery, searchResults, handleSearchNextPreview, handleSearchPrevPreview, handleSearchConfirm, showSearchResults, closeCurrentTab, addTabFromCurrent, toggleBookmark, tabs, activeTabId, selectTab, openStandaloneWindow, goBack, goForward, historyIndex, pageHistory]);
+  // Note: Zoom handlers and keyboard shortcuts are now provided by custom hooks
 
   // Update document title
   useEffect(() => {
