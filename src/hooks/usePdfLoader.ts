@@ -148,6 +148,19 @@ export function usePdfLoader({
 
       const success = await loadPdfInternal(path, false);
       if (success) {
+        // Update recent files menu
+        try {
+          // Get PDF info for name (title from PDF, or filename if no title)
+          const info = await invoke<PdfInfo>('get_pdf_info', { path });
+          const name = info.title || path.split('/').pop() || path.split('\\').pop() || '';
+          await invoke('update_recent_file', {
+            filePath: path,
+            name: name,
+          });
+        } catch (error) {
+          console.error('Failed to update recent files:', error);
+        }
+
         // Check if there's a saved session for this PDF
         const session = await loadSessionState(path);
         if (session) {

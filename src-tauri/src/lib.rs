@@ -1,13 +1,22 @@
 use encoding_rs::SHIFT_JIS;
 use lopdf::Document;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use std::fs;
+use std::path::PathBuf;
+use tauri::menu::{IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::Emitter;
 use tauri::Manager;
 use tauri_plugin_sql::Builder as SqlBuilder;
 
 mod db_schema;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct RecentFile {
+    name: String,
+    file_path: String,
+    last_opened: i64,
+}
 
 #[derive(Debug, Serialize)]
 pub struct TocEntry {
@@ -528,6 +537,104 @@ fn was_opened_via_event() -> bool {
     OPENED_VIA_EVENT.load(Ordering::SeqCst)
 }
 
+fn get_recent_files_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+
+    // Create directory if it doesn't exist
+    if !app_data_dir.exists() {
+        fs::create_dir_all(&app_data_dir)
+            .map_err(|e| format!("Failed to create app data dir: {}", e))?;
+    }
+
+    Ok(app_data_dir.join("recent_files.json"))
+}
+
+fn load_recent_files(app: &tauri::AppHandle) -> Vec<RecentFile> {
+    match get_recent_files_path(app) {
+        Ok(path) => {
+            if path.exists() {
+                match fs::read_to_string(&path) {
+                    Ok(content) => match serde_json::from_str::<Vec<RecentFile>>(&content) {
+                        Ok(files) => files,
+                        Err(e) => {
+                            eprintln!("[Pedaru] Failed to parse recent_files.json: {}", e);
+                            Vec::new()
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("[Pedaru] Failed to read recent_files.json: {}", e);
+                        Vec::new()
+                    }
+                }
+            } else {
+                Vec::new()
+            }
+        }
+        Err(e) => {
+            eprintln!("[Pedaru] Failed to get recent files path: {}", e);
+            Vec::new()
+        }
+    }
+}
+
+fn save_recent_files(app: &tauri::AppHandle, files: &[RecentFile]) -> Result<(), String> {
+    let path = get_recent_files_path(app)?;
+    let content = serde_json::to_string_pretty(files)
+        .map_err(|e| format!("Failed to serialize recent files: {}", e))?;
+    fs::write(&path, content).map_err(|e| format!("Failed to write recent_files.json: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn update_recent_file(
+    app: tauri::AppHandle,
+    file_path: String,
+    name: String,
+) -> Result<(), String> {
+    eprintln!(
+        "[Pedaru] update_recent_file called: {} - {}",
+        name, file_path
+    );
+
+    let mut recent_files = load_recent_files(&app);
+
+    // Remove existing entry for this file if present
+    recent_files.retain(|f| f.file_path != file_path);
+
+    // Add to front
+    recent_files.insert(
+        0,
+        RecentFile {
+            name: name.clone(),
+            file_path: file_path.clone(),
+            last_opened: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64,
+        },
+    );
+
+    // Keep only 10 most recent
+    recent_files.truncate(10);
+
+    // Save to file
+    save_recent_files(&app, &recent_files)?;
+
+    eprintln!(
+        "[Pedaru] Updated recent files, now have {} entries",
+        recent_files.len()
+    );
+    Ok(())
+}
+
+#[tauri::command]
+fn get_recent_files_list(app: tauri::AppHandle) -> Result<Vec<RecentFile>, String> {
+    Ok(load_recent_files(&app))
+}
+
 // Note: Database operations are handled directly from the frontend using tauri-plugin-sql
 // The plugin provides SQL query functionality via JavaScript/TypeScript
 
@@ -567,7 +674,9 @@ pub fn run() {
             get_pdf_info,
             read_pdf_file,
             get_opened_file,
-            was_opened_via_event
+            was_opened_via_event,
+            update_recent_file,
+            get_recent_files_list
         ])
         .setup(|app| {
             // Create app menu
@@ -587,6 +696,78 @@ pub fn run() {
                 None::<&str>,
             )?;
 
+            let import_item = MenuItem::with_id(
+                app,
+                "import_session_data",
+                "Import Session Data...",
+                true,
+                None::<&str>,
+            )?;
+
+            // File menu items
+            let open_file_item =
+                MenuItem::with_id(app, "open_file", "Open...", true, Some("CmdOrCtrl+O"))?;
+
+            // Open Recent submenu - load from recent_files.json
+            let recent_files = load_recent_files(app.handle());
+
+            // Build menu items dynamically
+            let mut recent_items = Vec::new();
+
+            for file in recent_files.iter().take(10) {
+                // Extract filename from path for fallback
+                let filename = std::path::Path::new(&file.file_path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("Unknown")
+                    .to_string();
+
+                // Format: "/path/to/file.pdf - Title" or "/path/to/file.pdf - filename.pdf"
+                let display_name = if file.name.is_empty() {
+                    filename
+                } else {
+                    file.name.clone()
+                };
+                let menu_text = format!("{} - {}", file.file_path, display_name);
+
+                // Encode file path in base64 to use as menu item ID
+                use base64::{Engine as _, engine::general_purpose};
+                let encoded_path = general_purpose::STANDARD.encode(file.file_path.as_bytes());
+
+                let item = MenuItem::with_id(
+                    app,
+                    &format!("open-recent-{}", encoded_path),
+                    &menu_text,
+                    true,
+                    None::<&str>,
+                )?;
+                recent_items.push(item);
+            }
+
+            // If no recent files, show "No Recent Files"
+            if recent_items.is_empty() {
+                let no_recent = MenuItem::with_id(
+                    app,
+                    "no-recent-files",
+                    "No Recent Files",
+                    false,
+                    None::<&str>,
+                )?;
+                recent_items.push(no_recent);
+            }
+
+            // Collect references as trait objects
+            let recent_item_refs: Vec<&dyn IsMenuItem<_>> = recent_items
+                .iter()
+                .map(|item| item as &dyn IsMenuItem<_>)
+                .collect();
+
+            let open_recent_submenu =
+                Submenu::with_items(app, "Open Recent", true, &recent_item_refs)?;
+
+            let file_submenu =
+                Submenu::with_items(app, "File", true, &[&open_file_item, &open_recent_submenu])?;
+
             let app_submenu = Submenu::with_items(
                 app,
                 "Pedaru",
@@ -595,6 +776,7 @@ pub fn run() {
                     &PredefinedMenuItem::about(app, Some("About Pedaru"), None)?,
                     &PredefinedMenuItem::separator(app)?,
                     &reset_item,
+                    &import_item,
                     &export_item,
                     &PredefinedMenuItem::separator(app)?,
                     &PredefinedMenuItem::services(app, None)?,
@@ -663,7 +845,13 @@ pub fn run() {
 
             let menu = Menu::with_items(
                 app,
-                &[&app_submenu, &edit_submenu, &view_submenu, &window_submenu],
+                &[
+                    &app_submenu,
+                    &file_submenu,
+                    &edit_submenu,
+                    &view_submenu,
+                    &window_submenu,
+                ],
             )?;
             app.set_menu(menu)?;
 
@@ -679,6 +867,25 @@ pub fn run() {
                 "export_session_data" => {
                     // Emit event to frontend to handle export
                     app.emit("export-session-data-requested", ()).ok();
+                }
+                "import_session_data" => {
+                    // Emit event to frontend to handle import
+                    app.emit("import-session-data-requested", ()).ok();
+                }
+                "open_file" => {
+                    // Emit event to frontend to open file dialog
+                    app.emit("menu-open-file-requested", ()).ok();
+                }
+                id if id.starts_with("open-recent-") => {
+                    // Extract base64-encoded path from "open-recent-{base64}"
+                    if let Some(encoded_path) = id.strip_prefix("open-recent-") {
+                        use base64::{Engine as _, engine::general_purpose};
+                        if let Ok(decoded_bytes) = general_purpose::STANDARD.decode(encoded_path) {
+                            if let Ok(file_path) = String::from_utf8(decoded_bytes) {
+                                app.emit("menu-open-recent-selected", file_path).ok();
+                            }
+                        }
+                    }
                 }
                 "zoom_in" => {
                     app.emit("menu-zoom-in", ()).ok();

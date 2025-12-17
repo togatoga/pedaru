@@ -6,26 +6,26 @@ import type { Tab, SearchResult } from './types';
 describe('useKeyboardShortcuts', () => {
   // Mock handlers
   let mockHandlers: {
-    goToPage: ReturnType<typeof vi.fn>;
-    goToPrevPage: ReturnType<typeof vi.fn>;
-    goToNextPage: ReturnType<typeof vi.fn>;
-    goBack: ReturnType<typeof vi.fn>;
-    goForward: ReturnType<typeof vi.fn>;
-    handleZoomIn: ReturnType<typeof vi.fn>;
-    handleZoomOut: ReturnType<typeof vi.fn>;
-    handleZoomReset: ReturnType<typeof vi.fn>;
-    handleSearchNextPreview: ReturnType<typeof vi.fn>;
-    handleSearchPrevPreview: ReturnType<typeof vi.fn>;
-    handleSearchConfirm: ReturnType<typeof vi.fn>;
-    setSearchQuery: ReturnType<typeof vi.fn>;
-    setSearchResults: ReturnType<typeof vi.fn>;
-    setShowSearchResults: ReturnType<typeof vi.fn>;
-    setShowStandaloneSearch: ReturnType<typeof vi.fn>;
-    addTabFromCurrent: ReturnType<typeof vi.fn>;
-    closeCurrentTab: ReturnType<typeof vi.fn>;
-    selectTab: ReturnType<typeof vi.fn>;
-    toggleBookmark: ReturnType<typeof vi.fn>;
-    openStandaloneWindow: ReturnType<typeof vi.fn>;
+    goToPage: (page: number) => void;
+    goToPrevPage: () => void;
+    goToNextPage: () => void;
+    goBack: () => void;
+    goForward: () => void;
+    handleZoomIn: () => void;
+    handleZoomOut: () => void;
+    handleZoomReset: () => void;
+    handleSearchNextPreview: () => void;
+    handleSearchPrevPreview: () => void;
+    handleSearchConfirm: () => void;
+    setSearchQuery: (value: string | ((prev: string) => string)) => void;
+    setSearchResults: (value: SearchResult[] | ((prev: SearchResult[]) => SearchResult[])) => void;
+    setShowSearchResults: (value: boolean | ((prev: boolean) => boolean)) => void;
+    setShowStandaloneSearch: (value: boolean | ((prev: boolean) => boolean)) => void;
+    addTabFromCurrent: () => void;
+    closeCurrentTab: () => void;
+    selectTab: (tabId: number) => void;
+    toggleBookmark: () => void;
+    openStandaloneWindow: (page: number) => void;
   };
 
   let mockTabs: Tab[];
@@ -62,7 +62,7 @@ describe('useKeyboardShortcuts', () => {
     ];
 
     mockSearchResults = [
-      { page: 3, context: 'test', highlightText: 'test' },
+      { page: 3, matchIndex: 0, contextBefore: 'before ', matchText: 'test', contextAfter: ' after' },
     ];
 
     mockStandaloneSearchInputRef = { current: null };

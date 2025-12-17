@@ -25,6 +25,8 @@ export interface HistoryEntry {
 }
 
 export interface PdfSessionState {
+  filePath?: string;
+  name?: string;
   lastOpened: number;
   page: number;
   zoom: number;
@@ -72,6 +74,9 @@ export async function saveSessionState(
   const now = Date.now();
   state.lastOpened = now;
 
+  // Get name - use provided name or extract filename from path
+  const name = state.name || filePath.split('/').pop() || filePath.split('\\').pop() || 'Unknown';
+
   // Serialize complex fields to JSON
   const bookmarksJson = JSON.stringify(state.bookmarks);
   const pageHistoryJson = state.pageHistory ? JSON.stringify(state.pageHistory) : null;
@@ -81,26 +86,28 @@ export async function saveSessionState(
   // Insert or update session
   await db.execute(
     `INSERT INTO sessions (
-      file_path, path_hash, current_page, zoom, view_mode,
+      file_path, path_hash, name, current_page, zoom, view_mode,
       bookmarks, page_history, history_index, tabs, active_tab_index,
       windows, last_opened, created_at, updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     ON CONFLICT(file_path) DO UPDATE SET
       path_hash = $2,
-      current_page = $3,
-      zoom = $4,
-      view_mode = $5,
-      bookmarks = $6,
-      page_history = $7,
-      history_index = $8,
-      tabs = $9,
-      active_tab_index = $10,
-      windows = $11,
-      last_opened = $12,
-      updated_at = $14`,
+      name = $3,
+      current_page = $4,
+      zoom = $5,
+      view_mode = $6,
+      bookmarks = $7,
+      page_history = $8,
+      history_index = $9,
+      tabs = $10,
+      active_tab_index = $11,
+      windows = $12,
+      last_opened = $13,
+      updated_at = $15`,
     [
       filePath,
       pathHash,
+      name,
       state.page,
       state.zoom,
       state.viewMode,
@@ -132,6 +139,7 @@ export async function loadSessionState(
     const result = await db.select<Array<{
       file_path: string;
       path_hash: string;
+      name: string;
       current_page: number;
       zoom: number;
       view_mode: string;
@@ -143,7 +151,7 @@ export async function loadSessionState(
       windows: string | null;
       last_opened: number;
     }>>(
-      `SELECT file_path, path_hash, current_page, zoom, view_mode,
+      `SELECT file_path, path_hash, name, current_page, zoom, view_mode,
               bookmarks, page_history, history_index, tabs, active_tab_index,
               windows, last_opened
        FROM sessions
@@ -164,6 +172,7 @@ export async function loadSessionState(
     const windows = row.windows ? JSON.parse(row.windows) : [];
 
     return {
+      name: row.name,
       lastOpened: row.last_opened,
       page: row.current_page,
       zoom: row.zoom,
@@ -237,6 +246,7 @@ export async function getAllSessions(): Promise<PdfSessionState[]> {
     const db = await getDb();
     const result = await db.select<Array<{
       file_path: string;
+      name: string;
       current_page: number;
       zoom: number;
       view_mode: string;
@@ -248,7 +258,7 @@ export async function getAllSessions(): Promise<PdfSessionState[]> {
       windows: string | null;
       last_opened: number;
     }>>(
-      `SELECT file_path, current_page, zoom, view_mode,
+      `SELECT file_path, name, current_page, zoom, view_mode,
               bookmarks, page_history, history_index, tabs, active_tab_index,
               windows, last_opened
        FROM sessions
@@ -257,6 +267,7 @@ export async function getAllSessions(): Promise<PdfSessionState[]> {
 
     return result.map((row: {
       file_path: string;
+      name: string;
       current_page: number;
       zoom: number;
       view_mode: string;
@@ -268,6 +279,8 @@ export async function getAllSessions(): Promise<PdfSessionState[]> {
       windows: string | null;
       last_opened: number;
     }) => ({
+      filePath: row.file_path,
+      name: row.name,
       lastOpened: row.last_opened,
       page: row.current_page,
       zoom: row.zoom,
@@ -281,6 +294,57 @@ export async function getAllSessions(): Promise<PdfSessionState[]> {
     }));
   } catch (error) {
     console.error('Failed to get all sessions:', error);
+    return [];
+  }
+}
+
+// Import sessions from exported data
+export async function importSessions(sessions: PdfSessionState[]): Promise<number> {
+  let importCount = 0;
+
+  for (const session of sessions) {
+    try {
+      // Validate session has required fields
+      if (!session.filePath || !session.lastOpened || session.page === undefined) {
+        console.warn('Skipping invalid session:', session);
+        continue;
+      }
+
+      // Use existing saveSessionState to insert/update
+      await saveSessionState(session.filePath, session);
+      importCount++;
+    } catch (error) {
+      console.error('Failed to import session:', session.filePath, error);
+    }
+  }
+
+  return importCount;
+}
+
+// Get recent files for menu
+export async function getRecentFiles(limit: number = 10): Promise<Array<{
+  filePath: string;
+  lastOpened: number;
+}>> {
+  try {
+    const db = await getDb();
+    const result = await db.select<Array<{
+      file_path: string;
+      last_opened: number;
+    }>>(
+      `SELECT file_path, last_opened
+       FROM sessions
+       ORDER BY last_opened DESC
+       LIMIT $1`,
+      [limit]
+    );
+
+    return result.map(row => ({
+      filePath: row.file_path,
+      lastOpened: row.last_opened
+    }));
+  } catch (error) {
+    console.error('Failed to get recent files:', error);
     return [];
   }
 }

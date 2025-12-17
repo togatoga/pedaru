@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { invoke } from '@tauri-apps/api/core';
 import { emit, listen } from '@tauri-apps/api/event';
 import { open, confirm, save } from '@tauri-apps/plugin-dialog';
-import { writeTextFile } from '@tauri-apps/plugin-fs';
+import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
 import Header from '@/components/Header';
 import { Columns, History, PanelTop, Bookmark as BookmarkIcon, Search, X, List, Loader2 } from 'lucide-react';
 import { getCurrentWebviewWindow, WebviewWindow, getAllWebviewWindows } from '@tauri-apps/api/webviewWindow';
@@ -31,6 +31,8 @@ import {
   loadSessionState,
   getLastOpenedPath,
   getAllSessions,
+  importSessions,
+  getRecentFiles,
   TabState,
   WindowState,
   PdfSessionState,
@@ -437,6 +439,73 @@ export default function Home() {
         }
       } catch (error) {
         console.error('Failed to export session data:', error);
+      }
+    }).then(fn => { if (mounted) unlisteners.push(fn); }).catch(() => {});
+
+    listen('import-session-data-requested', async () => {
+      if (!mounted) return;
+
+      try {
+        // Show file open dialog
+        const filePath = await open({
+          title: 'Import Session Data',
+          multiple: false,
+          filters: [{
+            name: 'JSON',
+            extensions: ['json']
+          }]
+        });
+
+        if (!filePath) {
+          // User cancelled
+          return;
+        }
+
+        // Read the file
+        const jsonString = await readTextFile(filePath as string);
+
+        // Parse and validate JSON
+        const importData = JSON.parse(jsonString);
+
+        if (!importData.version || !Array.isArray(importData.sessions)) {
+          throw new Error('Invalid session data format');
+        }
+
+        // Import sessions
+        const importCount = await importSessions(importData.sessions);
+
+        // Show success dialog
+        await confirm(
+          `Successfully imported ${importCount} session(s).`,
+          { title: 'Import Complete', kind: 'info' }
+        );
+
+        console.log('Session data imported successfully:', importCount);
+      } catch (error) {
+        console.error('Failed to import session data:', error);
+
+        // Show error dialog
+        await confirm(
+          `Failed to import session data: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          { title: 'Import Failed', kind: 'error' }
+        );
+      }
+    }).then(fn => { if (mounted) unlisteners.push(fn); }).catch(() => {});
+
+    listen('menu-open-file-requested', async () => {
+      if (!mounted) return;
+      await handleOpenFile();
+    }).then(fn => { if (mounted) unlisteners.push(fn); }).catch(() => {});
+
+    listen('menu-open-recent-selected', async (event: any) => {
+      if (!mounted) return;
+
+      try {
+        // Event payload now contains the file path directly (not an index)
+        const filePath = event.payload as string;
+        await loadPdfFromPath(filePath);
+      } catch (error) {
+        console.error('Failed to open recent file:', error);
       }
     }).then(fn => { if (mounted) unlisteners.push(fn); }).catch(() => {});
 

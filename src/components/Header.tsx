@@ -104,8 +104,8 @@ export default function Header({
           )}
         </button>
         {(pdfTitle || fileName) && (
-          <span className="text-text-secondary text-sm truncate max-w-[200px]" title={fileName || undefined}>
-            {pdfTitle || fileName}
+          <span className="text-text-secondary text-sm truncate max-w-[200px]" title={pdfTitle || undefined}>
+            {fileName || pdfTitle}
           </span>
         )}
 
