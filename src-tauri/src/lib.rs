@@ -731,12 +731,12 @@ pub fn run() {
                 let menu_text = format!("{} - {}", file.file_path, display_name);
 
                 // Encode file path in base64 to use as menu item ID
-                use base64::{Engine as _, engine::general_purpose};
+                use base64::{engine::general_purpose, Engine as _};
                 let encoded_path = general_purpose::STANDARD.encode(file.file_path.as_bytes());
 
                 let item = MenuItem::with_id(
                     app,
-                    &format!("open-recent-{}", encoded_path),
+                    format!("open-recent-{}", encoded_path),
                     &menu_text,
                     true,
                     None::<&str>,
@@ -879,7 +879,7 @@ pub fn run() {
                 id if id.starts_with("open-recent-") => {
                     // Extract base64-encoded path from "open-recent-{base64}"
                     if let Some(encoded_path) = id.strip_prefix("open-recent-") {
-                        use base64::{Engine as _, engine::general_purpose};
+                        use base64::{engine::general_purpose, Engine as _};
                         if let Ok(decoded_bytes) = general_purpose::STANDARD.decode(encoded_path) {
                             if let Ok(file_path) = String::from_utf8(decoded_bytes) {
                                 app.emit("menu-open-recent-selected", file_path).ok();
