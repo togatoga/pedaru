@@ -73,18 +73,27 @@ When editing multi-window features, ensure events are emitted and handled proper
 
 ### Session Persistence
 
-Session state is stored in localStorage with per-PDF granularity:
+Session state is stored in SQLite database with per-PDF granularity:
 
-**Storage Keys:**
-- `pedaru_last_opened_path` - Most recently opened file
-- `pedaru_session_[path_hash]` - Per-PDF session containing:
+**Database Location:**
+- macOS: `~/Library/Application Support/com.togatoga.pedaru/pedaru.db`
+- Linux: `~/.local/share/com.togatoga.pedaru/pedaru.db`
+- Windows: `C:\Users\<username>\AppData\Roaming\com.togatoga.pedaru\pedaru.db`
+
+**Database Schema:**
+- `sessions` table - Per-PDF session data:
   - Current page, zoom level, view mode
-  - Open tabs and their states
-  - Standalone windows configuration
-  - Bookmarks (array of {page, timestamp})
-  - Navigation history (max 100 entries)
+  - Open tabs and their states (JSON)
+  - Standalone windows configuration (JSON)
+  - Bookmarks (JSON array of {page, label, timestamp})
+  - Navigation history (JSON array, max 100 entries)
+  - File path and path hash for quick lookup
+  - Timestamps (created_at, updated_at, last_opened)
 
-Session saves are debounced (500ms) to avoid excessive writes. The session restoration logic is in `page.tsx` using refs to avoid circular dependencies.
+**Additional Storage:**
+- `pedaru_last_opened_path` in localStorage - Quick access to most recently opened file
+
+Session saves are debounced (500ms) to avoid excessive database writes. The session restoration logic is in `page.tsx` using refs to avoid circular dependencies. Database operations are handled by `src/lib/database.ts` using `tauri-plugin-sql`.
 
 ### Component Structure
 
@@ -111,10 +120,12 @@ Session saves are debounced (500ms) to avoid excessive writes. The session resto
 - `useSearch.ts` - Full-text search with incremental results
 - `useTabManagement.ts` - Tab creation, deletion, and switching
 - `useWindowManagement.ts` - Standalone window lifecycle management
+- `usePdfLoader.ts` - PDF loading and session restoration logic
+- `useKeyboardShortcuts.ts` - Centralized keyboard shortcut handling
 - `types.ts` - Shared TypeScript types for hooks
 
 **Utility Libraries** - `src/lib/`:
-- `sessionStorage.ts` - Per-PDF session persistence with localStorage
+- `database.ts` - SQLite-based session persistence using tauri-plugin-sql
 - `pdfUtils.ts` - PDF-specific utilities (chapter extraction, etc.)
 - `tabManager.ts` - Tab state management utilities
 
@@ -129,6 +140,44 @@ The Rust backend in `src-tauri/src/lib.rs` handles:
 3. **Reference Resolution** - PDF objects are often referenced indirectly. The code resolves `Object::Reference(id, gen)` to actual objects using `doc.get_object()`.
 
 When working with PDF metadata or TOC parsing, be aware of encoding issues, especially with Japanese characters.
+
+### Database Structure (Rust Backend)
+
+The SQLite database is initialized in `src-tauri/src/lib.rs` using `tauri-plugin-sql`:
+
+**Schema Definition:** `src-tauri/src/db_schema.rs`
+- `get_migrations()` - Returns database migrations with inline SQL
+- Version 1: Creates `sessions` table with indexes
+
+**Key Features:**
+- Automatic migration on app startup
+- JSON fields for complex data (tabs, windows, bookmarks, history)
+- Indexed queries on file_path and path_hash for fast lookups
+- LRU cleanup keeps only 50 most recent sessions
+
+**Database Operations:**
+All database operations are performed directly from the frontend using `@tauri-apps/plugin-sql`. No custom Rust commands needed - the plugin provides SQL query functionality via JavaScript/TypeScript.
+
+### Session Data Export
+
+Users can export all session data via the menu bar:
+
+**Menu Location:** Pedaru → Export Session Data...
+
+**Implementation:**
+1. Retrieves all sessions from SQLite using `getAllSessions()` from `database.ts`
+2. Formats data as JSON with metadata (export date, version)
+3. Shows native save dialog with default filename: `pedaru-sessions-YYYY-MM-DD.json`
+4. Writes JSON file using `@tauri-apps/plugin-fs`
+
+**Export Format:**
+```json
+{
+  "exportDate": "2025-12-17T...",
+  "version": "1.0",
+  "sessions": [/* array of session objects */]
+}
+```
 
 ### Search Implementation
 
