@@ -181,6 +181,13 @@ export function usePdfLoader({
         } else {
           // No saved session - defaults already set at start of loadPdfFromPath
         }
+
+        // Refresh the Open Recents menu after loading a new PDF
+        try {
+          await invoke('refresh_recent_menu');
+        } catch (error) {
+          console.error('Failed to refresh recent menu:', error);
+        }
       }
     },
     [

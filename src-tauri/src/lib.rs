@@ -619,6 +619,193 @@ fn load_recent_files(app: &tauri::AppHandle, exclude_path: Option<&str>) -> Vec<
     }
 }
 
+/// Build the application menu with recent files
+fn build_app_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, Box<dyn std::error::Error>> {
+    // Create app menu items
+    let reset_item = MenuItem::with_id(
+        app,
+        "reset_all_data",
+        "Initialize App...",
+        true,
+        None::<&str>,
+    )?;
+
+    let export_item = MenuItem::with_id(
+        app,
+        "export_session_data",
+        "Export Session Data...",
+        true,
+        None::<&str>,
+    )?;
+
+    let import_item = MenuItem::with_id(
+        app,
+        "import_session_data",
+        "Import Session Data...",
+        true,
+        None::<&str>,
+    )?;
+
+    // File menu items
+    let open_file_item = MenuItem::with_id(app, "open_file", "Open...", true, Some("CmdOrCtrl+O"))?;
+
+    // Open Recent submenu - load from SQLite database
+    let recent_files = load_recent_files(app, None);
+
+    // Build menu items dynamically
+    let mut recent_items = Vec::new();
+
+    for file in recent_files.iter().take(10) {
+        // Extract filename from path for fallback
+        let filename = std::path::Path::new(&file.file_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Unknown")
+            .to_string();
+
+        // Format: "/path/to/file.pdf - Title" or "/path/to/file.pdf - filename.pdf"
+        let display_name = if file.name.is_empty() {
+            filename
+        } else {
+            file.name.clone()
+        };
+        let menu_text = format!("{} - {}", file.file_path, display_name);
+
+        // Encode file path in base64 to use as menu item ID
+        use base64::{engine::general_purpose, Engine as _};
+        let encoded_path = general_purpose::STANDARD.encode(file.file_path.as_bytes());
+
+        let item = MenuItem::with_id(
+            app,
+            format!("open-recent-{}", encoded_path),
+            &menu_text,
+            true,
+            None::<&str>,
+        )?;
+        recent_items.push(item);
+    }
+
+    // If no recent files, show "No Recent Files"
+    if recent_items.is_empty() {
+        let no_recent = MenuItem::with_id(
+            app,
+            "no-recent-files",
+            "No Recent Files",
+            false,
+            None::<&str>,
+        )?;
+        recent_items.push(no_recent);
+    }
+
+    // Collect references as trait objects
+    let recent_item_refs: Vec<&dyn IsMenuItem<_>> = recent_items
+        .iter()
+        .map(|item| item as &dyn IsMenuItem<_>)
+        .collect();
+
+    let open_recent_submenu = Submenu::with_items(app, "Open Recent", true, &recent_item_refs)?;
+
+    let file_submenu =
+        Submenu::with_items(app, "File", true, &[&open_file_item, &open_recent_submenu])?;
+
+    let app_submenu = Submenu::with_items(
+        app,
+        "Pedaru",
+        true,
+        &[
+            &PredefinedMenuItem::about(app, Some("About Pedaru"), None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &reset_item,
+            &import_item,
+            &export_item,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::services(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::hide(app, None)?,
+            &PredefinedMenuItem::hide_others(app, None)?,
+            &PredefinedMenuItem::show_all(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::quit(app, None)?,
+        ],
+    )?;
+
+    let edit_submenu = Submenu::with_items(
+        app,
+        "Edit",
+        true,
+        &[
+            &PredefinedMenuItem::undo(app, None)?,
+            &PredefinedMenuItem::redo(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::cut(app, None)?,
+            &PredefinedMenuItem::copy(app, None)?,
+            &PredefinedMenuItem::paste(app, None)?,
+            &PredefinedMenuItem::select_all(app, None)?,
+        ],
+    )?;
+
+    // View menu with Zoom and Two-Column options
+    let zoom_in = MenuItem::with_id(app, "zoom_in", "Zoom In", true, Some("CmdOrCtrl+="))?;
+    let zoom_out = MenuItem::with_id(app, "zoom_out", "Zoom Out", true, Some("CmdOrCtrl+-"))?;
+    let zoom_reset = MenuItem::with_id(app, "zoom_reset", "Reset Zoom", true, Some("CmdOrCtrl+0"))?;
+    let toggle_two_column = MenuItem::with_id(
+        app,
+        "toggle_two_column",
+        "Two-Column Mode",
+        true,
+        Some("CmdOrCtrl+Shift+2"),
+    )?;
+
+    let view_submenu = Submenu::with_items(
+        app,
+        "View",
+        true,
+        &[
+            &zoom_in,
+            &zoom_out,
+            &zoom_reset,
+            &PredefinedMenuItem::separator(app)?,
+            &toggle_two_column,
+        ],
+    )?;
+
+    let window_submenu = Submenu::with_items(
+        app,
+        "Window",
+        true,
+        &[
+            &PredefinedMenuItem::minimize(app, None)?,
+            &PredefinedMenuItem::maximize(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::close_window(app, None)?,
+        ],
+    )?;
+
+    let menu = Menu::with_items(
+        app,
+        &[
+            &app_submenu,
+            &file_submenu,
+            &edit_submenu,
+            &view_submenu,
+            &window_submenu,
+        ],
+    )?;
+
+    Ok(menu)
+}
+
+/// Tauri command to refresh the recent files menu
+#[tauri::command]
+fn refresh_recent_menu(app: tauri::AppHandle) -> Result<(), String> {
+    eprintln!("[Pedaru] Refreshing recent files menu");
+    let menu = build_app_menu(&app).map_err(|e| format!("Failed to build menu: {}", e))?;
+    app.set_menu(menu)
+        .map_err(|e| format!("Failed to set menu: {}", e))?;
+    eprintln!("[Pedaru] Recent files menu refreshed successfully");
+    Ok(())
+}
+
 // Note: Database operations are handled directly from the frontend using tauri-plugin-sql
 // The plugin provides SQL query functionality via JavaScript/TypeScript
 
@@ -658,183 +845,12 @@ pub fn run() {
             get_pdf_info,
             read_pdf_file,
             get_opened_file,
-            was_opened_via_event
+            was_opened_via_event,
+            refresh_recent_menu
         ])
         .setup(|app| {
-            // Create app menu
-            let reset_item = MenuItem::with_id(
-                app,
-                "reset_all_data",
-                "Initialize App...",
-                true,
-                None::<&str>,
-            )?;
-
-            let export_item = MenuItem::with_id(
-                app,
-                "export_session_data",
-                "Export Session Data...",
-                true,
-                None::<&str>,
-            )?;
-
-            let import_item = MenuItem::with_id(
-                app,
-                "import_session_data",
-                "Import Session Data...",
-                true,
-                None::<&str>,
-            )?;
-
-            // File menu items
-            let open_file_item =
-                MenuItem::with_id(app, "open_file", "Open...", true, Some("CmdOrCtrl+O"))?;
-
-            // Open Recent submenu - load from SQLite database
-            let recent_files = load_recent_files(app.handle(), None);
-
-            // Build menu items dynamically
-            let mut recent_items = Vec::new();
-
-            for file in recent_files.iter().take(10) {
-                // Extract filename from path for fallback
-                let filename = std::path::Path::new(&file.file_path)
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("Unknown")
-                    .to_string();
-
-                // Format: "/path/to/file.pdf - Title" or "/path/to/file.pdf - filename.pdf"
-                let display_name = if file.name.is_empty() {
-                    filename
-                } else {
-                    file.name.clone()
-                };
-                let menu_text = format!("{} - {}", file.file_path, display_name);
-
-                // Encode file path in base64 to use as menu item ID
-                use base64::{engine::general_purpose, Engine as _};
-                let encoded_path = general_purpose::STANDARD.encode(file.file_path.as_bytes());
-
-                let item = MenuItem::with_id(
-                    app,
-                    format!("open-recent-{}", encoded_path),
-                    &menu_text,
-                    true,
-                    None::<&str>,
-                )?;
-                recent_items.push(item);
-            }
-
-            // If no recent files, show "No Recent Files"
-            if recent_items.is_empty() {
-                let no_recent = MenuItem::with_id(
-                    app,
-                    "no-recent-files",
-                    "No Recent Files",
-                    false,
-                    None::<&str>,
-                )?;
-                recent_items.push(no_recent);
-            }
-
-            // Collect references as trait objects
-            let recent_item_refs: Vec<&dyn IsMenuItem<_>> = recent_items
-                .iter()
-                .map(|item| item as &dyn IsMenuItem<_>)
-                .collect();
-
-            let open_recent_submenu =
-                Submenu::with_items(app, "Open Recent", true, &recent_item_refs)?;
-
-            let file_submenu =
-                Submenu::with_items(app, "File", true, &[&open_file_item, &open_recent_submenu])?;
-
-            let app_submenu = Submenu::with_items(
-                app,
-                "Pedaru",
-                true,
-                &[
-                    &PredefinedMenuItem::about(app, Some("About Pedaru"), None)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &reset_item,
-                    &import_item,
-                    &export_item,
-                    &PredefinedMenuItem::separator(app)?,
-                    &PredefinedMenuItem::services(app, None)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &PredefinedMenuItem::hide(app, None)?,
-                    &PredefinedMenuItem::hide_others(app, None)?,
-                    &PredefinedMenuItem::show_all(app, None)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &PredefinedMenuItem::quit(app, None)?,
-                ],
-            )?;
-
-            let edit_submenu = Submenu::with_items(
-                app,
-                "Edit",
-                true,
-                &[
-                    &PredefinedMenuItem::undo(app, None)?,
-                    &PredefinedMenuItem::redo(app, None)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &PredefinedMenuItem::cut(app, None)?,
-                    &PredefinedMenuItem::copy(app, None)?,
-                    &PredefinedMenuItem::paste(app, None)?,
-                    &PredefinedMenuItem::select_all(app, None)?,
-                ],
-            )?;
-
-            // View menu with Zoom and Two-Column options
-            let zoom_in = MenuItem::with_id(app, "zoom_in", "Zoom In", true, Some("CmdOrCtrl+="))?;
-            let zoom_out =
-                MenuItem::with_id(app, "zoom_out", "Zoom Out", true, Some("CmdOrCtrl+-"))?;
-            let zoom_reset =
-                MenuItem::with_id(app, "zoom_reset", "Reset Zoom", true, Some("CmdOrCtrl+0"))?;
-            let toggle_two_column = MenuItem::with_id(
-                app,
-                "toggle_two_column",
-                "Two-Column Mode",
-                true,
-                Some("CmdOrCtrl+Shift+2"),
-            )?;
-
-            let view_submenu = Submenu::with_items(
-                app,
-                "View",
-                true,
-                &[
-                    &zoom_in,
-                    &zoom_out,
-                    &zoom_reset,
-                    &PredefinedMenuItem::separator(app)?,
-                    &toggle_two_column,
-                ],
-            )?;
-
-            let window_submenu = Submenu::with_items(
-                app,
-                "Window",
-                true,
-                &[
-                    &PredefinedMenuItem::minimize(app, None)?,
-                    &PredefinedMenuItem::maximize(app, None)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &PredefinedMenuItem::close_window(app, None)?,
-                ],
-            )?;
-
-            let menu = Menu::with_items(
-                app,
-                &[
-                    &app_submenu,
-                    &file_submenu,
-                    &edit_submenu,
-                    &view_submenu,
-                    &window_submenu,
-                ],
-            )?;
+            // Build and set the initial menu
+            let menu = build_app_menu(app.handle()).map_err(|e| e.to_string())?;
             app.set_menu(menu)?;
 
             Ok(())
