@@ -14,7 +14,7 @@ export type {
   TabState,
   WindowState,
   PdfSessionState,
-} from '@/lib/sessionStorage';
+} from '@/lib/database';
 
 // Use ViewMode locally via imported alias
 type ViewMode = VMType;

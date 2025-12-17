@@ -5,6 +5,9 @@ use std::collections::HashMap;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::Emitter;
 use tauri::Manager;
+use tauri_plugin_sql::Builder as SqlBuilder;
+
+mod db_schema;
 
 #[derive(Debug, Serialize)]
 pub struct TocEntry {
@@ -525,6 +528,9 @@ fn was_opened_via_event() -> bool {
     OPENED_VIA_EVENT.load(Ordering::SeqCst)
 }
 
+// Note: Database operations are handled directly from the frontend using tauri-plugin-sql
+// The plugin provides SQL query functionality via JavaScript/TypeScript
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Check for CLI arguments first (before building the app)
@@ -544,10 +550,18 @@ pub fn run() {
         }
     }
 
+    // Initialize SQLite database with migrations
+    let migrations = db_schema::get_migrations();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(
+            SqlBuilder::default()
+                .add_migrations("sqlite:pedaru.db", migrations)
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             greet,
             get_pdf_info,
@@ -565,6 +579,14 @@ pub fn run() {
                 None::<&str>,
             )?;
 
+            let export_item = MenuItem::with_id(
+                app,
+                "export_session_data",
+                "Export Session Data...",
+                true,
+                None::<&str>,
+            )?;
+
             let app_submenu = Submenu::with_items(
                 app,
                 "Pedaru",
@@ -573,6 +595,7 @@ pub fn run() {
                     &PredefinedMenuItem::about(app, Some("About Pedaru"), None)?,
                     &PredefinedMenuItem::separator(app)?,
                     &reset_item,
+                    &export_item,
                     &PredefinedMenuItem::separator(app)?,
                     &PredefinedMenuItem::services(app, None)?,
                     &PredefinedMenuItem::separator(app)?,
@@ -652,6 +675,10 @@ pub fn run() {
                 "reset_all_data" => {
                     // Emit event to frontend to show confirmation dialog
                     app.emit("reset-all-data-requested", ()).ok();
+                }
+                "export_session_data" => {
+                    // Emit event to frontend to handle export
+                    app.emit("export-session-data-requested", ()).ok();
                 }
                 "zoom_in" => {
                     app.emit("menu-zoom-in", ()).ok();

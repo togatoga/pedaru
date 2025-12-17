@@ -8,6 +8,7 @@
     "core:window:allow-create",
     "core:window:allow-close",
     "core:window:allow-destroy",
+    "core:window:allow-set-title",
     "core:webview:allow-create-webview",
     "core:webview:allow-create-webview-window",
     "opener:default",
@@ -21,6 +22,16 @@
         { "path": "/var/folders/**" },
         { "path": "/tmp/**" }
       ]
-    }
+    },
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [
+        { "path": "**" }
+      ]
+    },
+    "sql:default",
+    "sql:allow-load",
+    "sql:allow-select",
+    "sql:allow-execute"
   ]
 }

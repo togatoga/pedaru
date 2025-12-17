@@ -4,7 +4,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { invoke } from '@tauri-apps/api/core';
 import { emit, listen } from '@tauri-apps/api/event';
-import { open, confirm } from '@tauri-apps/plugin-dialog';
+import { open, confirm, save } from '@tauri-apps/plugin-dialog';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
 import Header from '@/components/Header';
 import { Columns, History, PanelTop, Bookmark as BookmarkIcon, Search, X, List, Loader2 } from 'lucide-react';
 import { getCurrentWebviewWindow, WebviewWindow, getAllWebviewWindows } from '@tauri-apps/api/webviewWindow';
@@ -29,11 +30,11 @@ import {
   saveSessionState,
   loadSessionState,
   getLastOpenedPath,
-  migrateOldStorage,
+  getAllSessions,
   TabState,
   WindowState,
   PdfSessionState,
-} from '@/lib/sessionStorage';
+} from '@/lib/database';
 import { getChapterForPage as getChapter } from '@/lib/pdfUtils';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { useNavigation } from '@/hooks/useNavigation';
@@ -403,6 +404,42 @@ export default function Home() {
       setViewMode((prev) => (prev === 'two-column' ? 'single' : 'two-column'));
     }).then(fn => { if (mounted) unlisteners.push(fn); }).catch(() => {});
 
+    listen('export-session-data-requested', async () => {
+      if (!mounted) return;
+
+      try {
+        // Get all sessions from database
+        const sessions = await getAllSessions();
+
+        // Prepare export data
+        const exportData = {
+          exportDate: new Date().toISOString(),
+          version: '1.0',
+          sessions: sessions,
+        };
+
+        // Show save dialog
+        const filePath = await save({
+          title: 'Export Session Data',
+          defaultPath: `pedaru-sessions-${new Date().toISOString().split('T')[0]}.json`,
+          filters: [{
+            name: 'JSON',
+            extensions: ['json']
+          }]
+        });
+
+        if (filePath) {
+          // Write the data to file
+          const jsonString = JSON.stringify(exportData, null, 2);
+          await writeTextFile(filePath, jsonString);
+
+          console.log('Session data exported successfully to:', filePath);
+        }
+      } catch (error) {
+        console.error('Failed to export session data:', error);
+      }
+    }).then(fn => { if (mounted) unlisteners.push(fn); }).catch(() => {});
+
     return () => {
       mounted = false;
       unlisteners.forEach(fn => { try { fn(); } catch {} });
@@ -500,14 +537,11 @@ export default function Home() {
         console.error('Error checking opened file:', e);
       }
 
-      // Migrate old storage format if present
-      migrateOldStorage();
-
-      // Try to load last opened PDF using new session storage
+      // Try to load last opened PDF using database
       const lastPath = getLastOpenedPath();
       if (lastPath) {
         console.log('Loading last opened PDF:', lastPath);
-        const session = loadSessionState(lastPath);
+        const session = await loadSessionState(lastPath);
 
         // Reset pdfInfo before loading new PDF
         setPdfInfo(null);
@@ -632,7 +666,10 @@ export default function Home() {
         pageHistory: savedHistory,
         historyIndex: Math.min(adjustedHistoryIndex, savedHistory.length - 1),
       };
-      saveSessionState(filePath, state);
+      // Save to database (async, fire and forget)
+      saveSessionState(filePath, state).catch((error) => {
+        console.error('Failed to save session state:', error);
+      });
     }, 500);
   }, [filePath, isStandaloneMode, currentPage, zoom, viewMode, tabs, activeTabId, openWindows, bookmarks, pageHistory, historyIndex]);
 

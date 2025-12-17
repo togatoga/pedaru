@@ -17,10 +17,15 @@ vi.mock('@tauri-apps/api/webviewWindow', () => ({
   },
 }));
 
-// Mock sessionStorage
+// Mock database
 const mockLoadSessionState = vi.fn();
-vi.mock('@/lib/sessionStorage', () => ({
+vi.mock('@/lib/database', () => ({
   loadSessionState: (...args: any[]) => mockLoadSessionState(...args),
+  saveSessionState: vi.fn(),
+  getLastOpenedPath: vi.fn(),
+  createDefaultState: vi.fn(),
+  deleteSession: vi.fn(),
+  getAllSessions: vi.fn(),
 }));
 
 describe('usePdfLoader', () => {
@@ -97,7 +102,7 @@ describe('usePdfLoader', () => {
       return Promise.resolve(null);
     });
 
-    mockLoadSessionState.mockReturnValue(null);
+    mockLoadSessionState.mockResolvedValue(null);
     mockGetByLabel.mockResolvedValue({ close: mockClose });
     mockClose.mockResolvedValue(undefined);
 
@@ -204,22 +209,6 @@ describe('usePdfLoader', () => {
       });
     });
 
-    it('should update localStorage with last opened path', async () => {
-      const { result } = renderHook(() =>
-        usePdfLoader({
-          ...mockSetters,
-          openWindows: mockOpenWindows,
-        })
-      );
-
-      await result.current.loadPdfFromPath('/test/file.pdf');
-
-      expect(localStorage.setItem).toHaveBeenCalledWith(
-        'pedaru_last_opened_path',
-        '/test/file.pdf'
-      );
-    });
-
     it('should close all open windows before loading new PDF', async () => {
       const mockOpenWindowsWithData: OpenWindow[] = [
         { label: 'window-1', page: 1, zoom: 1.0, viewMode: 'single' },
@@ -269,7 +258,7 @@ describe('usePdfLoader', () => {
         lastOpened: Date.now(),
       };
 
-      mockLoadSessionState.mockReturnValueOnce(mockSession);
+      mockLoadSessionState.mockResolvedValueOnce(mockSession);
 
       const { result } = renderHook(() =>
         usePdfLoader({
@@ -303,7 +292,7 @@ describe('usePdfLoader', () => {
     });
 
     it('should use defaults when no session is available', async () => {
-      mockLoadSessionState.mockReturnValueOnce(null);
+      mockLoadSessionState.mockResolvedValueOnce(null);
 
       const { result } = renderHook(() =>
         usePdfLoader({
@@ -330,7 +319,7 @@ describe('usePdfLoader', () => {
         lastOpened: Date.now(),
       };
 
-      mockLoadSessionState.mockReturnValueOnce(partialSession);
+      mockLoadSessionState.mockResolvedValueOnce(partialSession);
 
       const { result } = renderHook(() =>
         usePdfLoader({
