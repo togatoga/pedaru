@@ -35,8 +35,8 @@ cargo fmt -- --check             # Rust formatting check (in src-tauri/)
 
 **Test Framework:**
 - Frontend tests use Vitest with jsdom environment
-- Test files are colocated: `src/lib/*.test.ts` next to source files
-- Coverage includes all files in `src/lib/`
+- Test files are colocated next to source files: `src/lib/*.test.ts` and `src/hooks/*.test.ts`
+- Coverage includes all files in `src/lib/` and `src/hooks/`
 
 ## Architecture
 
@@ -77,7 +77,7 @@ Session state is stored in SQLite database with per-PDF granularity:
 
 **Database Location:**
 - macOS: `~/Library/Application Support/com.togatoga.pedaru/pedaru.db`
-- Linux: `~/.local/share/com.togatoga.pedaru/pedaru.db`
+- Linux: `~/.config/com.togatoga.pedaru/pedaru.db`
 - Windows: `C:\Users\<username>\AppData\Roaming\com.togatoga.pedaru\pedaru.db`
 
 **Database Schema:**
@@ -232,8 +232,8 @@ All shortcuts are handled in `page.tsx` via `useEffect` listeners. macOS uses Cm
 **Tabs:**
 - `Cmd/Ctrl+T` - New tab from current page
 - `Cmd/Ctrl+W` - Close current tab
-- `Cmd/Ctrl+Shift+[` - Previous tab (wraps around)
-- `Cmd/Ctrl+Shift+]` - Next tab (wraps around)
+- `Cmd/Ctrl+[` - Previous tab (wraps around)
+- `Cmd/Ctrl+]` - Next tab (wraps around)
 
 **Windows:**
 - `Cmd/Ctrl+N` - Open standalone window (main window only)
@@ -242,6 +242,10 @@ All shortcuts are handled in `page.tsx` via `useEffect` listeners. macOS uses Cm
 - `Cmd/Ctrl++` or `Cmd/Ctrl+=` - Zoom in
 - `Cmd/Ctrl+-` - Zoom out
 - `Cmd/Ctrl+0` - Reset zoom
+
+**View:**
+- `Cmd/Ctrl+2` - Toggle two-column mode (main window only)
+- `Cmd/Ctrl+H` - Toggle header visibility (main window only)
 
 **Tools:**
 - `Cmd/Ctrl+F` - Focus search

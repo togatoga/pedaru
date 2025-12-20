@@ -1,4 +1,4 @@
-import { useCallback, Dispatch, SetStateAction } from 'react';
+import { useCallback, Dispatch, SetStateAction, MutableRefObject } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { loadSessionState } from '@/lib/database';
@@ -47,6 +47,8 @@ export function usePdfLoader({
 
   // Current state (for cleanup)
   openWindows,
+  // Ref to prevent saving during restoration
+  isRestoringSessionRef,
 }: {
   // State setters
   setFileData: Dispatch<SetStateAction<Uint8Array | null>>;
@@ -72,6 +74,8 @@ export function usePdfLoader({
 
   // Current state
   openWindows: OpenWindow[];
+  // Ref to prevent saving during restoration
+  isRestoringSessionRef: MutableRefObject<boolean>;
 }) {
   /**
    * Internal function to load PDF without session restoration
@@ -121,73 +125,81 @@ export function usePdfLoader({
       console.log('=== loadPdfFromPath called ===');
       console.log('Path argument:', path);
 
-      // Reset all state immediately when opening a new PDF
-      setPdfInfo(null); // Clear old PDF info (including ToC)
-      setCurrentPage(1);
-      setZoom(1.0);
-      setViewMode('single');
-      setBookmarks([]);
-      setPageHistory([]);
-      setHistoryIndex(-1);
-      setSearchQuery('');
-      setSearchResults([]);
-      setShowSearchResults(false);
+      // Prevent saving during session restoration
+      isRestoringSessionRef.current = true;
 
-      // Close all existing windows and clear tabs before loading new PDF
-      for (const w of openWindows) {
-        try {
-          const win = await WebviewWindow.getByLabel(w.label);
-          if (win) await win.close();
-        } catch (e) {
-          console.warn('Failed to close window', w.label, e);
+      try {
+        // Reset all state immediately when opening a new PDF
+        setPdfInfo(null); // Clear old PDF info (including ToC)
+        setCurrentPage(1);
+        setZoom(1.0);
+        setViewMode('single');
+        setBookmarks([]);
+        setPageHistory([]);
+        setHistoryIndex(-1);
+        setSearchQuery('');
+        setSearchResults([]);
+        setShowSearchResults(false);
+
+        // Close all existing windows and clear tabs before loading new PDF
+        for (const w of openWindows) {
+          try {
+            const win = await WebviewWindow.getByLabel(w.label);
+            if (win) await win.close();
+          } catch (e) {
+            console.warn('Failed to close window', w.label, e);
+          }
         }
-      }
-      setOpenWindows([]);
-      setTabs([]);
-      setActiveTabId(null);
+        setOpenWindows([]);
+        setTabs([]);
+        setActiveTabId(null);
 
-      const success = await loadPdfInternal(path, false);
-      if (success) {
-        // Check if there's a saved session for this PDF
-        // Note: Recent files list is automatically updated via saveSessionState in database.ts
-        const session = await loadSessionState(path);
-        if (session) {
-          // Restore session state
-          setCurrentPage(session.page || 1);
-          setZoom(session.zoom || 1.0);
-          setViewMode(session.viewMode || 'single');
+        const success = await loadPdfInternal(path, false);
+        if (success) {
+          // Check if there's a saved session for this PDF
+          // Note: Recent files list is automatically updated via saveSessionState in database.ts
+          const session = await loadSessionState(path);
+          if (session) {
+            // Restore session state
+            setCurrentPage(session.page || 1);
+            setZoom(session.zoom || 1.0);
+            setViewMode(session.viewMode || 'single');
 
-          // Restore bookmarks
-          if (session.bookmarks && session.bookmarks.length > 0) {
-            setBookmarks(session.bookmarks);
+            // Restore bookmarks
+            if (session.bookmarks && session.bookmarks.length > 0) {
+              setBookmarks(session.bookmarks);
+            } else {
+              setBookmarks([]);
+            }
+
+            // Restore page history
+            if (session.pageHistory && session.pageHistory.length > 0) {
+              setPageHistory(session.pageHistory);
+              setHistoryIndex(session.historyIndex ?? session.pageHistory.length - 1);
+            }
+
+            // Set pending states for tabs and windows restoration
+            if (session.tabs && session.tabs.length > 0) {
+              setPendingTabsRestore(session.tabs);
+              setPendingActiveTabIndex(session.activeTabIndex);
+            }
+            if (session.windows && session.windows.length > 0) {
+              setPendingWindowsRestore(session.windows);
+            }
           } else {
-            setBookmarks([]);
+            // No saved session - defaults already set at start of loadPdfFromPath
           }
 
-          // Restore page history
-          if (session.pageHistory && session.pageHistory.length > 0) {
-            setPageHistory(session.pageHistory);
-            setHistoryIndex(session.historyIndex ?? session.pageHistory.length - 1);
+          // Refresh the Open Recents menu after loading a new PDF
+          try {
+            await invoke('refresh_recent_menu');
+          } catch (error) {
+            console.error('Failed to refresh recent menu:', error);
           }
-
-          // Set pending states for tabs and windows restoration
-          if (session.tabs && session.tabs.length > 0) {
-            setPendingTabsRestore(session.tabs);
-            setPendingActiveTabIndex(session.activeTabIndex);
-          }
-          if (session.windows && session.windows.length > 0) {
-            setPendingWindowsRestore(session.windows);
-          }
-        } else {
-          // No saved session - defaults already set at start of loadPdfFromPath
         }
-
-        // Refresh the Open Recents menu after loading a new PDF
-        try {
-          await invoke('refresh_recent_menu');
-        } catch (error) {
-          console.error('Failed to refresh recent menu:', error);
-        }
+      } finally {
+        // Allow saving again after restoration is complete
+        isRestoringSessionRef.current = false;
       }
     },
     [

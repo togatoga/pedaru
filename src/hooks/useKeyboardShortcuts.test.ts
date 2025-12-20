@@ -26,6 +26,7 @@ describe('useKeyboardShortcuts', () => {
     selectTab: (tabId: number) => void;
     toggleBookmark: () => void;
     openStandaloneWindow: (page: number) => void;
+    toggleTwoColumn: () => void;
     toggleHeader: () => void;
     setShowHeader: (value: boolean | ((prev: boolean) => boolean)) => void;
     showHeaderTemporarily: () => void;
@@ -59,6 +60,7 @@ describe('useKeyboardShortcuts', () => {
       selectTab: vi.fn(),
       toggleBookmark: vi.fn(),
       openStandaloneWindow: vi.fn(),
+      toggleTwoColumn: vi.fn(),
       toggleHeader: vi.fn(),
       setShowHeader: vi.fn(),
       showHeaderTemporarily: vi.fn(),
@@ -328,7 +330,7 @@ describe('useKeyboardShortcuts', () => {
       expect(mockHandlers.closeCurrentTab).toHaveBeenCalledTimes(1);
     });
 
-    it('should handle Cmd/Ctrl + Shift + ] to go to next tab', () => {
+    it('should handle Cmd/Ctrl + ] to go to next tab', () => {
       renderHook(() =>
         useKeyboardShortcuts({
           currentPage: 5,
@@ -349,7 +351,6 @@ describe('useKeyboardShortcuts', () => {
       const event = new KeyboardEvent('keydown', {
         key: ']',
         metaKey: true,
-        shiftKey: true,
       });
       window.dispatchEvent(event);
 
@@ -369,13 +370,14 @@ describe('useKeyboardShortcuts', () => {
           standaloneSearchInputRef: mockStandaloneSearchInputRef,
           tabs: mockTabs,
           activeTabId: 2, // Last tab
+          showHeader: mockShowHeader,
+          headerWasHiddenBeforeSearchRef: mockHeaderWasHiddenBeforeSearchRef,
         })
       );
 
       const event = new KeyboardEvent('keydown', {
         key: ']',
-        ctrlKey: true,
-        shiftKey: true,
+        metaKey: true,
       });
       window.dispatchEvent(event);
 

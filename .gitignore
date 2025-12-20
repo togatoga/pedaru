@@ -47,7 +47,6 @@ pnpm-debug.log*
 .env.local
 .env.*.local
 
-*.pdf
 
 # Pedaru
 **/.claude/*

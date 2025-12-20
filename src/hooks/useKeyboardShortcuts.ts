@@ -7,7 +7,7 @@ import type { Tab, SearchResult } from './types';
  * Handles all keyboard shortcuts for the PDF viewer including:
  * - Navigation (arrows, page up/down, home/end)
  * - Zoom (Cmd/Ctrl + +/-/0)
- * - Tabs (Cmd/Ctrl + T/W, Cmd/Ctrl + Shift + [/])
+ * - Tabs (Cmd/Ctrl + T/W, Ctrl + [/])
  * - Windows (Cmd/Ctrl + N)
  * - Bookmarks (Cmd/Ctrl + B)
  * - Search (Cmd/Ctrl + F, arrows, enter, escape)
@@ -56,6 +56,9 @@ export function useKeyboardShortcuts({
 
   // Windows
   openStandaloneWindow,
+
+  // View mode
+  toggleTwoColumn,
 
   // Header toggle
   toggleHeader,
@@ -106,6 +109,9 @@ export function useKeyboardShortcuts({
 
   // Windows
   openStandaloneWindow: (page: number) => void;
+
+  // View mode
+  toggleTwoColumn: () => void;
 
   // Header toggle
   toggleHeader: () => void;
@@ -196,14 +202,19 @@ export function useKeyboardShortcuts({
             toggleBookmark();
           }
           break;
+        case 'h':
+        case 'H':
+          // Cmd/Ctrl+H - toggle header visibility (main window only)
+          if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !isStandaloneMode) {
+            e.preventDefault();
+            toggleHeader();
+          }
+          break;
         case 'f':
         case 'F':
           if (e.metaKey || e.ctrlKey) {
             e.preventDefault();
-            // Cmd/Ctrl+Shift+F - toggle header visibility (main window only)
-            if (e.shiftKey && !isStandaloneMode) {
-              toggleHeader();
-            } else if (isStandaloneMode) {
+            if (isStandaloneMode) {
               // Toggle standalone search
               setShowStandaloneSearch(true);
               setTimeout(() => standaloneSearchInputRef.current?.focus(), 0);
@@ -230,6 +241,13 @@ export function useKeyboardShortcuts({
         case 'w':
         case 'W':
           if (e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            closeCurrentTab();
+            showHeaderTemporarily();
+          }
+          break;
+        case 'F4':
+          if (e.ctrlKey) {
             e.preventDefault();
             closeCurrentTab();
             showHeaderTemporarily();
@@ -271,8 +289,8 @@ export function useKeyboardShortcuts({
           }
           break;
         case '[':
-          // Cmd+Shift+[ - go to previous tab (like Chrome)
-          if ((e.metaKey || e.ctrlKey) && e.shiftKey && tabs.length > 1) {
+          // Cmd/Ctrl+[ - go to previous tab
+          if ((e.metaKey || e.ctrlKey) && !e.shiftKey && tabs.length > 1) {
             e.preventDefault();
             const currentIndex = tabs.findIndex((t) => t.id === activeTabId);
             if (currentIndex > 0) {
@@ -285,8 +303,8 @@ export function useKeyboardShortcuts({
           }
           break;
         case ']':
-          // Cmd+Shift+] - go to next tab (like Chrome)
-          if ((e.metaKey || e.ctrlKey) && e.shiftKey && tabs.length > 1) {
+          // Cmd/Ctrl+] - go to next tab
+          if ((e.metaKey || e.ctrlKey) && !e.shiftKey && tabs.length > 1) {
             e.preventDefault();
             const currentIndex = tabs.findIndex((t) => t.id === activeTabId);
             if (currentIndex < tabs.length - 1) {
@@ -298,8 +316,14 @@ export function useKeyboardShortcuts({
             showHeaderTemporarily();
           }
           break;
-        case '1':
         case '2':
+          // Cmd/Ctrl+2 - toggle two-column view mode (main window only)
+          if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !isStandaloneMode) {
+            e.preventDefault();
+            toggleTwoColumn();
+          }
+          break;
+        case '1':
         case '3':
         case '4':
         case '5':
@@ -307,7 +331,8 @@ export function useKeyboardShortcuts({
         case '7':
         case '8':
         case '9':
-          // Cmd/Ctrl+1-9 - switch to tab by number (main window only)
+          // Cmd/Ctrl+1,3-9 - switch to tab by number (main window only)
+          // Note: Cmd/Ctrl+2 is reserved for two-column toggle
           if ((e.metaKey || e.ctrlKey) && !isStandaloneMode && tabs.length > 0) {
             e.preventDefault();
             const tabIndex = parseInt(e.key) - 1;
@@ -354,6 +379,7 @@ export function useKeyboardShortcuts({
     activeTabId,
     selectTab,
     openStandaloneWindow,
+    toggleTwoColumn,
     goBack,
     goForward,
     toggleHeader,

@@ -53,6 +53,7 @@ describe('usePdfLoader', () => {
   };
 
   let mockOpenWindows: OpenWindow[];
+  const mockIsRestoringSessionRef = { current: false };
 
   const mockPdfInfo: PdfInfo = {
     title: 'Test PDF',
@@ -121,6 +122,7 @@ describe('usePdfLoader', () => {
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
+          isRestoringSessionRef: mockIsRestoringSessionRef,
         })
       );
 
@@ -150,6 +152,7 @@ describe('usePdfLoader', () => {
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
+          isRestoringSessionRef: mockIsRestoringSessionRef,
         })
       );
 
@@ -167,6 +170,7 @@ describe('usePdfLoader', () => {
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
+          isRestoringSessionRef: mockIsRestoringSessionRef,
         })
       );
 
@@ -184,6 +188,7 @@ describe('usePdfLoader', () => {
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
+          isRestoringSessionRef: mockIsRestoringSessionRef,
         })
       );
 
@@ -213,6 +218,7 @@ describe('usePdfLoader', () => {
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindowsWithData,
+          isRestoringSessionRef: mockIsRestoringSessionRef,
         })
       );
 
@@ -258,6 +264,7 @@ describe('usePdfLoader', () => {
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
+          isRestoringSessionRef: mockIsRestoringSessionRef,
         })
       );
 
@@ -292,6 +299,7 @@ describe('usePdfLoader', () => {
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
+          isRestoringSessionRef: mockIsRestoringSessionRef,
         })
       );
 
@@ -319,6 +327,7 @@ describe('usePdfLoader', () => {
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
+          isRestoringSessionRef: mockIsRestoringSessionRef,
         })
       );
 
@@ -344,6 +353,7 @@ describe('usePdfLoader', () => {
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindowsWithData,
+          isRestoringSessionRef: mockIsRestoringSessionRef,
         })
       );
 
@@ -364,6 +374,7 @@ describe('usePdfLoader', () => {
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
+          isRestoringSessionRef: mockIsRestoringSessionRef,
         })
       );
 
@@ -382,6 +393,7 @@ describe('usePdfLoader', () => {
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
+          isRestoringSessionRef: mockIsRestoringSessionRef,
         })
       );
 
@@ -401,6 +413,7 @@ describe('usePdfLoader', () => {
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
+          isRestoringSessionRef: mockIsRestoringSessionRef,
         })
       );
 
@@ -418,6 +431,7 @@ describe('usePdfLoader', () => {
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
+          isRestoringSessionRef: mockIsRestoringSessionRef,
         })
       );
 

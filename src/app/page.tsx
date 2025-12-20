@@ -103,6 +103,8 @@ export default function Home() {
   const [pendingWindowsRestore, setPendingWindowsRestore] = useState<WindowState[] | null>(null);
   const [pendingActiveTabIndex, setPendingActiveTabIndex] = useState<number | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Flag to prevent saving during session restoration
+  const isRestoringSessionRef = useRef<boolean>(false);
 
   const updateNativeWindowTitle = useCallback(async (page: number, forceStandalone?: boolean) => {
     // Check if we're in standalone mode - use forceStandalone for initial load
@@ -203,6 +205,31 @@ export default function Home() {
     setViewMode
   );
 
+  // Close PDF and reset to empty state
+  const closePdf = useCallback(() => {
+    console.log('[closePdf] Closing PDF and resetting state');
+    setFileData(null);
+    setFileName(null);
+    setFilePath(null);
+    filePathRef.current = null;
+    setPdfInfo(null);
+    setCurrentPage(1);
+    setTotalPages(0);
+    setZoom(1.0);
+    setTabs([]);
+    setActiveTabId(null);
+    setBookmarks([]);
+    setPageHistory([]);
+    setHistoryIndex(-1);
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchResults(false);
+    setIsTocOpen(false);
+    setShowHistory(false);
+    setShowBookmarks(false);
+    setShowWindows(false);
+  }, []);
+
   const {
     addTabFromCurrent,
     addTabForPage,
@@ -223,7 +250,8 @@ export default function Home() {
     pendingTabsRestore,
     setPendingTabsRestore,
     pendingActiveTabIndex,
-    setPendingActiveTabIndex
+    setPendingActiveTabIndex,
+    closePdf
   );
 
   const {
@@ -272,6 +300,7 @@ export default function Home() {
     setPendingActiveTabIndex,
     setPendingWindowsRestore,
     openWindows,
+    isRestoringSessionRef,
   });
 
   // Zoom handlers (needed by keyboard shortcuts)
@@ -347,6 +376,7 @@ export default function Home() {
     selectTab,
     toggleBookmark,
     openStandaloneWindow,
+    toggleTwoColumn: () => setViewMode((prev) => (prev === 'two-column' ? 'single' : 'two-column')),
     toggleHeader: handleToggleHeader,
     showHeader,
     setShowHeader,
@@ -448,6 +478,11 @@ export default function Home() {
     listen('menu-toggle-two-column', () => {
       if (!mounted) return;
       setViewMode((prev) => (prev === 'two-column' ? 'single' : 'two-column'));
+    }).then(fn => { if (mounted) unlisteners.push(fn); }).catch(() => {});
+
+    listen('menu-toggle-header', () => {
+      if (!mounted) return;
+      handleToggleHeader();
     }).then(fn => { if (mounted) unlisteners.push(fn); }).catch(() => {});
 
     listen('export-session-data-requested', async () => {
@@ -755,6 +790,8 @@ export default function Home() {
   // Save current session state (debounced)
   const saveCurrentSession = useCallback(() => {
     if (!filePath || isStandaloneMode) return;
+    // Don't save during session restoration to prevent overwriting restored data
+    if (isRestoringSessionRef.current) return;
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -1135,6 +1172,7 @@ export default function Home() {
                     navigateToPageWithoutTabUpdate(newTabs[newIndex].page);
                   } else if (newTabs.length === 0) {
                     setActiveTabId(null);
+                    closePdf();
                   }
                 }}
                 className={`p-0.5 rounded opacity-0 group-hover/tab:opacity-100 transition-opacity ${
