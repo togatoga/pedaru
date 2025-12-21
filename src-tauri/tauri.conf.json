@@ -45,6 +45,9 @@
     ],
     "macOS": {
       "infoPlist": "Info.plist"
+    },
+    "linux": {
+      "desktopTemplate": "Pedaru.desktop"
     }
   }
 }

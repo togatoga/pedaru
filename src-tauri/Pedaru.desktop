@@ -1,0 +1,10 @@
+[Desktop Entry]
+Categories=Office;Viewer;
+Comment=A PDF Viewer built with Tauri
+Exec=pedaru %U
+StartupWMClass=pedaru
+Icon=pedaru
+Name=Pedaru
+Terminal=false
+Type=Application
+MimeType=application/pdf;
