@@ -70,7 +70,7 @@ fn build_app_menu_internal(app: &tauri::AppHandle) -> anyhow::Result<Menu<tauri:
         let menu_text = format!("{} - {}", file.file_path, display_name);
 
         // Encode file path in base64 to use as menu item ID
-        let encoded_path = general_purpose::STANDARD.encode(file.file_path.as_bytes());
+        let encoded_path = encode_file_path(&file.file_path);
 
         let item = MenuItem::with_id(
             app,
