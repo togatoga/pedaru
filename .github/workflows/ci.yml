@@ -87,9 +87,10 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-  # Build Tauri app on multiple platforms
+  # Build Tauri app on multiple platforms (only on push to main)
   build-tauri:
     name: Build Tauri App (${{ matrix.platform }})
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
       fail-fast: false
       matrix:
@@ -143,10 +144,16 @@ jobs:
     steps:
       - name: Check all jobs
         run: |
+          # Test jobs must succeed
           if [ "${{ needs.test-rust.result }}" != "success" ] || \
-             [ "${{ needs.test-frontend.result }}" != "success" ] || \
-             [ "${{ needs.build-tauri.result }}" != "success" ]; then
-            echo "One or more jobs failed"
+             [ "${{ needs.test-frontend.result }}" != "success" ]; then
+            echo "Test jobs failed"
+            exit 1
+          fi
+          # Build job must succeed or be skipped (skipped on PRs)
+          if [ "${{ needs.build-tauri.result }}" != "success" ] && \
+             [ "${{ needs.build-tauri.result }}" != "skipped" ]; then
+            echo "Build job failed"
             exit 1
           fi
           echo "All CI jobs passed!"
