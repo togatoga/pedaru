@@ -47,7 +47,15 @@
       "infoPlist": "Info.plist"
     },
     "linux": {
-      "desktopTemplate": "Pedaru.desktop"
+      "deb": {
+        "desktopTemplate": "Pedaru.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "Pedaru.desktop"
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
     }
   }
 }
