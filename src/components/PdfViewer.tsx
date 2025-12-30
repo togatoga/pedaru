@@ -90,6 +90,7 @@ function PageWithCustomTextLayer({
         <CustomTextLayer
           page={pdfPage}
           scale={scale}
+          pageNumber={pageNumber}
           searchQuery={searchQuery}
           focusedMatchIndex={focusedMatchIndex}
         />

@@ -24,11 +24,12 @@ interface ProcessedTextItem extends TextItem {
 interface CustomTextLayerProps {
   page: pdfjsLib.PDFPageProxy;
   scale: number;
+  pageNumber: number;
   searchQuery?: string;
   focusedMatchIndex?: number; // Which match on this page is currently focused (0-indexed)
 }
 
-export default function CustomTextLayer({ page, scale, searchQuery, focusedMatchIndex }: CustomTextLayerProps) {
+export default function CustomTextLayer({ page, scale, pageNumber, searchQuery, focusedMatchIndex }: CustomTextLayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textSpanRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
   const [processedItems, setProcessedItems] = useState<ProcessedTextItem[]>([]);
@@ -157,6 +158,7 @@ export default function CustomTextLayer({ page, scale, searchQuery, focusedMatch
     <div
       ref={containerRef}
       className="custom-text-layer"
+      data-page-number={pageNumber}
       style={{
         position: 'absolute',
         left: 0,
@@ -247,6 +249,7 @@ export default function CustomTextLayer({ page, scale, searchQuery, focusedMatch
               ref={(el) => setSpanRef(index, el)}
               style={style}
               data-target-width={targetWidth}
+              data-text-index={index}
             >
               {content}
             </span>

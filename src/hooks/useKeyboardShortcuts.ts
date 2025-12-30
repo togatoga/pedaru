@@ -132,6 +132,11 @@ export function useKeyboardShortcuts({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!totalPages) return;
 
+      // Check if focus is on an input or textarea element
+      const isInputFocused =
+        document.activeElement instanceof HTMLInputElement ||
+        document.activeElement instanceof HTMLTextAreaElement;
+
       switch (e.key) {
         case 'ArrowUp':
           // If search results are active, preview previous result
@@ -148,23 +153,35 @@ export function useKeyboardShortcuts({
           }
           break;
         case 'ArrowLeft':
-        case 'PageUp':
+          // Skip page navigation if input is focused (allow text cursor movement)
+          if (isInputFocused) break;
           e.preventDefault();
           goToPrevPage();
           break;
         case 'ArrowRight':
+          // Skip page navigation if input is focused (allow text cursor movement)
+          if (isInputFocused) break;
+          e.preventDefault();
+          goToNextPage();
+          break;
+        case 'PageUp':
+          e.preventDefault();
+          goToPrevPage();
+          break;
         case 'PageDown':
           e.preventDefault();
           goToNextPage();
           break;
         case 'Home':
-          if (!isStandaloneMode) {
+          // Skip page navigation if input is focused (allow cursor to move to start)
+          if (!isStandaloneMode && !isInputFocused) {
             e.preventDefault();
             goToPage(1);
           }
           break;
         case 'End':
-          if (!isStandaloneMode) {
+          // Skip page navigation if input is focused (allow cursor to move to end)
+          if (!isStandaloneMode && !isInputFocused) {
             e.preventDefault();
             goToPage(totalPages);
           }
@@ -333,8 +350,8 @@ export function useKeyboardShortcuts({
           break;
         case 'a':
         case 'A':
-          // Cmd/Ctrl+A - select all text in PDF viewer only
-          if (e.metaKey || e.ctrlKey) {
+          // Cmd/Ctrl+A - select all text in PDF viewer only (skip if input is focused)
+          if ((e.metaKey || e.ctrlKey) && !isInputFocused) {
             e.preventDefault();
             const pdfContainer = document.getElementById('pdf-viewer-container');
             if (pdfContainer) {
@@ -358,8 +375,8 @@ export function useKeyboardShortcuts({
           break;
         case 'e':
         case 'E':
-          // Cmd/Ctrl+E - translate and explain selected text
-          if (e.metaKey || e.ctrlKey) {
+          // Cmd/Ctrl+E - translate and explain selected text (skip if input is focused)
+          if ((e.metaKey || e.ctrlKey) && !isInputFocused) {
             e.preventDefault();
             triggerExplanation();
           }

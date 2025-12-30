@@ -65,9 +65,94 @@ export function useTextSelection(
     [pdfDocRef, totalPages]
   );
 
+  // Get the character offset and page number of the selection within the text layer
+  const getSelectionInfo = useCallback((): { offset: number; pageNumber: number } | null => {
+    const windowSelection = window.getSelection();
+    if (!windowSelection || windowSelection.rangeCount === 0) {
+      return null;
+    }
+
+    const range = windowSelection.getRangeAt(0);
+    const startContainer = range.startContainer;
+
+    // Find the text layer container
+    const pdfViewer = document.getElementById('pdf-viewer-container');
+    if (!pdfViewer) {
+      return null;
+    }
+
+    // Find all custom text layers in the current page
+    const textLayers = pdfViewer.querySelectorAll('.custom-text-layer');
+    if (textLayers.length === 0) {
+      return null;
+    }
+
+    // Find which span contains the selection start
+    let selectedSpan: HTMLElement | null = null;
+    let node: Node | null = startContainer;
+
+    // Walk up the DOM tree to find the span with data-text-index
+    while (node && node !== pdfViewer) {
+      if (node instanceof HTMLElement && node.hasAttribute('data-text-index')) {
+        selectedSpan = node;
+        break;
+      }
+      node = node.parentNode;
+    }
+
+    if (!selectedSpan) {
+      return null;
+    }
+
+    // Get the index of the selected span
+    const spanIndex = parseInt(selectedSpan.getAttribute('data-text-index') || '-1', 10);
+    if (spanIndex < 0) {
+      return null;
+    }
+
+    // Find the text layer that contains this span and get its page number
+    let containingTextLayer: Element | null = null;
+    let pageNumber = -1;
+    for (const textLayer of textLayers) {
+      if (textLayer.contains(selectedSpan)) {
+        containingTextLayer = textLayer;
+        pageNumber = parseInt(textLayer.getAttribute('data-page-number') || '-1', 10);
+        break;
+      }
+    }
+
+    if (!containingTextLayer || pageNumber < 0) {
+      return null;
+    }
+
+    // Get all spans in this text layer sorted by data-text-index
+    const allSpans = Array.from(
+      containingTextLayer.querySelectorAll('span[data-text-index]')
+    ) as HTMLElement[];
+
+    // Calculate offset: sum of (text length + 1 for space) for all spans before the selected one
+    let offset = 0;
+    for (const span of allSpans) {
+      const idx = parseInt(span.getAttribute('data-text-index') || '-1', 10);
+      if (idx < spanIndex) {
+        // Add this span's text length + 1 for the space that joins items in getPageText
+        offset += (span.textContent || '').length + 1;
+      }
+    }
+
+    // Add the offset within the selected span
+    offset += range.startOffset;
+
+    return { offset, pageNumber };
+  }, []);
+
   // Get surrounding context for the selection
   const getContext = useCallback(
-    async (selectedText: string, pageNum: number): Promise<string> => {
+    async (
+      selectedText: string,
+      pageNum: number,
+      selectionOffset: number
+    ): Promise<string> => {
       const contextLength = 500; // Characters before/after
 
       // Get text from current page and adjacent pages
@@ -79,11 +164,56 @@ export function useTextSelection(
 
       // Combine texts
       const fullText = [prevPageText, currentPageText, nextPageText].join(' ');
+      const prevPageLength = prevPageText.length + (prevPageText ? 1 : 0); // +1 for join space
 
-      // Find the selection position in the text
-      const selectionIndex = fullText.indexOf(selectedText);
+      // Calculate the position in fullText using the selection offset directly
+      let selectionIndex = -1;
+
+      if (selectionOffset >= 0) {
+        // Use the selection offset directly as the position within currentPageText
+        // The offset from DOM corresponds to the position in the extracted text
+        const estimatedIndex = prevPageLength + selectionOffset;
+
+        // Verify by checking if the text at this position matches (with small tolerance)
+        // Try exact position first, then search nearby if needed
+        for (const delta of [0, -1, 1, -2, 2, -5, 5, -10, 10, -20, 20]) {
+          const testIndex = estimatedIndex + delta;
+          if (testIndex >= 0 && testIndex + selectedText.length <= fullText.length) {
+            const textAtPosition = fullText.slice(
+              testIndex,
+              testIndex + selectedText.length
+            );
+            if (textAtPosition === selectedText) {
+              selectionIndex = testIndex;
+              break;
+            }
+          }
+        }
+
+        // If exact match not found nearby, use the estimated position anyway
+        // (context will still be from the right area even if text doesn't match exactly)
+        if (selectionIndex === -1) {
+          selectionIndex = Math.max(0, Math.min(estimatedIndex, fullText.length - 1));
+        }
+      } else {
+        // Fallback when offset is not available: search in current page region only
+        const currentPageEnd =
+          prevPageLength + currentPageText.length + (currentPageText ? 1 : 0);
+
+        // Search only within current page region
+        const currentPageRegion = fullText.slice(prevPageLength, currentPageEnd);
+        const indexInCurrentPage = currentPageRegion.indexOf(selectedText);
+
+        if (indexInCurrentPage !== -1) {
+          selectionIndex = prevPageLength + indexInCurrentPage;
+        } else {
+          // Last resort: search entire text
+          selectionIndex = fullText.indexOf(selectedText);
+        }
+      }
+
       if (selectionIndex === -1) {
-        // If exact match not found, just return current page text as context
+        // If still not found, just return current page text as context
         return currentPageText.slice(0, contextLength * 2);
       }
 
@@ -145,6 +275,11 @@ export function useTextSelection(
       return;
     }
 
+    // Get selection info (offset and page number) from DOM BEFORE clearing selection
+    const selectionInfo = getSelectionInfo();
+    const selectionOffset = selectionInfo?.offset ?? -1;
+    const selectionPage = selectionInfo?.pageNumber ?? currentPage;
+
     // Determine if word or sentence
     const isWord = isWordSelection(selectedText);
 
@@ -167,8 +302,8 @@ export function useTextSelection(
       contextLoading: true,
     });
 
-    // Get context asynchronously and update
-    const context = await getContext(selectedText, currentPage);
+    // Get context asynchronously and update (using selection page and offset for accurate positioning)
+    const context = await getContext(selectedText, selectionPage, selectionOffset);
     setSelection({
       selectedText,
       context,
@@ -176,7 +311,7 @@ export function useTextSelection(
       position,
       contextLoading: false,
     });
-  }, [currentPage, getContext, isWordSelection]);
+  }, [currentPage, getContext, getSelectionInfo, isWordSelection]);
 
   // Trigger translation with auto-explanation (called by Cmd+E)
   const triggerExplanation = useCallback(async () => {
