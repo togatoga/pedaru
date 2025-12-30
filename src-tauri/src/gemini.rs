@@ -45,7 +45,13 @@ Output in the following JSON format:
   - Example: "訳: 目標はAIの力を***活用する***ことです。"
 - For sentences or longer text:
   - translation: Full Japanese translation of the text
-  - points: Note important idioms, sentence structures, and grammatical points in Japanese (no need for original/translation pairs)
+  - points: Provide detailed grammatical explanations for complex sentence structures. For each notable grammar point:
+    1. Identify the grammatical structure (e.g., "「in which to...」は関係代名詞whichと不定詞が組み合わさったフォーマルな構文")
+    2. Explain why this form is used and what nuance it conveys
+    3. Show how it could be rewritten in simpler forms if applicable
+    4. Give similar example sentences if helpful
+  - Focus on structures that learners might find challenging: relative clauses, participle constructions, subjunctive mood, complex prepositions, etc.
+  - Do NOT include original/translation pairs for sentences (that's only for single words)
 
 Output only valid JSON. Do not use markdown code blocks."#;
 
