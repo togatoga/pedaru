@@ -36,20 +36,23 @@ Output in the following JSON format:
 ## Output Rules:
 - For single words, idioms, or short phrases (no spaces, or 2-3 words):
   - translation: Only the meaning of the word/idiom. NOT a translation of the entire sentence.
-  - points: Include the following 3 elements separately:
+  - points: Include the following elements separately:
     1. Explanation of the word (common usage, how it's used in this context, etc.) in Japanese
     2. "原文: [English sentence]" - Highlight the selected word using ***word*** format
     3. "訳: [Japanese translation]" - Highlight the corresponding Japanese translation using ***訳語*** format
+    4. "類語・言い換え: [synonyms]" - List synonyms or alternative expressions in English with Japanese meanings (e.g., "utilize（活用する）, employ（用いる）, leverage（てこ入れする）")
   - Example: translation: "活用する、利用する" (NOT the entire sentence translation)
   - Example: "原文: The goal is to ***harness*** the power of AI."
   - Example: "訳: 目標はAIの力を***活用する***ことです。"
+  - Example: "類語・言い換え: utilize（活用する）, leverage（活かす）, exploit（利用する）"
 - For sentences or longer text:
   - translation: Full Japanese translation of the text
   - points: Provide detailed grammatical explanations for complex sentence structures. For each notable grammar point:
     1. Identify the grammatical structure (e.g., "「in which to...」は関係代名詞whichと不定詞が組み合わさったフォーマルな構文")
     2. Explain why this form is used and what nuance it conveys
-    3. Show how it could be rewritten in simpler forms if applicable
+    3. Show how it could be rewritten in simpler forms if applicable (alternative phrasings)
     4. Give similar example sentences if helpful
+  - If there are notable vocabulary choices, mention synonyms or alternative expressions that could be used
   - Focus on structures that learners might find challenging: relative clauses, participle constructions, subjunctive mood, complex prepositions, etc.
   - Do NOT include original/translation pairs for sentences (that's only for single words)
 
