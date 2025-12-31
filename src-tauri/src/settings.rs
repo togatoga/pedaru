@@ -14,35 +14,11 @@ use crate::error::{DatabaseError, PedaruError};
 pub const KEY_GEMINI_API_KEY: &str = "gemini_api_key";
 pub const KEY_GEMINI_MODEL: &str = "gemini_model";
 pub const KEY_GEMINI_EXPLANATION_MODEL: &str = "gemini_explanation_model";
-pub const KEY_GEMINI_PROMPT_WORD: &str = "gemini_prompt_word";
 
 /// Default Gemini model for translation (fast)
 pub const DEFAULT_GEMINI_MODEL: &str = "gemini-2.0-flash";
 /// Default Gemini model for detailed explanation (can be more capable)
 pub const DEFAULT_GEMINI_EXPLANATION_MODEL: &str = "gemini-2.0-flash";
-
-// ============================================================================
-// Default Prompts
-// ============================================================================
-
-pub const DEFAULT_PROMPT_WORD: &str = r#"以下のテキストを文脈を考慮して翻訳・解説し、Markdown形式で出力してください。
-
-## コンテキスト（選択されたテキストの前後）:
-{context}
-
-## テキスト:
-{text}
-
-## 出力形式（必ずこの形式で出力）:
-
-### 翻訳
-[この文脈での意味を日本語で簡潔に]
-
-### 翻訳のポイント
-- **品詞**: [品詞（単語の場合）]
-- **用法**: [基本的な用法]
-- **例文**: [簡単な例文]
-- **関連表現**: [類義語など]"#;
 
 // ============================================================================
 // Types
@@ -55,7 +31,6 @@ pub struct GeminiSettings {
     pub api_key: String,
     pub model: String,
     pub explanation_model: String,
-    pub prompt_word: String,
 }
 
 impl Default for GeminiSettings {
@@ -64,7 +39,6 @@ impl Default for GeminiSettings {
             api_key: String::new(),
             model: DEFAULT_GEMINI_MODEL.to_string(),
             explanation_model: DEFAULT_GEMINI_EXPLANATION_MODEL.to_string(),
-            prompt_word: DEFAULT_PROMPT_WORD.to_string(),
         }
     }
 }
@@ -113,14 +87,11 @@ pub fn get_gemini_settings(app: &tauri::AppHandle) -> Result<GeminiSettings, Ped
         get_setting(app, KEY_GEMINI_MODEL)?.unwrap_or_else(|| DEFAULT_GEMINI_MODEL.to_string());
     let explanation_model = get_setting(app, KEY_GEMINI_EXPLANATION_MODEL)?
         .unwrap_or_else(|| DEFAULT_GEMINI_EXPLANATION_MODEL.to_string());
-    let prompt_word = get_setting(app, KEY_GEMINI_PROMPT_WORD)?
-        .unwrap_or_else(|| DEFAULT_PROMPT_WORD.to_string());
 
     Ok(GeminiSettings {
         api_key,
         model,
         explanation_model,
-        prompt_word,
     })
 }
 
@@ -136,6 +107,5 @@ pub fn save_gemini_settings(
         KEY_GEMINI_EXPLANATION_MODEL,
         &settings.explanation_model,
     )?;
-    set_setting(app, KEY_GEMINI_PROMPT_WORD, &settings.prompt_word)?;
     Ok(())
 }

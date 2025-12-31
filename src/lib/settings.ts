@@ -19,7 +19,6 @@ export const DEFAULT_GEMINI_SETTINGS: GeminiSettings = {
   apiKey: '',
   model: DEFAULT_GEMINI_MODEL,
   explanationModel: DEFAULT_GEMINI_EXPLANATION_MODEL,
-  promptWord: '', // Prompts are now handled in the backend
 };
 
 // ============================================

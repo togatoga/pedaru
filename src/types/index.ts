@@ -234,7 +234,6 @@ export interface GeminiSettings {
   apiKey: string;
   model: string;
   explanationModel: string;
-  promptWord: string;
 }
 
 /**

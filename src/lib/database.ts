@@ -25,15 +25,153 @@ async function getDb(): Promise<Database> {
   return dbInstance;
 }
 
-// Simple hash function for file paths (same as sessionStorage)
-function hashPath(path: string): string {
-  let hash = 0;
-  for (let i = 0; i < path.length; i++) {
-    const char = path.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+// ============================================
+// Helper Functions for Normalized Tables
+// ============================================
+
+/**
+ * Save bookmarks to the normalized session_bookmarks table
+ */
+async function saveNormalizedBookmarks(
+  db: Database,
+  sessionId: number,
+  bookmarks: BookmarkState[]
+): Promise<void> {
+  // Delete existing bookmarks for this session
+  await db.execute('DELETE FROM session_bookmarks WHERE session_id = $1', [sessionId]);
+
+  // Insert new bookmarks
+  for (const bookmark of bookmarks) {
+    await db.execute(
+      `INSERT INTO session_bookmarks (session_id, page, label, created_at)
+       VALUES ($1, $2, $3, $4)`,
+      [sessionId, bookmark.page, bookmark.label, bookmark.createdAt]
+    );
   }
-  return Math.abs(hash).toString(36);
+}
+
+/**
+ * Save tabs to the normalized session_tabs table
+ */
+async function saveNormalizedTabs(
+  db: Database,
+  sessionId: number,
+  tabs: TabState[],
+  activeTabIndex: number | null
+): Promise<void> {
+  // Delete existing tabs for this session
+  await db.execute('DELETE FROM session_tabs WHERE session_id = $1', [sessionId]);
+
+  // Insert new tabs
+  for (let i = 0; i < tabs.length; i++) {
+    const tab = tabs[i];
+    const isActive = activeTabIndex === i ? 1 : 0;
+    await db.execute(
+      `INSERT INTO session_tabs (session_id, page, label, sort_order, is_active)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [sessionId, tab.page, tab.label, i, isActive]
+    );
+  }
+}
+
+/**
+ * Save page history to the normalized session_page_history table
+ */
+async function saveNormalizedPageHistory(
+  db: Database,
+  sessionId: number,
+  pageHistory: HistoryEntry[]
+): Promise<void> {
+  // Delete existing history for this session
+  await db.execute('DELETE FROM session_page_history WHERE session_id = $1', [sessionId]);
+
+  // Insert new history entries
+  for (const entry of pageHistory) {
+    const visitedAt = parseInt(entry.timestamp, 10) || Date.now();
+    await db.execute(
+      `INSERT INTO session_page_history (session_id, page, visited_at)
+       VALUES ($1, $2, $3)`,
+      [sessionId, entry.page, visitedAt]
+    );
+  }
+}
+
+/**
+ * Load bookmarks from the normalized session_bookmarks table
+ */
+async function loadNormalizedBookmarks(
+  db: Database,
+  sessionId: number
+): Promise<BookmarkState[]> {
+  const result = await db.select<Array<{
+    page: number;
+    label: string | null;
+    created_at: number;
+  }>>(
+    `SELECT page, label, created_at FROM session_bookmarks
+     WHERE session_id = $1 ORDER BY created_at`,
+    [sessionId]
+  );
+
+  return result.map(row => ({
+    page: row.page,
+    label: row.label || '',
+    createdAt: row.created_at,
+  }));
+}
+
+/**
+ * Load tabs from the normalized session_tabs table
+ */
+async function loadNormalizedTabs(
+  db: Database,
+  sessionId: number
+): Promise<{ tabs: TabState[]; activeTabIndex: number | null }> {
+  const result = await db.select<Array<{
+    page: number;
+    label: string;
+    sort_order: number;
+    is_active: number;
+  }>>(
+    `SELECT page, label, sort_order, is_active FROM session_tabs
+     WHERE session_id = $1 ORDER BY sort_order`,
+    [sessionId]
+  );
+
+  let activeTabIndex: number | null = null;
+  const tabs = result.map((row, index) => {
+    if (row.is_active === 1) {
+      activeTabIndex = index;
+    }
+    return {
+      page: row.page,
+      label: row.label,
+    };
+  });
+
+  return { tabs, activeTabIndex };
+}
+
+/**
+ * Load page history from the normalized session_page_history table
+ */
+async function loadNormalizedPageHistory(
+  db: Database,
+  sessionId: number
+): Promise<HistoryEntry[]> {
+  const result = await db.select<Array<{
+    page: number;
+    visited_at: number;
+  }>>(
+    `SELECT page, visited_at FROM session_page_history
+     WHERE session_id = $1 ORDER BY id`,
+    [sessionId]
+  );
+
+  return result.map(row => ({
+    page: row.page,
+    timestamp: row.visited_at.toString(),
+  }));
 }
 
 // Save session state for a PDF
@@ -42,20 +180,19 @@ export async function saveSessionState(
   state: PdfSessionState
 ): Promise<void> {
   const db = await getDb();
-  const pathHash = hashPath(filePath);
   const now = Date.now();
   state.lastOpened = now;
 
   // Get name - use provided name or extract filename from path
   const name = state.name || filePath.split('/').pop() || filePath.split('\\').pop() || 'Unknown';
 
-  // Serialize complex fields to JSON
+  // Serialize complex fields to JSON (kept for backward compatibility)
   const bookmarksJson = JSON.stringify(state.bookmarks);
   const pageHistoryJson = state.pageHistory ? JSON.stringify(state.pageHistory) : null;
   const tabsJson = JSON.stringify(state.tabs);
   const windowsJson = JSON.stringify(state.windows);
 
-  // Insert or update session
+  // Insert or update session (path_hash is deprecated but kept for compatibility)
   await db.execute(
     `INSERT INTO sessions (
       file_path, path_hash, name, current_page, zoom, view_mode,
@@ -63,7 +200,6 @@ export async function saveSessionState(
       windows, last_opened, created_at, updated_at
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     ON CONFLICT(file_path) DO UPDATE SET
-      path_hash = $2,
       name = $3,
       current_page = $4,
       zoom = $5,
@@ -78,7 +214,7 @@ export async function saveSessionState(
       updated_at = $15`,
     [
       filePath,
-      pathHash,
+      '', // path_hash deprecated
       name,
       state.page,
       state.zoom,
@@ -95,6 +231,25 @@ export async function saveSessionState(
     ]
   );
 
+  // Get session ID for normalized tables
+  const sessionResult = await db.select<Array<{ id: number }>>(
+    'SELECT id FROM sessions WHERE file_path = $1',
+    [filePath]
+  );
+
+  if (sessionResult.length > 0) {
+    const sessionId = sessionResult[0].id;
+
+    // Save to normalized tables (in parallel)
+    await Promise.all([
+      saveNormalizedBookmarks(db, sessionId, state.bookmarks),
+      saveNormalizedTabs(db, sessionId, state.tabs, state.activeTabIndex),
+      state.pageHistory
+        ? saveNormalizedPageHistory(db, sessionId, state.pageHistory)
+        : Promise.resolve(),
+    ]);
+  }
+
   // Update last opened path in localStorage (for quick access)
   localStorage.setItem(LAST_OPENED_KEY, filePath);
 
@@ -109,8 +264,8 @@ export async function loadSessionState(
   try {
     const db = await getDb();
     const result = await db.select<Array<{
+      id: number;
       file_path: string;
-      path_hash: string;
       name: string;
       current_page: number;
       zoom: number;
@@ -123,7 +278,7 @@ export async function loadSessionState(
       windows: string | null;
       last_opened: number;
     }>>(
-      `SELECT file_path, path_hash, name, current_page, zoom, view_mode,
+      `SELECT id, file_path, name, current_page, zoom, view_mode,
               bookmarks, page_history, history_index, tabs, active_tab_index,
               windows, last_opened
        FROM sessions
@@ -136,11 +291,33 @@ export async function loadSessionState(
     }
 
     const row = result[0];
+    const sessionId = row.id;
 
-    // Deserialize JSON fields
-    const bookmarks = row.bookmarks ? JSON.parse(row.bookmarks) : [];
-    const pageHistory = row.page_history ? JSON.parse(row.page_history) : undefined;
-    const tabs = row.tabs ? JSON.parse(row.tabs) : [];
+    // Try to load from normalized tables first
+    const [normalizedBookmarks, normalizedTabsResult, normalizedHistory] = await Promise.all([
+      loadNormalizedBookmarks(db, sessionId),
+      loadNormalizedTabs(db, sessionId),
+      loadNormalizedPageHistory(db, sessionId),
+    ]);
+
+    // Use normalized data if available, otherwise fall back to JSON
+    const bookmarks = normalizedBookmarks.length > 0
+      ? normalizedBookmarks
+      : (row.bookmarks ? JSON.parse(row.bookmarks) : []);
+
+    const tabs = normalizedTabsResult.tabs.length > 0
+      ? normalizedTabsResult.tabs
+      : (row.tabs ? JSON.parse(row.tabs) : []);
+
+    const activeTabIndex = normalizedTabsResult.tabs.length > 0
+      ? normalizedTabsResult.activeTabIndex
+      : (row.active_tab_index ?? null);
+
+    const pageHistory = normalizedHistory.length > 0
+      ? normalizedHistory
+      : (row.page_history ? JSON.parse(row.page_history) : undefined);
+
+    // Windows still use JSON (complex structure, not frequently queried)
     const windows = row.windows ? JSON.parse(row.windows) : [];
 
     return {
@@ -149,7 +326,7 @@ export async function loadSessionState(
       page: row.current_page,
       zoom: row.zoom,
       viewMode: row.view_mode as ViewMode,
-      activeTabIndex: row.active_tab_index ?? null,
+      activeTabIndex,
       tabs,
       windows,
       bookmarks,

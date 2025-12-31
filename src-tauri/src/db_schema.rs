@@ -102,5 +102,52 @@ pub fn get_migrations() -> Vec<Migration> {
                 CREATE INDEX IF NOT EXISTS idx_settings_key ON settings(key);",
             kind: MigrationKind::Up,
         },
+        // Migration V6: Normalize schema - extract bookmarks to separate table
+        // Note: We keep JSON columns for backward compatibility during transition
+        Migration {
+            version: 6,
+            description: "normalize_bookmarks_table",
+            sql: "-- Create normalized bookmarks table
+                CREATE TABLE IF NOT EXISTS session_bookmarks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id INTEGER NOT NULL,
+                    page INTEGER NOT NULL,
+                    label TEXT,
+                    created_at INTEGER NOT NULL,
+                    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+                    UNIQUE(session_id, page)
+                );
+                CREATE INDEX IF NOT EXISTS idx_session_bookmarks_session ON session_bookmarks(session_id);
+                CREATE INDEX IF NOT EXISTS idx_session_bookmarks_page ON session_bookmarks(page);
+
+                -- Create normalized tabs table
+                CREATE TABLE IF NOT EXISTS session_tabs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id INTEGER NOT NULL,
+                    page INTEGER NOT NULL,
+                    label TEXT NOT NULL,
+                    sort_order INTEGER NOT NULL,
+                    is_active INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_session_tabs_session ON session_tabs(session_id);
+
+                -- Create normalized page_history table
+                CREATE TABLE IF NOT EXISTS session_page_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id INTEGER NOT NULL,
+                    page INTEGER NOT NULL,
+                    visited_at INTEGER NOT NULL,
+                    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_session_page_history_session ON session_page_history(session_id);
+
+                -- Remove unused gemini_prompt_word setting
+                DELETE FROM settings WHERE key = 'gemini_prompt_word';
+
+                -- Drop unused path_hash index (column kept for compatibility)
+                DROP INDEX IF EXISTS idx_sessions_path_hash;",
+            kind: MigrationKind::Up,
+        },
     ]
 }
