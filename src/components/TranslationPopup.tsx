@@ -153,10 +153,14 @@ export default function TranslationPopup({
   }, [selection]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if ((e.target as HTMLElement).closest('[data-drag-handle]')) {
+    // Allow dragging from anywhere except interactive elements
+    const target = e.target as HTMLElement;
+    const isInteractive = target.closest('button, a, input, textarea, [role="button"], .overflow-y-auto');
+
+    if (!isInteractive) {
       e.preventDefault();
       // Capture pointer to continue receiving events outside the window
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      target.setPointerCapture(e.pointerId);
       dragStartRef.current = {
         mouseX: e.clientX,
         mouseY: e.clientY,
@@ -170,15 +174,21 @@ export default function TranslationPopup({
   useEffect(() => {
     if (!isDragging) return;
 
+    const headerHeight = 56; // h-14 = 56px
+    const minTop = headerHeight; // Minimum top position to stay below header
+
     const handlePointerMove = (e: PointerEvent) => {
       if (!dragStartRef.current) return;
 
       const deltaX = e.clientX - dragStartRef.current.mouseX;
       const deltaY = e.clientY - dragStartRef.current.mouseY;
 
+      // Calculate new position with constraint
+      const newTop = dragStartRef.current.popupY + deltaY;
+
       setPosition({
         left: dragStartRef.current.popupX + deltaX,
-        top: dragStartRef.current.popupY + deltaY,
+        top: Math.max(newTop, minTop), // Prevent moving above header
       });
     };
 
@@ -341,17 +351,16 @@ export default function TranslationPopup({
   return (
     <div
       ref={popupRef}
-      className="fixed z-50 bg-bg-secondary rounded-lg shadow-2xl border border-bg-tertiary w-[600px] max-h-[700px] overflow-hidden flex flex-col"
+      className={`fixed z-50 bg-bg-secondary rounded-lg shadow-2xl border border-bg-tertiary w-[600px] max-h-[700px] overflow-hidden flex flex-col ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
       style={{
         left: position.left,
         top: position.top,
       }}
       onPointerDown={handlePointerDown}
     >
-      {/* Header - Draggable */}
+      {/* Header */}
       <div
-        data-drag-handle
-        className={`flex items-center justify-between px-3 py-2 border-b border-bg-tertiary bg-bg-tertiary/50 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className="flex items-center justify-between px-3 py-2 border-b border-bg-tertiary bg-bg-tertiary/50"
       >
         <div className="flex items-center gap-2" data-drag-handle>
           <GripHorizontal className="w-4 h-4 text-text-tertiary" data-drag-handle />
