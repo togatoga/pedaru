@@ -168,5 +168,49 @@ pub fn get_migrations() -> Vec<Migration> {
                     token_expiry = NULL;",
             kind: MigrationKind::Up,
         },
+        // Migration V8: Add pdf_author column to bookshelf
+        Migration {
+            version: 8,
+            description: "add_pdf_author_to_bookshelf",
+            sql: "ALTER TABLE bookshelf ADD COLUMN pdf_author TEXT;",
+            kind: MigrationKind::Up,
+        },
+        // Migration V9: Add local file support to bookshelf
+        // source_type: 'google_drive' or 'local'
+        // original_path: for local files, the original path before copying to downloads
+        Migration {
+            version: 9,
+            description: "add_local_file_support_to_bookshelf",
+            sql: "ALTER TABLE bookshelf ADD COLUMN source_type TEXT NOT NULL DEFAULT 'google_drive';
+                  ALTER TABLE bookshelf ADD COLUMN original_path TEXT;
+                  CREATE INDEX IF NOT EXISTS idx_bookshelf_source_type ON bookshelf(source_type);",
+            kind: MigrationKind::Up,
+        },
+        // Migration V10: Add favorites support to bookshelf and cleanup zombie local files
+        // Local files with 'pending' or 'error' status are invalid and should be deleted
+        Migration {
+            version: 10,
+            description: "add_favorite_to_bookshelf",
+            sql: "-- Add favorites column
+                  ALTER TABLE bookshelf ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0;
+                  CREATE INDEX IF NOT EXISTS idx_bookshelf_favorite ON bookshelf(is_favorite);
+                  -- Cleanup zombie local files (local files should never be in pending/error status)
+                  DELETE FROM bookshelf WHERE source_type = 'local' AND download_status != 'completed';",
+            kind: MigrationKind::Up,
+        },
+        // Migration V11: Add last_opened column for sorting by recently opened
+        // Also cleanup any remaining zombie local files
+        Migration {
+            version: 11,
+            description: "add_last_opened_to_bookshelf",
+            sql: "-- Add last_opened column for sorting by recently opened
+                  ALTER TABLE bookshelf ADD COLUMN last_opened INTEGER;
+                  CREATE INDEX IF NOT EXISTS idx_bookshelf_last_opened ON bookshelf(last_opened DESC);
+                  -- Additional cleanup for zombie local files
+                  DELETE FROM bookshelf WHERE source_type = 'local' AND download_status != 'completed';
+                  -- Also cleanup local files where local_path is NULL or empty
+                  DELETE FROM bookshelf WHERE source_type = 'local' AND (local_path IS NULL OR local_path = '');",
+            kind: MigrationKind::Up,
+        },
     ]
 }

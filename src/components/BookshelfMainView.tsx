@@ -1,0 +1,1165 @@
+'use client';
+
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  Library,
+  RefreshCw,
+  Settings,
+  LogIn,
+  LogOut,
+  FolderPlus,
+  ChevronRight,
+  Loader2,
+  X,
+  Download,
+  Grid,
+  List,
+  Search,
+  FileText,
+  ExternalLink,
+  Trash2,
+  Check,
+  AlertCircle,
+  Plus,
+  FilePlus,
+  FolderOpen,
+  HardDrive,
+  Cloud,
+  Star,
+} from 'lucide-react';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { useBookshelf } from '@/hooks/useBookshelf';
+import { generateThumbnailsInBackground } from '@/lib/thumbnailGenerator';
+import type { BookshelfItem as BookshelfItemType, DriveFolder } from '@/types';
+
+interface BookshelfMainViewProps {
+  onOpenPdf: (localPath: string) => void;
+  currentFilePath?: string | null;
+  onClose?: () => void;
+}
+
+/**
+ * Main view bookshelf component for full-screen book selection
+ */
+export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose }: BookshelfMainViewProps) {
+  const {
+    authStatus,
+    isLoading: authLoading,
+    error: authError,
+    syncedFolders,
+    saveCredentials,
+    login,
+    logout,
+    listDriveFolders,
+    addSyncFolder,
+    removeSyncFolder,
+  } = useGoogleAuth();
+
+  const {
+    items,
+    isLoading: bookshelfLoading,
+    isSyncing,
+    error: bookshelfError,
+    sync,
+    downloadItem,
+    cancelDownload,
+    deleteLocalCopy,
+    resetDownloadStatus,
+    updateThumbnail,
+    updateLastOpened,
+    getItemsNeedingThumbnails,
+    importLocalFiles,
+    importLocalDirectory,
+    deleteItem,
+    toggleFavorite,
+  } = useBookshelf();
+
+  const [showSettings, setShowSettings] = useState(false);
+  const [showFolderBrowser, setShowFolderBrowser] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [browseFolders, setBrowseFolders] = useState<DriveFolder[]>([]);
+  const [folderPath, setFolderPath] = useState<Array<{ id: string; name: string }>>([]);
+  const [isBrowsing, setIsBrowsing] = useState(false);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentDownloadIndex, setCurrentDownloadIndex] = useState(0);
+  const [totalDownloads, setTotalDownloads] = useState(0);
+  const [filterMode, setFilterMode] = useState<'all' | 'pending' | 'downloaded'>('all');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'local' | 'cloud'>('all');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  // Credentials input (for first-time setup)
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+
+  // Track items that have been queued for thumbnail generation
+  const thumbnailQueueRef = useRef<Set<string>>(new Set());
+  const isGeneratingRef = useRef(false);
+
+  // Generate thumbnails for newly downloaded items
+  useEffect(() => {
+    if (isGeneratingRef.current) return;
+
+    const itemsNeedingThumbnails = getItemsNeedingThumbnails().filter(
+      (item) => item.driveFileId && !thumbnailQueueRef.current.has(item.driveFileId)
+    );
+
+    if (itemsNeedingThumbnails.length === 0) return;
+
+    itemsNeedingThumbnails.forEach((item) => {
+      if (item.driveFileId) {
+        thumbnailQueueRef.current.add(item.driveFileId);
+      }
+    });
+
+    isGeneratingRef.current = true;
+
+    (async () => {
+      try {
+        await generateThumbnailsInBackground(
+          itemsNeedingThumbnails.map((item) => ({
+            driveFileId: item.driveFileId!,
+            localPath: item.localPath!,
+          })),
+          async (driveFileId, thumbnailData) => {
+            await updateThumbnail(driveFileId, thumbnailData);
+          }
+        );
+      } finally {
+        isGeneratingRef.current = false;
+      }
+    })();
+  }, [getItemsNeedingThumbnails, updateThumbnail]);
+
+  // Browse folders
+  const browseFolderContents = useCallback(async (folderId: string | null) => {
+    setIsBrowsing(true);
+    try {
+      const folders = await listDriveFolders(folderId || undefined);
+      setBrowseFolders(folders);
+      setCurrentFolderId(folderId);
+    } finally {
+      setIsBrowsing(false);
+    }
+  }, [listDriveFolders]);
+
+  const navigateToFolder = useCallback((folder: DriveFolder) => {
+    setFolderPath((prev) => [...prev, { id: folder.id, name: folder.name }]);
+    browseFolderContents(folder.id);
+  }, [browseFolderContents]);
+
+  const navigateBack = useCallback((index: number) => {
+    const newPath = folderPath.slice(0, index);
+    setFolderPath(newPath);
+    browseFolderContents(newPath.length > 0 ? newPath[newPath.length - 1].id : null);
+  }, [folderPath, browseFolderContents]);
+
+  const handleAddCurrentFolder = useCallback(async () => {
+    if (folderPath.length > 0) {
+      const currentFolder = folderPath[folderPath.length - 1];
+      await addSyncFolder(currentFolder.id, currentFolder.name);
+      setShowFolderBrowser(false);
+      setFolderPath([]);
+    }
+  }, [folderPath, addSyncFolder]);
+
+  const handleOpenPdf = useCallback(async (item: BookshelfItemType) => {
+    if (item.localPath) {
+      if (currentFilePath === item.localPath) {
+        console.log('File already open, skipping reload');
+        onClose?.();
+        return;
+      }
+
+      try {
+        const { exists } = await import('@tauri-apps/plugin-fs');
+        const fileExists = await exists(item.localPath);
+
+        if (!fileExists) {
+          console.error('File missing, resetting status:', item.localPath);
+          await resetDownloadStatus(item.driveFileId || '');
+          return;
+        }
+
+        // Update last opened timestamp
+        await updateLastOpened(item.localPath);
+
+        onOpenPdf(item.localPath);
+        onClose?.();
+      } catch (error) {
+        console.error('Error checking file:', error);
+      }
+    }
+  }, [onOpenPdf, resetDownloadStatus, updateLastOpened, currentFilePath, onClose]);
+
+  const handleDownload = useCallback(async (item: BookshelfItemType) => {
+    await downloadItem(item);
+  }, [downloadItem]);
+
+  const handleDelete = useCallback(async (item: BookshelfItemType) => {
+    await deleteLocalCopy(item.driveFileId || '');
+  }, [deleteLocalCopy]);
+
+  const handleCancel = useCallback(async (item: BookshelfItemType) => {
+    await cancelDownload(item.driveFileId || '');
+  }, [cancelDownload]);
+
+  const handleSaveCredentials = useCallback(async () => {
+    if (clientId && clientSecret) {
+      await saveCredentials(clientId, clientSecret);
+      setClientId('');
+      setClientSecret('');
+    }
+  }, [clientId, clientSecret, saveCredentials]);
+
+  // Import local files
+  const handleImportFiles = useCallback(async () => {
+    setShowAddMenu(false);
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({
+        multiple: true,
+        filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
+      });
+
+      if (selected && (Array.isArray(selected) ? selected.length > 0 : selected)) {
+        setIsImporting(true);
+        const paths = Array.isArray(selected) ? selected : [selected];
+        const result = await importLocalFiles(paths);
+        if (result) {
+          console.log(`Imported: ${result.importedCount}, Skipped: ${result.skippedCount}, Errors: ${result.errorCount}`);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to import files:', error);
+    } finally {
+      setIsImporting(false);
+    }
+  }, [importLocalFiles]);
+
+  // Import local directory
+  const handleImportDirectory = useCallback(async () => {
+    setShowAddMenu(false);
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      const selected = await open({
+        directory: true,
+        multiple: false,
+      });
+
+      if (selected && typeof selected === 'string') {
+        setIsImporting(true);
+        const result = await importLocalDirectory(selected);
+        if (result) {
+          console.log(`Imported: ${result.importedCount}, Skipped: ${result.skippedCount}, Errors: ${result.errorCount}`);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to import directory:', error);
+    } finally {
+      setIsImporting(false);
+    }
+  }, [importLocalDirectory]);
+
+  // Handle delete for both local and cloud items
+  const handleDeleteItem = useCallback(async (item: BookshelfItemType) => {
+    if (item.sourceType === 'local') {
+      await deleteItem(item.id);
+    } else {
+      await deleteLocalCopy(item.driveFileId || '');
+    }
+  }, [deleteItem, deleteLocalCopy]);
+
+  // Handle toggle favorite
+  const handleToggleFavorite = useCallback(async (item: BookshelfItemType, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await toggleFavorite(item.id);
+  }, [toggleFavorite]);
+
+  // Get downloadable items count (only cloud files can be downloaded)
+  const downloadableItems = useMemo(() => {
+    return items.filter(item =>
+      item.sourceType === 'google_drive' &&
+      (item.downloadStatus === 'pending' || item.downloadStatus === 'error')
+    );
+  }, [items]);
+  const downloadableCount = downloadableItems.length;
+
+  // Filter items by search query, download status, source type, and favorites
+  const filteredItems = useMemo(() => {
+    let filtered = items;
+
+    // Favorites filter
+    if (showFavoritesOnly) {
+      filtered = filtered.filter(item => item.isFavorite);
+    }
+
+    // Source type filter
+    if (sourceFilter === 'local') {
+      filtered = filtered.filter(item => item.sourceType === 'local');
+    } else if (sourceFilter === 'cloud') {
+      filtered = filtered.filter(item => item.sourceType === 'google_drive');
+    }
+
+    // Download status filter
+    if (filterMode === 'pending') {
+      filtered = filtered.filter(item => item.downloadStatus !== 'completed');
+    } else if (filterMode === 'downloaded') {
+      filtered = filtered.filter(item => item.downloadStatus === 'completed');
+    }
+
+    // Search query filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(item => {
+        const title = (item.pdfTitle || '').toLowerCase();
+        const fileName = (item.fileName || '').toLowerCase();
+        const author = (item.pdfAuthor || '').toLowerCase();
+        return title.includes(query) || fileName.includes(query) || author.includes(query);
+      });
+    }
+
+    return filtered;
+  }, [items, searchQuery, filterMode, sourceFilter, showFavoritesOnly]);
+
+  const downloadedCount = useMemo(() => {
+    return items.filter(item => item.downloadStatus === 'completed').length;
+  }, [items]);
+
+  const notDownloadedCount = useMemo(() => {
+    return items.filter(item => item.downloadStatus !== 'completed').length;
+  }, [items]);
+
+  const localCount = useMemo(() => {
+    return items.filter(item => item.sourceType === 'local').length;
+  }, [items]);
+
+  const cloudCount = useMemo(() => {
+    return items.filter(item => item.sourceType === 'google_drive').length;
+  }, [items]);
+
+  const favoriteCount = useMemo(() => {
+    return items.filter(item => item.isFavorite).length;
+  }, [items]);
+
+  const downloadingItem = useMemo(() => {
+    return items.find(item => item.downloadStatus === 'downloading');
+  }, [items]);
+
+  const handleDownloadAll = useCallback(async () => {
+    if (downloadableItems.length === 0) return;
+
+    setIsDownloadingAll(true);
+    setTotalDownloads(downloadableItems.length);
+    setCurrentDownloadIndex(0);
+    try {
+      for (let i = 0; i < downloadableItems.length; i++) {
+        setCurrentDownloadIndex(i + 1);
+        await downloadItem(downloadableItems[i]);
+      }
+    } finally {
+      setIsDownloadingAll(false);
+      setCurrentDownloadIndex(0);
+      setTotalDownloads(0);
+    }
+  }, [downloadableItems, downloadItem]);
+
+  // Format file size
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return '-';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  // Format date
+  const formatDate = (timestamp: number) => {
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  };
+
+  // Render a single book item
+  const renderBookItem = (item: BookshelfItemType) => {
+    const isDownloaded = item.downloadStatus === 'completed' && item.localPath;
+    const isDownloading = item.downloadStatus === 'downloading';
+    const hasError = item.downloadStatus === 'error';
+    const displayName = item.pdfTitle || item.fileName;
+
+    if (viewMode === 'list') {
+      // Table row for list view - rendered inside tbody
+      return null; // Table rows are rendered separately
+    }
+
+    // Grid view
+    return (
+      <div
+        key={item.id}
+        className={`
+          relative group rounded-lg overflow-hidden
+          bg-bg-tertiary hover:bg-bg-secondary
+          transition-all duration-200
+          ${isDownloaded ? 'cursor-pointer' : ''}
+        `}
+        onClick={() => isDownloaded && handleOpenPdf(item)}
+      >
+        <div className="aspect-[3/4] flex items-center justify-center bg-bg-primary/50">
+          {item.thumbnailData ? (
+            <img
+              src={`data:image/png;base64,${item.thumbnailData}`}
+              alt={displayName}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <FileText className="w-16 h-16 text-text-tertiary" />
+          )}
+
+          {isDownloading && (
+            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center">
+              <Loader2 className="w-10 h-10 text-white animate-spin" />
+              <span className="text-white text-base mt-2">{item.downloadProgress.toFixed(0)}%</span>
+              <div className="w-3/4 h-1.5 bg-white/30 rounded-full mt-2">
+                <div
+                  className="h-full bg-accent rounded-full transition-all duration-200"
+                  style={{ width: `${item.downloadProgress}%` }}
+                />
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleCancel(item); }}
+                className="mt-3 px-4 py-1.5 bg-red-500/80 hover:bg-red-500 text-white text-sm rounded transition-colors flex items-center gap-1"
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {hasError && (
+            <div className="absolute inset-0 bg-red-900/60 flex flex-col items-center justify-center">
+              <AlertCircle className="w-10 h-10 text-white" />
+              <span className="text-white text-sm mt-2">Error</span>
+            </div>
+          )}
+
+          {isDownloaded && !isDownloading && (
+            <div className="absolute top-3 right-3 bg-green-500 rounded-full p-1.5">
+              <Check className="w-4 h-4 text-white" />
+            </div>
+          )}
+
+          {/* Favorite indicator */}
+          {item.isFavorite && (
+            <div className="absolute top-3 left-3">
+              <Star className="w-5 h-5 text-yellow-500 fill-yellow-500 drop-shadow" />
+            </div>
+          )}
+        </div>
+
+        <div className="p-3">
+          <p className="text-sm text-text-primary truncate" title={displayName}>
+            {displayName}
+          </p>
+          {item.pdfAuthor && (
+            <p className="text-xs text-text-secondary truncate mt-0.5" title={item.pdfAuthor}>
+              {item.pdfAuthor}
+            </p>
+          )}
+          {item.fileSize && (
+            <p className="text-xs text-text-tertiary mt-0.5">
+              {formatFileSize(item.fileSize)}
+            </p>
+          )}
+        </div>
+
+        <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+          {/* Favorite button - always visible on hover */}
+          <button
+            onClick={(e) => handleToggleFavorite(item, e)}
+            className={`p-2 rounded transition-colors ${
+              item.isFavorite
+                ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                : 'bg-bg-tertiary text-text-secondary hover:bg-bg-secondary'
+            }`}
+            title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-white' : ''}`} />
+          </button>
+          {isDownloaded ? (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleOpenPdf(item); }}
+                className="p-2 bg-accent text-white rounded hover:bg-accent/80 transition-colors"
+                title="Open"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDeleteItem(item); }}
+                className="p-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                title="Delete"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </>
+          ) : !isDownloading && authStatus.authenticated && item.sourceType !== 'local' ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDownload(item); }}
+              className="p-2 bg-accent text-white rounded hover:bg-accent/80 transition-colors"
+              title="Download"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  };
+
+  // Settings modal
+  if (showSettings) {
+    return (
+      <div className="h-full flex flex-col bg-bg-primary">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-bg-tertiary">
+          <div className="flex items-center gap-3">
+            <Settings className="w-5 h-5 text-accent" />
+            <span className="text-lg font-medium text-text-primary">Bookshelf Settings</span>
+          </div>
+          <button
+            onClick={() => setShowSettings(false)}
+            className="p-2 hover:bg-bg-tertiary rounded"
+          >
+            <X className="w-5 h-5 text-text-secondary" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
+          {!authStatus.configured && (
+            <div className="space-y-4 pb-6 border-b border-bg-tertiary">
+              <p className="text-text-secondary">
+                Set up OAuth credentials to connect to Google Drive.
+              </p>
+              <div>
+                <label className="block text-sm text-text-tertiary mb-2">Client ID</label>
+                <input
+                  type="text"
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  className="w-full px-3 py-2 bg-bg-secondary border border-bg-tertiary rounded focus:outline-none focus:border-accent"
+                  placeholder="xxxx.apps.googleusercontent.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-text-tertiary mb-2">Client Secret</label>
+                <input
+                  type="password"
+                  value={clientSecret}
+                  onChange={(e) => setClientSecret(e.target.value)}
+                  className="w-full px-3 py-2 bg-bg-secondary border border-bg-tertiary rounded focus:outline-none focus:border-accent"
+                  placeholder="GOCSPX-xxxx"
+                />
+              </div>
+              <button
+                onClick={handleSaveCredentials}
+                disabled={!clientId || !clientSecret || authLoading}
+                className="w-full px-4 py-2 bg-accent text-white rounded font-medium disabled:opacity-50 hover:bg-accent/80 transition-colors"
+              >
+                {authLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Save Credentials'}
+              </button>
+            </div>
+          )}
+
+          {authStatus.configured && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <span className="text-text-primary">
+                  {authStatus.authenticated ? 'Connected to Google' : 'Not connected'}
+                </span>
+                <button
+                  onClick={authStatus.authenticated ? logout : login}
+                  disabled={authLoading}
+                  className={`px-4 py-2 rounded flex items-center gap-2 ${
+                    authStatus.authenticated
+                      ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                      : 'bg-accent text-white hover:bg-accent/80'
+                  }`}
+                >
+                  {authLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : authStatus.authenticated ? (
+                    <>
+                      <LogOut className="w-5 h-5" />
+                      Logout
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="w-5 h-5" />
+                      Login
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {authStatus.authenticated && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm text-text-tertiary">Synced Folders</span>
+                    <button
+                      onClick={() => {
+                        setShowFolderBrowser(true);
+                        browseFolderContents(null);
+                      }}
+                      className="text-sm text-accent hover:underline flex items-center gap-1"
+                    >
+                      <FolderPlus className="w-4 h-4" />
+                      Add Folder
+                    </button>
+                  </div>
+                  {syncedFolders.length === 0 ? (
+                    <p className="text-text-tertiary">No synced folders</p>
+                  ) : (
+                    <>
+                      <ul className="space-y-2">
+                        {syncedFolders.map((folder, index) => (
+                          <li
+                            key={folder.folderId || `synced-${index}`}
+                            className="flex items-center justify-between py-2 px-3 bg-bg-tertiary rounded"
+                          >
+                            <span className="text-text-primary truncate">{folder.folderName}</span>
+                            <button
+                              onClick={() => removeSyncFolder(folder.folderId)}
+                              className="text-text-tertiary hover:text-red-400"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      <button
+                        onClick={() => { sync(); setShowSettings(false); }}
+                        disabled={isSyncing}
+                        className="w-full mt-4 px-4 py-2 bg-accent text-white rounded font-medium hover:bg-accent/80 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
+                        {isSyncing ? 'Syncing...' : 'Sync Now'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Folder browser modal
+  if (showFolderBrowser) {
+    return (
+      <div className="h-full flex flex-col bg-bg-primary">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-bg-tertiary">
+          <div className="flex items-center gap-3">
+            <FolderPlus className="w-5 h-5 text-accent" />
+            <span className="text-lg font-medium text-text-primary">Select Folder</span>
+          </div>
+          <button
+            onClick={() => { setShowFolderBrowser(false); setFolderPath([]); }}
+            className="p-2 hover:bg-bg-tertiary rounded"
+          >
+            <X className="w-5 h-5 text-text-secondary" />
+          </button>
+        </div>
+
+        <div className="px-6 py-3 border-b border-bg-tertiary flex items-center gap-2 text-sm flex-wrap">
+          <button onClick={() => navigateBack(0)} className="text-accent hover:underline">
+            My Drive
+          </button>
+          {folderPath.map((folder, index) => (
+            <span key={folder.id || `path-${index}`} className="flex items-center gap-2">
+              <ChevronRight className="w-4 h-4 text-text-tertiary" />
+              <button onClick={() => navigateBack(index + 1)} className="text-accent hover:underline">
+                {folder.name}
+              </button>
+            </span>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-auto p-6">
+          {isBrowsing ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-accent animate-spin" />
+            </div>
+          ) : browseFolders.length === 0 ? (
+            <div className="text-center py-12 text-text-tertiary">No folders found</div>
+          ) : (
+            <ul className="space-y-2">
+              {browseFolders.map((folder, index) => (
+                <li key={folder.id || `folder-${index}`}>
+                  <button
+                    onClick={() => navigateToFolder(folder)}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary rounded-lg text-left"
+                  >
+                    <FolderPlus className="w-5 h-5 text-accent" />
+                    <span className="text-text-primary truncate">{folder.name}</span>
+                    <ChevronRight className="w-5 h-5 text-text-tertiary ml-auto" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {folderPath.length > 0 && (
+          <div className="p-6 border-t border-bg-tertiary">
+            <button
+              onClick={handleAddCurrentFolder}
+              className="w-full px-4 py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent/80 transition-colors"
+            >
+              Add This Folder
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Main bookshelf view
+  return (
+    <div className="h-full flex flex-col bg-bg-primary">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-bg-tertiary shrink-0">
+        <div className="flex items-center gap-3">
+          <Library className="w-6 h-6 text-accent" />
+          <span className="text-xl font-medium text-text-primary">Bookshelf</span>
+          <span className="text-sm text-text-tertiary">({items.length} books)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Add button with dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowAddMenu(!showAddMenu)}
+              disabled={isImporting}
+              className="p-2 hover:bg-bg-tertiary rounded transition-colors"
+              title="Add books"
+            >
+              {isImporting ? (
+                <Loader2 className="w-5 h-5 text-accent animate-spin" />
+              ) : (
+                <Plus className="w-5 h-5 text-accent" />
+              )}
+            </button>
+            {showAddMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowAddMenu(false)}
+                />
+                <div className="absolute right-0 top-full mt-2 w-56 bg-bg-secondary border border-bg-tertiary rounded-lg shadow-lg z-20 overflow-hidden">
+                  <button
+                    onClick={handleImportFiles}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary text-left"
+                  >
+                    <FilePlus className="w-5 h-5 text-accent" />
+                    <div>
+                      <div className="text-text-primary text-sm">Import Files</div>
+                      <div className="text-text-tertiary text-xs">Add PDF files</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={handleImportDirectory}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary text-left"
+                  >
+                    <FolderOpen className="w-5 h-5 text-accent" />
+                    <div>
+                      <div className="text-text-primary text-sm">Import Folder</div>
+                      <div className="text-text-tertiary text-xs">Add all PDFs from folder</div>
+                    </div>
+                  </button>
+                  {authStatus.configured && (
+                    <button
+                      onClick={() => { setShowAddMenu(false); setShowSettings(true); }}
+                      className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary text-left border-t border-bg-tertiary"
+                    >
+                      <Cloud className="w-5 h-5 text-accent" />
+                      <div>
+                        <div className="text-text-primary text-sm">Google Drive</div>
+                        <div className="text-text-tertiary text-xs">Manage synced folders</div>
+                      </div>
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+          <button
+            onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+            className="p-2 hover:bg-bg-tertiary rounded transition-colors"
+            title={viewMode === 'grid' ? 'List view' : 'Grid view'}
+          >
+            {viewMode === 'grid' ? (
+              <List className="w-5 h-5 text-text-secondary" />
+            ) : (
+              <Grid className="w-5 h-5 text-text-secondary" />
+            )}
+          </button>
+          {authStatus.authenticated && (
+            <button
+              onClick={sync}
+              disabled={isSyncing}
+              className="p-2 hover:bg-bg-tertiary rounded transition-colors"
+              title="Sync with Google Drive"
+            >
+              <RefreshCw className={`w-5 h-5 text-text-secondary ${isSyncing ? 'animate-spin' : ''}`} />
+            </button>
+          )}
+          <button
+            onClick={() => setShowSettings(true)}
+            className="p-2 hover:bg-bg-tertiary rounded transition-colors"
+            title="Settings"
+          >
+            <Settings className="w-5 h-5 text-text-secondary" />
+          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-bg-tertiary rounded transition-colors"
+              title="Close"
+            >
+              <X className="w-5 h-5 text-text-secondary" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Error message */}
+      {(authError || bookshelfError) && (
+        <div className="px-6 py-3 bg-red-500/20 text-red-400 text-sm shrink-0">
+          {authError || bookshelfError}
+        </div>
+      )}
+
+      {/* Loading state */}
+      {bookshelfLoading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-12 h-12 text-accent animate-spin" />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-8">
+          <Library className="w-20 h-20 text-text-tertiary mb-6" />
+          <p className="text-lg text-text-secondary mb-2">Bookshelf is empty</p>
+          <p className="text-text-tertiary text-center mb-6">
+            {authStatus.authenticated
+              ? 'Add a folder in settings and sync'
+              : 'Connect to Google Drive to sync PDFs'}
+          </p>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="px-6 py-3 bg-accent/20 text-accent rounded-lg hover:bg-accent/30 transition-colors flex items-center gap-2"
+          >
+            <Settings className="w-5 h-5" />
+            Open Settings
+          </button>
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 flex flex-col">
+          {/* Search and filter bar */}
+          <div className="px-6 py-4 border-b border-bg-tertiary shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search books..."
+                  className="w-full pl-10 pr-10 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg focus:outline-none focus:border-accent"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+              <div className="flex border border-bg-tertiary rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setFilterMode('all')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    filterMode === 'all' ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'
+                  }`}
+                >
+                  All ({items.length})
+                </button>
+                <button
+                  onClick={() => setFilterMode('pending')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    filterMode === 'pending' ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'
+                  }`}
+                >
+                  Not DL ({notDownloadedCount})
+                </button>
+                <button
+                  onClick={() => setFilterMode('downloaded')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    filterMode === 'downloaded' ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'
+                  }`}
+                >
+                  Downloaded ({downloadedCount})
+                </button>
+              </div>
+              {/* Source type filter */}
+              <div className="flex border border-bg-tertiary rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setSourceFilter('all')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    sourceFilter === 'all' ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setSourceFilter('local')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors flex items-center gap-1 ${
+                    sourceFilter === 'local' ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'
+                  }`}
+                >
+                  <HardDrive className="w-3.5 h-3.5" />
+                  Local ({localCount})
+                </button>
+                <button
+                  onClick={() => setSourceFilter('cloud')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors flex items-center gap-1 ${
+                    sourceFilter === 'cloud' ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'
+                  }`}
+                >
+                  <Cloud className="w-3.5 h-3.5" />
+                  Cloud ({cloudCount})
+                </button>
+              </div>
+              {/* Favorites filter */}
+              <button
+                onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                className={`px-4 py-2 text-sm font-medium transition-colors flex items-center gap-1 border rounded-lg ${
+                  showFavoritesOnly ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50' : 'text-text-tertiary hover:text-text-secondary border-bg-tertiary'
+                }`}
+              >
+                <Star className={`w-3.5 h-3.5 ${showFavoritesOnly ? 'fill-yellow-500' : ''}`} />
+                Favorites ({favoriteCount})
+              </button>
+            </div>
+          </div>
+
+          {/* Download progress */}
+          {(isDownloadingAll || downloadingItem) && (
+            <div className="px-6 py-3 bg-accent/10 border-b border-bg-tertiary shrink-0">
+              <div className="flex items-center gap-3 text-sm text-text-primary">
+                <Loader2 className="w-4 h-4 text-accent animate-spin shrink-0" />
+                <span className="truncate flex-1">
+                  {downloadingItem ? (downloadingItem.pdfTitle || downloadingItem.fileName) : 'Starting...'}
+                </span>
+              </div>
+              {isDownloadingAll && totalDownloads > 0 && (
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="flex-1 h-2 bg-bg-tertiary rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-accent transition-all duration-300"
+                      style={{ width: `${(currentDownloadIndex / totalDownloads) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-sm text-text-tertiary shrink-0">
+                    {currentDownloadIndex}/{totalDownloads}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Download All button (only for cloud files, hidden when viewing local only) */}
+          {authStatus.authenticated && downloadableCount > 0 && !isDownloadingAll && sourceFilter !== 'local' && (
+            <div className="px-6 py-3 border-b border-bg-tertiary shrink-0">
+              <button
+                onClick={handleDownloadAll}
+                disabled={isDownloadingAll}
+                className="px-6 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/80 transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                <Download className="w-5 h-5" />
+                Download All ({downloadableCount})
+              </button>
+            </div>
+          )}
+
+          {/* Items grid/list */}
+          {filteredItems.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8">
+              <Search className="w-12 h-12 text-text-tertiary mb-4" />
+              <p className="text-text-tertiary text-center">
+                {searchQuery
+                  ? `No books found for "${searchQuery}"`
+                  : filterMode === 'pending'
+                    ? 'All books are downloaded'
+                    : filterMode === 'downloaded'
+                      ? 'No downloaded books yet'
+                      : 'No books found'}
+              </p>
+            </div>
+          ) : viewMode === 'list' ? (
+            // Table view
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <table className="w-full">
+                <thead className="sticky top-0 bg-bg-primary border-b border-bg-tertiary">
+                  <tr className="text-left text-sm text-text-tertiary">
+                    <th className="px-6 py-3 font-medium">Title</th>
+                    <th className="px-4 py-3 font-medium">Author</th>
+                    <th className="px-4 py-3 font-medium w-28">Added</th>
+                    <th className="px-4 py-3 font-medium w-24 text-right">Size</th>
+                    <th className="px-4 py-3 font-medium w-28">Status</th>
+                    <th className="px-4 py-3 font-medium w-32">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-bg-tertiary">
+                  {filteredItems.map((item) => {
+                    const isDownloaded = item.downloadStatus === 'completed' && item.localPath;
+                    const isDownloading = item.downloadStatus === 'downloading';
+                    const hasError = item.downloadStatus === 'error';
+                    const displayName = item.pdfTitle || item.fileName;
+
+                    return (
+                      <tr
+                        key={item.id}
+                        className={`hover:bg-bg-tertiary transition-colors ${isDownloaded ? 'cursor-pointer' : ''}`}
+                        onClick={() => isDownloaded && handleOpenPdf(item)}
+                      >
+                        <td className="px-6 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-14 flex-shrink-0 flex items-center justify-center bg-bg-tertiary rounded overflow-hidden">
+                              {item.thumbnailData ? (
+                                <img
+                                  src={`data:image/png;base64,${item.thumbnailData}`}
+                                  alt={displayName}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <FileText className="w-5 h-5 text-text-tertiary" />
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 min-w-0">
+                              {item.isFavorite && (
+                                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                              )}
+                              <span className="text-text-primary truncate" title={displayName}>
+                                {displayName}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-text-secondary truncate max-w-[200px]" title={item.pdfAuthor || ''}>
+                          {item.pdfAuthor || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-text-tertiary">
+                          {formatDate(item.createdAt)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-text-tertiary text-right">
+                          {formatFileSize(item.fileSize)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {isDownloading ? (
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-1.5 bg-bg-tertiary rounded-full overflow-hidden max-w-16">
+                                <div
+                                  className="h-full bg-accent rounded-full transition-all"
+                                  style={{ width: `${item.downloadProgress}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-accent">{item.downloadProgress.toFixed(0)}%</span>
+                            </div>
+                          ) : isDownloaded ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-green-500">
+                              <Check className="w-3 h-3" />
+                              Downloaded
+                            </span>
+                          ) : hasError ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-red-400">
+                              <AlertCircle className="w-3 h-3" />
+                              Error
+                            </span>
+                          ) : (
+                            <span className="text-xs text-text-tertiary">Pending</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            {/* Favorite toggle button */}
+                            <button
+                              onClick={(e) => handleToggleFavorite(item, e)}
+                              className={`p-1.5 hover:bg-bg-hover rounded transition-colors ${
+                                item.isFavorite ? 'text-yellow-500' : 'text-text-tertiary hover:text-yellow-500'
+                              }`}
+                              title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                            >
+                              <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-yellow-500' : ''}`} />
+                            </button>
+                            {isDownloading && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleCancel(item); }}
+                                className="p-1.5 hover:bg-bg-hover rounded transition-colors"
+                                title="Cancel"
+                              >
+                                <X className="w-4 h-4 text-text-secondary hover:text-red-400" />
+                              </button>
+                            )}
+                            {isDownloaded && (
+                              <>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleOpenPdf(item); }}
+                                  className="p-1.5 hover:bg-bg-hover rounded transition-colors"
+                                  title="Open"
+                                >
+                                  <ExternalLink className="w-4 h-4 text-text-secondary" />
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteItem(item); }}
+                                  className="p-1.5 hover:bg-bg-hover rounded transition-colors"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-4 h-4 text-text-secondary hover:text-red-400" />
+                                </button>
+                              </>
+                            )}
+                            {!isDownloaded && !isDownloading && authStatus.authenticated && item.sourceType !== 'local' && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDownload(item); }}
+                                className="p-1.5 hover:bg-bg-hover rounded transition-colors"
+                                title="Download"
+                              >
+                                <Download className="w-4 h-4 text-accent" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            // Grid view
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {filteredItems.map(renderBookItem)}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

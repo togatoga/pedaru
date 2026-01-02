@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import type { BookshelfItem, SyncResult, DownloadProgress } from '@/types';
+import type { BookshelfItem, SyncResult, DownloadProgress, ImportResult } from '@/types';
 
 /**
  * Hook for managing bookshelf items (PDFs from Google Drive)
@@ -234,6 +234,80 @@ export function useBookshelf() {
   }, []);
 
   /**
+   * Import local PDF files to bookshelf
+   */
+  const importLocalFiles = useCallback(async (paths: string[]): Promise<ImportResult | null> => {
+    try {
+      setError(null);
+      const result = await invoke<ImportResult>('import_local_files', { paths });
+      await loadItems(); // Reload items after import
+      return result;
+    } catch (err) {
+      console.error('Failed to import local files:', err);
+      setError(String(err));
+      return null;
+    }
+  }, [loadItems]);
+
+  /**
+   * Import all PDFs from a local directory
+   */
+  const importLocalDirectory = useCallback(async (dirPath: string): Promise<ImportResult | null> => {
+    try {
+      setError(null);
+      const result = await invoke<ImportResult>('import_local_directory', { dirPath });
+      await loadItems(); // Reload items after import
+      return result;
+    } catch (err) {
+      console.error('Failed to import local directory:', err);
+      setError(String(err));
+      return null;
+    }
+  }, [loadItems]);
+
+  /**
+   * Delete a bookshelf item (removes from database and deletes the copied file)
+   */
+  const deleteItem = useCallback(async (itemId: number): Promise<boolean> => {
+    try {
+      await invoke('delete_bookshelf_item', { itemId });
+
+      // Remove from local state
+      setItems((prevItems) => prevItems.filter((item) => item.id !== itemId));
+
+      return true;
+    } catch (err) {
+      console.error('Failed to delete item:', err);
+      setError(String(err));
+      return false;
+    }
+  }, []);
+
+  /**
+   * Toggle favorite status for a bookshelf item
+   */
+  const toggleFavorite = useCallback(async (itemId: number): Promise<boolean> => {
+    try {
+      const newStatus = await invoke<boolean>('toggle_bookshelf_favorite', { itemId });
+
+      // Update local state
+      setItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === itemId
+            ? { ...item, isFavorite: newStatus }
+            : item
+        )
+      );
+
+      return newStatus;
+    } catch (err) {
+      console.error('Failed to toggle favorite:', err);
+      setError(String(err));
+      return false;
+    }
+  }, []);
+
+  /**
    * Update thumbnail for a bookshelf item
    */
   const updateThumbnail = useCallback(async (driveFileId: string, thumbnailData: string): Promise<boolean> => {
@@ -252,6 +326,30 @@ export function useBookshelf() {
       return true;
     } catch (err) {
       console.error('Failed to update thumbnail:', err);
+      return false;
+    }
+  }, []);
+
+  /**
+   * Update last_opened timestamp when a PDF is opened
+   */
+  const updateLastOpened = useCallback(async (localPath: string): Promise<boolean> => {
+    try {
+      await invoke('update_bookshelf_last_opened', { localPath });
+
+      // Update local state
+      const now = Math.floor(Date.now() / 1000);
+      setItems((prevItems) =>
+        prevItems.map((item) =>
+          item.localPath === localPath
+            ? { ...item, lastOpened: now }
+            : item
+        )
+      );
+
+      return true;
+    } catch (err) {
+      console.error('Failed to update last opened:', err);
       return false;
     }
   }, []);
@@ -294,6 +392,11 @@ export function useBookshelf() {
     deleteLocalCopy,
     resetDownloadStatus,
     updateThumbnail,
+    updateLastOpened,
+    importLocalFiles,
+    importLocalDirectory,
+    deleteItem,
+    toggleFavorite,
 
     // Getters
     getItemsNeedingThumbnails,

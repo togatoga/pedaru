@@ -11,7 +11,7 @@ import HistorySidebar from '@/components/HistorySidebar';
 import WindowSidebar from '@/components/WindowSidebar';
 import BookmarkSidebar from '@/components/BookmarkSidebar';
 import SearchResultsSidebar from '@/components/SearchResultsSidebar';
-import BookshelfSidebar from '@/components/BookshelfSidebar';
+import BookshelfMainView from '@/components/BookshelfMainView';
 import { StandaloneWindowControls } from '@/components/StandaloneWindowControls';
 import { TabBar } from '@/components/TabBar';
 import type { ViewMode, Bookmark, TabState, WindowState } from '@/types';
@@ -684,45 +684,43 @@ export default function Home() {
           </div>
         )}
 
-        {/* Bookshelf sidebar - shown separately from other sidebars */}
-        {showBookshelf && !isStandaloneMode && (
-          <div
-            className="flex flex-col overflow-hidden shrink-0 border-r border-bg-tertiary bg-bg-secondary"
-            style={{ width: sidebarWidth, minWidth: 280, maxWidth: 600 }}
-          >
-            <BookshelfSidebar onOpenPdf={loadPdfFromPath} currentFilePath={filePath} />
-          </div>
-        )}
-
-        {/* Main viewer */}
+        {/* Main viewer or Bookshelf */}
         <div className="flex-1 min-w-0 relative flex flex-col" onContextMenu={handleContextMenu}>
-          <PdfViewer
-            fileData={fileData}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            zoom={zoom}
-            viewMode={viewMode}
-            filePath={filePath}
-            searchQuery={searchQuery}
-            focusedSearchPage={searchResults[currentSearchIndex]?.page}
-            focusedSearchMatchIndex={searchResults[currentSearchIndex]?.matchIndex}
-            bookmarkedPages={bookmarks.map(b => b.page)}
-            onToggleBookmark={(page) => {
-              const existingIndex = bookmarks.findIndex((b) => b.page === page);
-              if (existingIndex >= 0) {
-                setBookmarks((prev) => prev.filter((b) => b.page !== page));
-              } else {
-                const chapter = getChapterForPage(page);
-                const label = getTabLabel(page, chapter);
-                setBookmarks((prev) => [...prev, { page, label, createdAt: Date.now() }]);
-              }
-            }}
-            onLoadSuccess={handleLoadSuccess}
-            onDocumentLoad={handlePdfDocumentLoad}
-            onNavigatePage={(page) => {
-              goToPage(page);
-            }}
-          />
+          {showBookshelf && !isStandaloneMode ? (
+            <BookshelfMainView
+              onOpenPdf={loadPdfFromPath}
+              currentFilePath={filePath}
+              onClose={() => setShowBookshelf(false)}
+            />
+          ) : (
+            <PdfViewer
+              fileData={fileData}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              zoom={zoom}
+              viewMode={viewMode}
+              filePath={filePath}
+              searchQuery={searchQuery}
+              focusedSearchPage={searchResults[currentSearchIndex]?.page}
+              focusedSearchMatchIndex={searchResults[currentSearchIndex]?.matchIndex}
+              bookmarkedPages={bookmarks.map(b => b.page)}
+              onToggleBookmark={(page) => {
+                const existingIndex = bookmarks.findIndex((b) => b.page === page);
+                if (existingIndex >= 0) {
+                  setBookmarks((prev) => prev.filter((b) => b.page !== page));
+                } else {
+                  const chapter = getChapterForPage(page);
+                  const label = getTabLabel(page, chapter);
+                  setBookmarks((prev) => [...prev, { page, label, createdAt: Date.now() }]);
+                }
+              }}
+              onLoadSuccess={handleLoadSuccess}
+              onDocumentLoad={handlePdfDocumentLoad}
+              onNavigatePage={(page) => {
+                goToPage(page);
+              }}
+            />
+          )}
         </div>
 
         {/* Search results sidebar on the right */}

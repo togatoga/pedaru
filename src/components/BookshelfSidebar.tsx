@@ -85,14 +85,16 @@ export default function BookshelfSidebar({ onOpenPdf, currentFilePath }: Bookshe
     if (isGeneratingRef.current) return;
 
     const itemsNeedingThumbnails = getItemsNeedingThumbnails().filter(
-      (item) => !thumbnailQueueRef.current.has(item.driveFileId)
+      (item) => item.driveFileId && !thumbnailQueueRef.current.has(item.driveFileId)
     );
 
     if (itemsNeedingThumbnails.length === 0) return;
 
     // Mark items as queued
     itemsNeedingThumbnails.forEach((item) => {
-      thumbnailQueueRef.current.add(item.driveFileId);
+      if (item.driveFileId) {
+        thumbnailQueueRef.current.add(item.driveFileId);
+      }
     });
 
     isGeneratingRef.current = true;
@@ -102,7 +104,7 @@ export default function BookshelfSidebar({ onOpenPdf, currentFilePath }: Bookshe
       try {
         await generateThumbnailsInBackground(
           itemsNeedingThumbnails.map((item) => ({
-            driveFileId: item.driveFileId,
+            driveFileId: item.driveFileId!,
             localPath: item.localPath!,
           })),
           async (driveFileId, thumbnailData) => {
@@ -163,7 +165,7 @@ export default function BookshelfSidebar({ onOpenPdf, currentFilePath }: Bookshe
         if (!fileExists) {
           // File is missing - reset the item status (without deleting file)
           console.error('File missing, resetting status:', item.localPath);
-          await resetDownloadStatus(item.driveFileId);
+          await resetDownloadStatus(item.driveFileId || '');
           return;
         }
 
@@ -180,11 +182,11 @@ export default function BookshelfSidebar({ onOpenPdf, currentFilePath }: Bookshe
   }, [downloadItem]);
 
   const handleDelete = useCallback(async (item: BookshelfItemType) => {
-    await deleteLocalCopy(item.driveFileId);
+    await deleteLocalCopy(item.driveFileId || '');
   }, [deleteLocalCopy]);
 
   const handleCancel = useCallback(async (item: BookshelfItemType) => {
-    await cancelDownload(item.driveFileId);
+    await cancelDownload(item.driveFileId || '');
   }, [cancelDownload]);
 
   const handleSaveCredentials = useCallback(async () => {
@@ -195,9 +197,11 @@ export default function BookshelfSidebar({ onOpenPdf, currentFilePath }: Bookshe
     }
   }, [clientId, clientSecret, saveCredentials]);
 
-  // Get pending items count
-  const pendingItems = items.filter(item => item.downloadStatus === 'pending');
-  const pendingCount = pendingItems.length;
+  // Get downloadable items count (pending or error status)
+  const downloadableItems = items.filter(item =>
+    item.downloadStatus === 'pending' || item.downloadStatus === 'error'
+  );
+  const downloadableCount = downloadableItems.length;
 
   // Filter items by search query and download status
   const filteredItems = useMemo(() => {
@@ -237,25 +241,25 @@ export default function BookshelfSidebar({ onOpenPdf, currentFilePath }: Bookshe
     return items.find(item => item.downloadStatus === 'downloading');
   }, [items]);
 
-  // Download all pending items
+  // Download all pending/error items
   const handleDownloadAll = useCallback(async () => {
-    if (pendingItems.length === 0) return;
+    if (downloadableItems.length === 0) return;
 
     setIsDownloadingAll(true);
-    setTotalDownloads(pendingItems.length);
+    setTotalDownloads(downloadableItems.length);
     setCurrentDownloadIndex(0);
     try {
       // Download items sequentially to avoid overwhelming the server
-      for (let i = 0; i < pendingItems.length; i++) {
+      for (let i = 0; i < downloadableItems.length; i++) {
         setCurrentDownloadIndex(i + 1);
-        await downloadItem(pendingItems[i]);
+        await downloadItem(downloadableItems[i]);
       }
     } finally {
       setIsDownloadingAll(false);
       setCurrentDownloadIndex(0);
       setTotalDownloads(0);
     }
-  }, [pendingItems, downloadItem]);
+  }, [downloadableItems, downloadItem]);
 
   // Note: We no longer show a separate "not configured" screen
   // OAuth credentials setup is now handled in the Settings view
@@ -674,7 +678,7 @@ export default function BookshelfSidebar({ onOpenPdf, currentFilePath }: Bookshe
           )}
 
           {/* Download All button - only show when authenticated */}
-          {authStatus.authenticated && pendingCount > 0 && !isDownloadingAll && (
+          {authStatus.authenticated && downloadableCount > 0 && !isDownloadingAll && (
             <div className="p-2 border-b border-bg-tertiary shrink-0">
               <button
                 onClick={handleDownloadAll}
@@ -682,7 +686,7 @@ export default function BookshelfSidebar({ onOpenPdf, currentFilePath }: Bookshe
                 className="w-full px-3 py-2 bg-accent text-white rounded text-sm font-medium hover:bg-accent/80 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Download className="w-4 h-4" />
-                Download All ({pendingCount})
+                Download All ({downloadableCount})
               </button>
             </div>
           )}

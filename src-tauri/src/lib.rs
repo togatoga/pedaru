@@ -299,12 +299,17 @@ async fn download_bookshelf_item(
             )
             .map_err(|e| e.into_tauri_error())?;
 
-            // Try to extract PDF title
-            if let Ok(pdf_info) = get_pdf_info(path_str.clone())
-                && let Some(title) = pdf_info.title
-                && !title.trim().is_empty()
-            {
-                let _ = bookshelf::update_pdf_title(&app, &drive_file_id, &title);
+            // Try to extract PDF metadata (title and author)
+            if let Ok(pdf_info) = get_pdf_info(path_str.clone()) {
+                let title = pdf_info.title.as_ref()
+                    .filter(|t| !t.trim().is_empty())
+                    .map(|s| s.as_str());
+                let author = pdf_info.author.as_ref()
+                    .filter(|a| !a.trim().is_empty())
+                    .map(|s| s.as_str());
+                if title.is_some() || author.is_some() {
+                    let _ = bookshelf::update_pdf_metadata(&app, &drive_file_id, title, author);
+                }
             }
 
             Ok(path_str)
@@ -351,6 +356,107 @@ fn update_bookshelf_thumbnail(
 #[tauri::command(rename_all = "camelCase")]
 fn cancel_bookshelf_download(drive_file_id: String) -> Result<bool, String> {
     Ok(bookshelf::cancel_download(&drive_file_id))
+}
+
+/// Import local PDF files to bookshelf
+#[tauri::command]
+fn import_local_files(app: tauri::AppHandle, paths: Vec<String>) -> Result<bookshelf::ImportResult, String> {
+    let mut imported_count = 0;
+    let mut skipped_count = 0;
+    let mut error_count = 0;
+
+    for path in paths {
+        match bookshelf::import_local_file(&app, &path) {
+            Ok(item) => {
+                imported_count += 1;
+                // Try to extract PDF metadata
+                if let Ok(pdf_info) = get_pdf_info(item.local_path.clone().unwrap_or_default()) {
+                    let title = pdf_info.title.as_ref()
+                        .filter(|t| !t.trim().is_empty())
+                        .map(|s| s.as_str());
+                    let author = pdf_info.author.as_ref()
+                        .filter(|a| !a.trim().is_empty())
+                        .map(|s| s.as_str());
+                    if title.is_some() || author.is_some() {
+                        let _ = bookshelf::update_pdf_metadata(
+                            &app,
+                            item.drive_file_id.as_deref().unwrap_or(""),
+                            title,
+                            author
+                        );
+                    }
+                }
+            }
+            Err(e) => {
+                let error_str = format!("{:?}", e);
+                if error_str.contains("already imported") {
+                    skipped_count += 1;
+                } else {
+                    eprintln!("[Pedaru] Failed to import {}: {:?}", path, e);
+                    error_count += 1;
+                }
+            }
+        }
+    }
+
+    Ok(bookshelf::ImportResult {
+        imported_count,
+        skipped_count,
+        error_count,
+    })
+}
+
+/// Import all PDFs from a local directory to bookshelf
+#[tauri::command(rename_all = "camelCase")]
+fn import_local_directory(app: tauri::AppHandle, dir_path: String) -> Result<bookshelf::ImportResult, String> {
+    let result = bookshelf::import_local_directory(&app, &dir_path).map_err(|e| e.into_tauri_error())?;
+
+    // Extract metadata for newly imported files
+    if result.imported_count > 0 {
+        // Get all local items and update their metadata
+        if let Ok(items) = bookshelf::get_items(&app) {
+            for item in items.iter().filter(|i| i.source_type == "local" && i.pdf_title.is_none()) {
+                if let Some(local_path) = &item.local_path {
+                    if let Ok(pdf_info) = get_pdf_info(local_path.clone()) {
+                        let title = pdf_info.title.as_ref()
+                            .filter(|t| !t.trim().is_empty())
+                            .map(|s| s.as_str());
+                        let author = pdf_info.author.as_ref()
+                            .filter(|a| !a.trim().is_empty())
+                            .map(|s| s.as_str());
+                        if title.is_some() || author.is_some() {
+                            let _ = bookshelf::update_pdf_metadata(
+                                &app,
+                                item.drive_file_id.as_deref().unwrap_or(""),
+                                title,
+                                author
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+/// Delete a local item from bookshelf (removes both database entry and copied file)
+#[tauri::command(rename_all = "camelCase")]
+fn delete_bookshelf_item(app: tauri::AppHandle, item_id: i64) -> Result<(), String> {
+    bookshelf::delete_local_item(&app, item_id).map_err(|e| e.into_tauri_error())
+}
+
+/// Toggle favorite status for a bookshelf item
+#[tauri::command(rename_all = "camelCase")]
+fn toggle_bookshelf_favorite(app: tauri::AppHandle, item_id: i64) -> Result<bool, String> {
+    bookshelf::toggle_favorite(&app, item_id).map_err(|e| e.into_tauri_error())
+}
+
+/// Update last_opened timestamp when a PDF is opened from bookshelf
+#[tauri::command(rename_all = "camelCase")]
+fn update_bookshelf_last_opened(app: tauri::AppHandle, local_path: String) -> Result<(), String> {
+    bookshelf::update_last_opened(&app, &local_path).map_err(|e| e.into_tauri_error())
 }
 
 // ============================================================================
@@ -470,6 +576,12 @@ pub fn run() {
             reset_download_status,
             update_bookshelf_thumbnail,
             cancel_bookshelf_download,
+            // Local import commands
+            import_local_files,
+            import_local_directory,
+            delete_bookshelf_item,
+            toggle_bookshelf_favorite,
+            update_bookshelf_last_opened,
             // Gemini translation commands
             get_gemini_settings,
             save_gemini_settings,
@@ -480,6 +592,12 @@ pub fn run() {
             // Build and set the initial menu
             let menu = build_app_menu(app.handle()).map_err(|e| e.into_tauri_error())?;
             app.set_menu(menu)?;
+
+            // Ensure bookshelf schema is up to date
+            // This handles cases where tauri-plugin-sql migrations haven't run yet
+            if let Err(e) = bookshelf::ensure_schema(app.handle()) {
+                eprintln!("[Pedaru] Failed to ensure bookshelf schema: {}", e);
+            }
 
             // Reset any stale "downloading" statuses from previous sessions
             if let Err(e) = bookshelf::reset_stale_downloads(app.handle()) {

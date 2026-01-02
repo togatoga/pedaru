@@ -72,6 +72,11 @@ export default function BookshelfItem({
           <p className="text-sm text-text-primary truncate" title={displayName}>
             {displayName}
           </p>
+          {item.pdfAuthor && (
+            <p className="text-xs text-text-secondary truncate" title={item.pdfAuthor}>
+              {item.pdfAuthor}
+            </p>
+          )}
           <div className="flex items-center gap-2 text-xs text-text-tertiary">
             {item.fileSize && <span>{formatFileSize(item.fileSize)}</span>}
             {isDownloading && (
@@ -229,6 +234,11 @@ export default function BookshelfItem({
         >
           {displayName}
         </p>
+        {item.pdfAuthor && (
+          <p className="text-[10px] text-text-secondary truncate mt-0.5" title={item.pdfAuthor}>
+            {item.pdfAuthor}
+          </p>
+        )}
         {item.fileSize && (
           <p className="text-[10px] text-text-tertiary mt-0.5">
             {formatFileSize(item.fileSize)}

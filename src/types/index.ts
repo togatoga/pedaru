@@ -177,12 +177,17 @@ export interface SyncResult {
 export type DownloadStatus = 'pending' | 'downloading' | 'completed' | 'error';
 
 /**
- * A bookshelf item (PDF from Google Drive)
+ * Source type for bookshelf items
+ */
+export type SourceType = 'google_drive' | 'local';
+
+/**
+ * A bookshelf item (PDF from Google Drive or local file)
  */
 export interface BookshelfItem {
   id: number;
-  driveFileId: string;
-  driveFolderId: string;
+  driveFileId?: string;
+  driveFolderId?: string;
   fileName: string;
   fileSize?: number;
   thumbnailData?: string;
@@ -190,6 +195,21 @@ export interface BookshelfItem {
   downloadStatus: DownloadStatus;
   downloadProgress: number;
   pdfTitle?: string;
+  pdfAuthor?: string;
+  sourceType: SourceType;
+  originalPath?: string;
+  createdAt: number;
+  isFavorite: boolean;
+  lastOpened?: number;
+}
+
+/**
+ * Result of importing local files
+ */
+export interface ImportResult {
+  importedCount: number;
+  skippedCount: number;
+  errorCount: number;
 }
 
 /**
