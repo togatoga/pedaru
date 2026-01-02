@@ -3,7 +3,7 @@
 AI-enhanced PDF reader with Gemini translation
 
 ![Pedaru PDF Viewer](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
+![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 
 ## Features
 
@@ -130,7 +130,7 @@ AI-enhanced PDF reader with Gemini translation
 - **Frontend**: React, Next.js, TypeScript, Tailwind CSS
 - **Desktop**: Tauri 2.x (Rust)
 - **PDF Rendering**: react-pdf (PDF.js)
-- **Database**: SQLite (via tauri-plugin-sql)
+- **Database**: SQLite (via rusqlite)
 
 ## Development
 
@@ -216,4 +216,4 @@ npm run tauri build
 
 ## License
 
-MIT
+Apache 2.0 - See [LICENSE](./LICENSE) for details.
