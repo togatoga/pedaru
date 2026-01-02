@@ -9,43 +9,6 @@ import {
 // Mock Tauri dialog APIs
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   confirm: vi.fn().mockResolvedValue(true),
-  save: vi.fn().mockResolvedValue('/path/to/export.json'),
-  open: vi.fn().mockResolvedValue('/path/to/import.json'),
-}));
-
-// Mock Tauri FS APIs
-vi.mock('@tauri-apps/plugin-fs', () => ({
-  writeTextFile: vi.fn().mockResolvedValue(undefined),
-  readTextFile: vi.fn().mockResolvedValue(
-    JSON.stringify({
-      version: '1.0',
-      sessions: [
-        {
-          filePath: '/test.pdf',
-          lastOpened: Date.now(),
-          page: 1,
-        },
-      ],
-    })
-  ),
-}));
-
-// Mock database module
-vi.mock('@/lib/database', () => ({
-  getAllSessions: vi.fn().mockResolvedValue([
-    {
-      filePath: '/test.pdf',
-      name: 'test.pdf',
-      lastOpened: Date.now(),
-      page: 1,
-      zoom: 1.0,
-      viewMode: 'single',
-      tabs: [],
-      windows: [],
-      bookmarks: [],
-    },
-  ]),
-  importSessions: vi.fn().mockResolvedValue(1),
 }));
 
 // Mock event utilities - skip event listeners in tests

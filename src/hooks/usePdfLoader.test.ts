@@ -25,7 +25,6 @@ vi.mock('@/lib/database', () => ({
   getLastOpenedPath: vi.fn(),
   createDefaultState: vi.fn(),
   deleteSession: vi.fn(),
-  getAllSessions: vi.fn(),
 }));
 
 describe('usePdfLoader', () => {

@@ -553,12 +553,6 @@ fn handle_menu_event(app: &tauri::AppHandle, event_id: &str) {
         "reset_all_data" => {
             app.emit("reset-all-data-requested", ()).ok();
         }
-        "export_session_data" => {
-            app.emit("export-session-data-requested", ()).ok();
-        }
-        "import_session_data" => {
-            app.emit("import-session-data-requested", ()).ok();
-        }
         "open_file" => {
             app.emit("menu-open-file-requested", ()).ok();
         }

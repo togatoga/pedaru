@@ -190,27 +190,6 @@ Recent files list is automatically updated whenever a PDF session is saved (via 
 - Frontend handler: `src/app/page.tsx` (`menu-open-recent-selected` event listener)
 - Database queries: Uses `rusqlite` directly in Rust backend for menu creation
 
-### Session Data Export
-
-Users can export all session data via the menu bar:
-
-**Menu Location:** Pedaru → Export Session Data...
-
-**Implementation:**
-1. Retrieves all sessions from SQLite using `getAllSessions()` from `database.ts`
-2. Formats data as JSON with metadata (export date, version)
-3. Shows native save dialog with default filename: `pedaru-sessions-YYYY-MM-DD.json`
-4. Writes JSON file using `@tauri-apps/plugin-fs`
-
-**Export Format:**
-```json
-{
-  "exportDate": "2025-12-17T...",
-  "version": "1.0",
-  "sessions": [/* array of session objects */]
-}
-```
-
 ### Search Implementation
 
 Full-text search in `page.tsx` uses `requestIdleCallback` for non-blocking incremental search:

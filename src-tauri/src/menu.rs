@@ -27,22 +27,6 @@ fn build_app_menu_internal(app: &tauri::AppHandle) -> anyhow::Result<Menu<tauri:
         None::<&str>,
     )?;
 
-    let export_item = MenuItem::with_id(
-        app,
-        "export_session_data",
-        "Export Session Data...",
-        true,
-        None::<&str>,
-    )?;
-
-    let import_item = MenuItem::with_id(
-        app,
-        "import_session_data",
-        "Import Session Data...",
-        true,
-        None::<&str>,
-    )?;
-
     let settings_item = MenuItem::with_id(app, "open_settings", "Settings...", true, None::<&str>)?;
 
     // File menu items
@@ -117,8 +101,6 @@ fn build_app_menu_internal(app: &tauri::AppHandle) -> anyhow::Result<Menu<tauri:
             &settings_item,
             &PredefinedMenuItem::separator(app)?,
             &reset_item,
-            &import_item,
-            &export_item,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::services(app, None)?,
             &PredefinedMenuItem::separator(app)?,
@@ -211,7 +193,7 @@ fn build_app_menu_internal(app: &tauri::AppHandle) -> anyhow::Result<Menu<tauri:
 /// Build the application menu with recent files
 ///
 /// This creates the complete menu structure including:
-/// - Pedaru menu (About, Initialize, Export/Import, Quit)
+/// - Pedaru menu (About, Settings, Initialize, Quit)
 /// - File menu (Open, Open Recent)
 /// - Edit menu (standard editing commands)
 /// - View menu (zoom controls, view modes)

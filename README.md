@@ -48,7 +48,6 @@ AI-enhanced PDF reader with Gemini translation
 - **SQLite Database**: All session data stored in local SQLite database
 - **Auto-Save**: Page position, zoom, bookmarks, tabs, and windows saved automatically
 - **Cross-Session**: Resume exactly where you left off when reopening PDFs
-- **Export**: Export all session data as JSON (Pedaru → Export Session Data...)
 - **Open Recent**: Quick access to recently opened PDFs from File → Open Recent menu
 
 ### 🔖 Bookmarks

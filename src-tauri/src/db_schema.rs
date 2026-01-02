@@ -294,5 +294,13 @@ pub fn get_migrations() -> Vec<Migration> {
                   CREATE INDEX idx_local_favorite ON bookshelf_local(is_favorite);",
             kind: MigrationKind::Up,
         },
+        // Migration V13: Drop unused google_auth table
+        // OAuth credentials and tokens are now stored in Stronghold (encrypted vault)
+        Migration {
+            version: 13,
+            description: "drop_unused_google_auth_table",
+            sql: "DROP TABLE IF EXISTS google_auth;",
+            kind: MigrationKind::Up,
+        },
     ]
 }
