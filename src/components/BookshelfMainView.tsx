@@ -154,6 +154,8 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
       const folders = await listDriveFolders(folderId || undefined);
       setBrowseFolders(folders);
       setCurrentFolderId(folderId);
+    } catch (err) {
+      console.error('Failed to browse folders:', err);
     } finally {
       setIsBrowsing(false);
     }
@@ -652,10 +654,12 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                         if (!hasCheckedAuth) {
                           const status = await checkAuthStatus();
                           if (!status?.authenticated) {
-                            console.error('Not authenticated');
                             return;
                           }
+                        } else if (!authStatus.authenticated) {
+                          return;
                         }
+                        setShowSettings(false); // Close settings first
                         setShowFolderBrowser(true);
                         browseFolderContents(null);
                       }}
@@ -903,18 +907,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
         <div className="flex-1 flex flex-col items-center justify-center p-8">
           <Library className="w-20 h-20 text-text-tertiary mb-6" />
           <p className="text-lg text-text-secondary mb-2">Bookshelf is empty</p>
-          <p className="text-text-tertiary text-center mb-6">
-            {authStatus.authenticated
-              ? 'Add a folder in settings and sync'
-              : 'Connect to Google Drive to sync PDFs'}
+          <p className="text-text-tertiary text-center">
+            Click the + button to add PDFs
           </p>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="px-6 py-3 bg-accent/20 text-accent rounded-lg hover:bg-accent/30 transition-colors flex items-center gap-2"
-          >
-            <Settings className="w-5 h-5" />
-            Open Settings
-          </button>
         </div>
       ) : (
         <div className="flex-1 min-h-0 flex flex-col">
