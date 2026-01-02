@@ -87,6 +87,7 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
   const [selectedFiles, setSelectedFiles] = useState<DriveItem[]>([]);
   const [folderPath, setFolderPath] = useState<Array<{ id: string; name: string }>>([]);
   const [isBrowsing, setIsBrowsing] = useState(false);
+  const [browserViewMode, setBrowserViewMode] = useState<'grid' | 'list'>('grid');
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -755,12 +756,25 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
             <Cloud className="w-5 h-5 text-accent" />
             <span className="text-lg font-medium text-text-primary">Import from Google Drive</span>
           </div>
-          <button
-            onClick={() => { setShowFolderBrowser(false); setFolderPath([]); setSelectedFiles([]); }}
-            className="p-2 hover:bg-bg-tertiary rounded"
-          >
-            <X className="w-5 h-5 text-text-secondary" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setBrowserViewMode(browserViewMode === 'grid' ? 'list' : 'grid')}
+              className="p-2 hover:bg-bg-tertiary rounded transition-colors"
+              title={browserViewMode === 'grid' ? 'List view' : 'Grid view'}
+            >
+              {browserViewMode === 'grid' ? (
+                <List className="w-5 h-5 text-text-secondary" />
+              ) : (
+                <Grid className="w-5 h-5 text-text-secondary" />
+              )}
+            </button>
+            <button
+              onClick={() => { setShowFolderBrowser(false); setFolderPath([]); setSelectedFiles([]); }}
+              className="p-2 hover:bg-bg-tertiary rounded"
+            >
+              <X className="w-5 h-5 text-text-secondary" />
+            </button>
+          </div>
         </div>
 
         <div className="px-6 py-3 border-b border-bg-tertiary flex items-center gap-2 text-sm flex-wrap">
@@ -784,9 +798,83 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
             </div>
           ) : browseItems.length === 0 ? (
             <div className="text-center py-12 text-text-tertiary">No folders or PDF files found</div>
+          ) : browserViewMode === 'grid' ? (
+            /* Grid view */
+            <div className="space-y-6">
+              {/* Folders section - grid */}
+              {folders.length > 0 && (
+                <div>
+                  <h3 className="text-xs uppercase text-text-tertiary mb-3 px-1">Folders</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                    {folders.map((folder, index) => (
+                      <button
+                        key={folder.id || `folder-${index}`}
+                        onClick={() => navigateToFolder(folder)}
+                        className="p-4 bg-bg-tertiary hover:bg-bg-secondary rounded-lg flex flex-col items-center gap-2 transition-colors"
+                      >
+                        <FolderOpen className="w-12 h-12 text-accent" />
+                        <span className="text-text-primary text-sm truncate w-full text-center">{folder.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Files section - grid with thumbnails */}
+              {files.length > 0 && (
+                <div>
+                  <h3 className="text-xs uppercase text-text-tertiary mb-3 px-1">PDF Files ({files.length})</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                    {files.map((file, index) => {
+                      const isSelected = selectedFiles.some((f) => f.id === file.id);
+                      return (
+                        <button
+                          key={file.id || `file-${index}`}
+                          onClick={() => toggleFileSelection(file)}
+                          className={`relative rounded-lg overflow-hidden transition-all ${
+                            isSelected ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg-primary' : 'hover:ring-1 hover:ring-text-tertiary'
+                          }`}
+                        >
+                          <div className="aspect-[3/4] bg-bg-tertiary flex items-center justify-center">
+                            {file.thumbnailLink ? (
+                              <img
+                                src={file.thumbnailLink}
+                                alt={file.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  // Fallback to icon if thumbnail fails to load
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <FileText className={`w-12 h-12 text-text-tertiary ${file.thumbnailLink ? 'hidden' : ''}`} />
+                          </div>
+                          <div className="p-2 bg-bg-secondary">
+                            <p className="text-xs text-text-primary truncate">{file.name}</p>
+                            {file.size && (
+                              <p className="text-xs text-text-tertiary">
+                                {(parseInt(file.size) / (1024 * 1024)).toFixed(1)} MB
+                              </p>
+                            )}
+                          </div>
+                          {/* Selection indicator */}
+                          <div className={`absolute top-2 left-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                            isSelected ? 'bg-accent border-accent' : 'bg-black/30 border-white/50'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 text-white" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
+            /* List view */
             <div className="space-y-4">
-              {/* Folders section */}
+              {/* Folders section - list */}
               {folders.length > 0 && (
                 <div>
                   <h3 className="text-xs uppercase text-text-tertiary mb-2 px-2">Folders</h3>
@@ -807,10 +895,10 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                 </div>
               )}
 
-              {/* Files section */}
+              {/* Files section - list with thumbnails */}
               {files.length > 0 && (
                 <div>
-                  <h3 className="text-xs uppercase text-text-tertiary mb-2 px-2">PDF Files</h3>
+                  <h3 className="text-xs uppercase text-text-tertiary mb-2 px-2">PDF Files ({files.length})</h3>
                   <ul className="space-y-1">
                     {files.map((file, index) => {
                       const isSelected = selectedFiles.some((f) => f.id === file.id);
@@ -818,19 +906,33 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                         <li key={file.id || `file-${index}`}>
                           <button
                             onClick={() => toggleFileSelection(file)}
-                            className={`w-full px-4 py-3 flex items-center gap-3 rounded-lg text-left transition-colors ${
+                            className={`w-full px-4 py-2 flex items-center gap-3 rounded-lg text-left transition-colors ${
                               isSelected ? 'bg-accent/20 border border-accent' : 'hover:bg-bg-tertiary border border-transparent'
                             }`}
                           >
-                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
                               isSelected ? 'bg-accent border-accent' : 'border-text-tertiary'
                             }`}>
                               {isSelected && <Check className="w-3 h-3 text-white" />}
                             </div>
-                            <FileText className="w-5 h-5 text-text-secondary" />
+                            {/* Thumbnail */}
+                            <div className="w-10 h-14 bg-bg-tertiary rounded overflow-hidden flex items-center justify-center shrink-0">
+                              {file.thumbnailLink ? (
+                                <img
+                                  src={file.thumbnailLink}
+                                  alt={file.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                  }}
+                                />
+                              ) : null}
+                              <FileText className={`w-5 h-5 text-text-tertiary ${file.thumbnailLink ? 'hidden' : ''}`} />
+                            </div>
                             <span className="text-text-primary truncate flex-1">{file.name}</span>
                             {file.size && (
-                              <span className="text-xs text-text-tertiary">
+                              <span className="text-xs text-text-tertiary shrink-0">
                                 {(parseInt(file.size) / (1024 * 1024)).toFixed(1)} MB
                               </span>
                             )}

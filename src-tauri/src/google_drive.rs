@@ -54,6 +54,7 @@ pub struct DriveItem {
     pub size: Option<String>,
     pub mime_type: String,
     pub modified_time: Option<String>,
+    pub thumbnail_link: Option<String>,
     pub is_folder: bool,
 }
 
@@ -136,7 +137,7 @@ pub async fn list_drive_items(
         .bearer_auth(&access_token)
         .query(&[
             ("q", query.as_str()),
-            ("fields", "files(id,name,size,mimeType,modifiedTime)"),
+            ("fields", "files(id,name,size,mimeType,modifiedTime,thumbnailLink)"),
             ("orderBy", "folder,name"),
             ("pageSize", "100"),
         ])
@@ -151,7 +152,7 @@ pub async fn list_drive_items(
         )));
     }
 
-// Parse raw response first
+    // Parse raw response first
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct RawItem {
@@ -160,6 +161,7 @@ pub async fn list_drive_items(
         size: Option<String>,
         mime_type: String,
         modified_time: Option<String>,
+        thumbnail_link: Option<String>,
     }
 
     #[derive(Deserialize)]
@@ -183,6 +185,7 @@ pub async fn list_drive_items(
             is_folder: item.mime_type == "application/vnd.google-apps.folder",
             mime_type: item.mime_type,
             modified_time: item.modified_time,
+            thumbnail_link: item.thumbnail_link,
         })
         .collect();
 

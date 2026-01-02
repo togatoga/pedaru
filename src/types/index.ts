@@ -157,6 +157,7 @@ export interface DriveItem {
   size?: string;
   mimeType: string;
   modifiedTime?: string;
+  thumbnailLink?: string;
   isFolder: boolean;
 }
 
