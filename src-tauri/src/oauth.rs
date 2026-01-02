@@ -378,8 +378,8 @@ fn exchange_code_for_tokens(app: &AppHandle, code: &str) -> Result<(), PedaruErr
     Ok(())
 }
 
-/// Refresh access token using refresh token
-pub fn refresh_access_token(app: &AppHandle) -> Result<String, PedaruError> {
+/// Refresh access token using refresh token (async version)
+pub async fn refresh_access_token(app: &AppHandle) -> Result<String, PedaruError> {
     let auth_state = load_auth_state(app)?.ok_or(PedaruError::OAuth(OAuthError::NotConfigured))?;
 
     let refresh_token =
@@ -389,7 +389,7 @@ pub fn refresh_access_token(app: &AppHandle) -> Result<String, PedaruError> {
                 "No refresh token".to_string(),
             )))?;
 
-    let client = reqwest::blocking::Client::new();
+    let client = reqwest::Client::new();
     let response = client
         .post(GOOGLE_TOKEN_URL)
         .form(&[
@@ -399,10 +399,11 @@ pub fn refresh_access_token(app: &AppHandle) -> Result<String, PedaruError> {
             ("grant_type", "refresh_token"),
         ])
         .send()
+        .await
         .map_err(|e| PedaruError::OAuth(OAuthError::HttpRequestFailed(e.to_string())))?;
 
     if !response.status().is_success() {
-        let error_text = response.text().unwrap_or_default();
+        let error_text = response.text().await.unwrap_or_default();
         return Err(PedaruError::OAuth(OAuthError::TokenRefreshFailed(
             error_text,
         )));
@@ -410,6 +411,7 @@ pub fn refresh_access_token(app: &AppHandle) -> Result<String, PedaruError> {
 
     let token_response: TokenResponse = response
         .json()
+        .await
         .map_err(|e| PedaruError::OAuth(OAuthError::InvalidResponse(e.to_string())))?;
 
     save_tokens(
@@ -422,8 +424,8 @@ pub fn refresh_access_token(app: &AppHandle) -> Result<String, PedaruError> {
     Ok(token_response.access_token)
 }
 
-/// Get valid access token (refreshing if necessary)
-pub fn get_valid_access_token(app: &AppHandle) -> Result<String, PedaruError> {
+/// Get valid access token (refreshing if necessary) - async version
+pub async fn get_valid_access_token(app: &AppHandle) -> Result<String, PedaruError> {
     let auth_state = load_auth_state(app)?.ok_or(PedaruError::OAuth(OAuthError::NotConfigured))?;
 
     let access_token = auth_state.access_token.ok_or(PedaruError::GoogleDrive(
@@ -440,7 +442,7 @@ pub fn get_valid_access_token(app: &AppHandle) -> Result<String, PedaruError> {
         && now >= expiry - 300
     {
         // Token expired or expiring soon, refresh it
-        return refresh_access_token(app);
+        return refresh_access_token(app).await;
     }
 
     Ok(access_token)

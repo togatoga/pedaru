@@ -556,9 +556,9 @@ export default function BookshelfSidebar({ onOpenPdf, currentFilePath }: Bookshe
               <Grid className="w-4 h-4 text-text-secondary" />
             )}
           </button>
-          {authStatus.authenticated && (
+          {authStatus.configured && (
             <button
-              onClick={sync}
+              onClick={handleSync}
               disabled={isSyncing}
               className="p-1.5 hover:bg-bg-tertiary rounded transition-colors"
               title="Sync with Google Drive"

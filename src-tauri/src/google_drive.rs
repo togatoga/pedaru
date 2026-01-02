@@ -75,7 +75,7 @@ pub async fn list_folders(
     app: &AppHandle,
     parent_id: Option<&str>,
 ) -> Result<Vec<DriveFolder>, PedaruError> {
-    let access_token = get_valid_access_token(app)?;
+    let access_token = get_valid_access_token(app).await?;
     let client = Client::new();
 
     let parent = parent_id.unwrap_or("root");
@@ -122,7 +122,7 @@ pub async fn list_drive_items(
     app: &AppHandle,
     parent_id: Option<&str>,
 ) -> Result<Vec<DriveItem>, PedaruError> {
-    let access_token = get_valid_access_token(app)?;
+    let access_token = get_valid_access_token(app).await?;
     let client = Client::new();
 
     let parent = parent_id.unwrap_or("root");
@@ -218,7 +218,7 @@ pub async fn list_pdf_files(
     app: &AppHandle,
     folder_id: &str,
 ) -> Result<Vec<DriveFile>, PedaruError> {
-    let access_token = get_valid_access_token(app)?;
+    let access_token = get_valid_access_token(app).await?;
     let client = Client::new();
 
     let mut all_files = Vec::new();
@@ -303,7 +303,7 @@ async fn download_file_inner(
     dest_path: &Path,
     cancel_flag: &Arc<AtomicBool>,
 ) -> Result<(), PedaruError> {
-    let access_token = get_valid_access_token(app)?;
+    let access_token = get_valid_access_token(app).await?;
     let client = Client::new();
 
     // Check for cancellation before starting
