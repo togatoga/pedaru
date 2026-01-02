@@ -22,6 +22,7 @@ pub mod menu;
 pub mod oauth;
 pub mod pdf;
 pub mod secrets;
+pub mod session;
 pub mod settings;
 pub mod types;
 
@@ -539,6 +540,44 @@ async fn explain_directly(
 }
 
 // ============================================================================
+// Session Commands
+// ============================================================================
+
+/// Save session state for a PDF file
+#[tauri::command(rename_all = "camelCase")]
+fn save_session(
+    app: tauri::AppHandle,
+    file_path: String,
+    state: types::PdfSessionState,
+) -> Result<(), String> {
+    session::save_session(&app, &file_path, state).map_err(|e| e.into_tauri_error())
+}
+
+/// Load session state for a PDF file
+#[tauri::command(rename_all = "camelCase")]
+fn load_session(
+    app: tauri::AppHandle,
+    file_path: String,
+) -> Result<Option<types::PdfSessionState>, String> {
+    session::load_session(&app, &file_path).map_err(|e| e.into_tauri_error())
+}
+
+/// Delete a session by file path
+#[tauri::command(rename_all = "camelCase")]
+fn delete_session(app: tauri::AppHandle, file_path: String) -> Result<(), String> {
+    session::delete_session(&app, &file_path).map_err(|e| e.into_tauri_error())
+}
+
+/// Get recent files list
+#[tauri::command(rename_all = "camelCase")]
+fn get_recent_files(
+    app: tauri::AppHandle,
+    limit: Option<i32>,
+) -> Result<Vec<types::RecentFileInfo>, String> {
+    session::get_recent_files(&app, limit.unwrap_or(10)).map_err(|e| e.into_tauri_error())
+}
+
+// ============================================================================
 // Event Handlers
 // ============================================================================
 
@@ -788,7 +827,12 @@ pub fn run() {
             get_gemini_settings,
             save_gemini_settings,
             translate_with_gemini,
-            explain_directly
+            explain_directly,
+            // Session commands
+            save_session,
+            load_session,
+            delete_session,
+            get_recent_files
         ])
         .setup(|app| {
             // Build and set the initial menu

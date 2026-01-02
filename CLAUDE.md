@@ -93,7 +93,14 @@ Session state is stored in SQLite database with per-PDF granularity:
 **Additional Storage:**
 - `pedaru_last_opened_path` in localStorage - Quick access to most recently opened file
 
-Session saves are debounced (500ms) to avoid excessive database writes. The session restoration logic is in `page.tsx` using refs to avoid circular dependencies. Database operations are handled by `src/lib/database.ts` using `tauri-plugin-sql`.
+Session saves are debounced (500ms) to avoid excessive database writes. The session restoration logic is in `page.tsx` using refs to avoid circular dependencies.
+
+**IMPORTANT: Database operations must be implemented in Rust, not in the frontend.**
+- All DB operations are exposed as Tauri commands (`save_session`, `load_session`, `delete_session`, `get_recent_files`)
+- Frontend uses `invoke()` to call these commands - see `src/lib/database.ts`
+- Rust backend uses `rusqlite` directly - see `src-tauri/src/session.rs` and `src-tauri/src/db.rs`
+- Migrations are managed by `tauri-plugin-sql` (Rust side only, no frontend access)
+- Frontend does NOT have SQL capabilities - `sql:*` permissions are removed from capabilities
 
 ### Component Structure
 
@@ -159,11 +166,18 @@ When working with PDF metadata or TOC parsing, be aware of encoding issues, espe
 
 ### Database Structure (Rust Backend)
 
-The SQLite database is initialized in `src-tauri/src/lib.rs` using `tauri-plugin-sql`:
+The SQLite database is initialized in `src-tauri/src/lib.rs` using `tauri-plugin-sql` for migrations only.
+**Frontend does NOT have direct database access** - all operations go through Tauri commands.
 
 **Schema Definition:**
 - `src-tauri/src/db_schema.rs` - Migration loader using `include_str!`
 - `src-tauri/src/migrations/001_initial_schema.sql` - Consolidated initial schema
+
+**Session Operations (`src-tauri/src/session.rs`):**
+- `save_session()` - Save session state (exposed as Tauri command)
+- `load_session()` - Load session state (exposed as Tauri command)
+- `delete_session()` - Delete session (exposed as Tauri command)
+- `get_recent_files()` - Get recent files list (exposed as Tauri command)
 
 **Tables:**
 - `sessions` - Per-PDF session state (page, zoom, view mode, etc.)
@@ -182,7 +196,7 @@ The SQLite database is initialized in `src-tauri/src/lib.rs` using `tauri-plugin
 - LRU cleanup keeps only 50 most recent sessions
 
 **Database Operations:**
-All database operations are performed directly from the frontend using `@tauri-apps/plugin-sql`. No custom Rust commands needed - the plugin provides SQL query functionality via JavaScript/TypeScript.
+All database operations are performed through Tauri commands implemented in Rust. The frontend calls `invoke()` with command names like `save_session`, `load_session`, etc. See `src/lib/database.ts` for the frontend wrapper and `src-tauri/src/session.rs` for the Rust implementation.
 
 ### Open Recent Files
 

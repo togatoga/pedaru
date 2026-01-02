@@ -39,6 +39,93 @@ pub struct PdfInfo {
     pub toc: Vec<TocEntry>,
 }
 
+// ============================================
+// Session-related types
+// ============================================
+
+/// Tab state for database storage
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TabState {
+    /// Page number of the tab
+    pub page: u32,
+    /// Display label for the tab
+    pub label: String,
+}
+
+/// Window state for standalone windows
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowState {
+    /// Page number displayed in the window
+    pub page: u32,
+    /// Zoom level
+    pub zoom: f64,
+    /// View mode ("single" or "two-column")
+    pub view_mode: String,
+}
+
+/// Bookmark state for database storage
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BookmarkState {
+    /// Page number of the bookmark
+    pub page: u32,
+    /// User-defined label for the bookmark
+    pub label: String,
+    /// Unix timestamp when bookmark was created
+    pub created_at: i64,
+}
+
+/// History entry for page navigation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HistoryEntry {
+    /// Page number visited
+    pub page: u32,
+    /// Timestamp as string (for compatibility with frontend)
+    pub timestamp: String,
+}
+
+/// Complete PDF session state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfSessionState {
+    /// PDF filename or title
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// Unix timestamp of last access
+    pub last_opened: i64,
+    /// Current page number
+    pub page: u32,
+    /// Zoom level (1.0 = 100%)
+    pub zoom: f64,
+    /// View mode ("single" or "two-column")
+    pub view_mode: String,
+    /// Index of active tab, if any
+    pub active_tab_index: Option<i32>,
+    /// List of open tabs
+    pub tabs: Vec<TabState>,
+    /// List of standalone windows
+    pub windows: Vec<WindowState>,
+    /// List of bookmarks
+    pub bookmarks: Vec<BookmarkState>,
+    /// Page navigation history
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_history: Option<Vec<HistoryEntry>>,
+    /// Current position in history for back/forward navigation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub history_index: Option<i32>,
+}
+
+/// Recent file info for get_recent_files command
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentFileInfo {
+    /// Absolute path to the PDF file
+    pub file_path: String,
+    /// Unix timestamp of last access
+    pub last_opened: i64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

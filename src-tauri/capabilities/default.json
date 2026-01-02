@@ -37,10 +37,6 @@
         { "path": "$APPCONFIG/**" },
         { "path": "$APPDATA/**" }
       ]
-    },
-    "sql:default",
-    "sql:allow-load",
-    "sql:allow-select",
-    "sql:allow-execute"
+    }
   ]
 }

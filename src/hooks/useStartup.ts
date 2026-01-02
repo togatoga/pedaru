@@ -173,7 +173,7 @@ export function useStartup(config: UseStartupConfig): void {
           setCurrentPage(1);
           setZoom(1.0);
           setViewMode('single');
-          localStorage.setItem('dorper_last_opened_path', decodedPath);
+          localStorage.setItem('pedaru_last_opened_path', decodedPath);
         } else {
           alert('Failed to load PDF file');
         }
