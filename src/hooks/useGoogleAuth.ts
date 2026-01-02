@@ -47,18 +47,21 @@ export function useGoogleAuth() {
   /**
    * Check current authentication status
    * This will trigger Keychain access - only call when user wants to use Google Drive
+   * @returns The auth status, or null if an error occurred
    */
-  const checkAuthStatus = useCallback(async () => {
+  const checkAuthStatus = useCallback(async (): Promise<AuthStatus | null> => {
     try {
       setIsLoading(true);
       const status = await invoke<AuthStatus>('get_google_auth_status');
       setAuthStatus(status);
       setHasCheckedAuth(true);
       setError(null);
+      return status;
     } catch (err) {
       console.error('Failed to check auth status:', err);
       setError(String(err));
       setHasCheckedAuth(true);
+      return null;
     } finally {
       setIsLoading(false);
     }

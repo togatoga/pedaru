@@ -611,7 +611,7 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
             </div>
           )}
 
-          {authStatus.configured && (
+          {(authStatus.configured || hasCheckedAuth) && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <span className="text-text-primary">
@@ -642,12 +642,20 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                 </button>
               </div>
 
-              {authStatus.authenticated && (
+              {(authStatus.authenticated || hasCheckedAuth) && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm text-text-tertiary">Synced Folders</span>
                     <button
-                      onClick={() => {
+                      onClick={async () => {
+                        // Ensure auth is checked before browsing folders
+                        if (!hasCheckedAuth) {
+                          const status = await checkAuthStatus();
+                          if (!status?.authenticated) {
+                            console.error('Not authenticated');
+                            return;
+                          }
+                        }
                         setShowFolderBrowser(true);
                         browseFolderContents(null);
                       }}
