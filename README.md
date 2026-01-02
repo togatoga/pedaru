@@ -213,7 +213,3 @@ npm run tauri build
 # 2. Or drag a PDF onto Pedaru.app icon
 # 3. Or double-click a PDF after setting Pedaru as default PDF app
 ```
-
-## License
-
-Apache 2.0 - See [LICENSE](./LICENSE) for details.
