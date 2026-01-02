@@ -6,7 +6,7 @@ import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { emitTo, listen } from '@tauri-apps/api/event';
 import ReactMarkdown from 'react-markdown';
 import type { TextSelection, GeminiSettings, TranslationResponse, ViewMode } from '@/types';
-import { translateWithGemini, explainTranslation, isGeminiConfigured, getGeminiSettings, GEMINI_MODELS } from '@/lib/settings';
+import { translateWithGemini, explainDirectly, isGeminiConfigured, getGeminiSettings, GEMINI_MODELS } from '@/lib/settings';
 import type { TranslationPopupProps } from '@/types/components';
 
 // Custom components for ReactMarkdown to render ***text*** with yellow highlight
@@ -76,6 +76,7 @@ export default function TranslationPopup({
   currentPage = 1,
 }: TranslationPopupProps) {
   const [translationResponse, setTranslationResponse] = useState<TranslationResponse | null>(null);
+  const [explanationSummary, setExplanationSummary] = useState<string | null>(null);
   const [explanationPoints, setExplanationPoints] = useState<string[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExplaining, setIsExplaining] = useState(false);
@@ -198,9 +199,9 @@ export default function TranslationPopup({
     };
   }, [isDragging]);
 
-  // Initial translation - wait for context to be loaded
+  // Initial translation or explanation - wait for context to be loaded
   useEffect(() => {
-    // Don't start translation while context is still loading
+    // Don't start while context is still loading
     if (selection.contextLoading) {
       setIsLoading(true);
       return;
@@ -208,10 +209,11 @@ export default function TranslationPopup({
 
     let cancelled = false;
 
-    const doTranslate = async () => {
+    const doProcess = async () => {
       setIsLoading(true);
       setError(null);
       setTranslationResponse(null);
+      setExplanationSummary(null);
       setExplanationPoints(null);
 
       const configured = await isGeminiConfigured();
@@ -225,16 +227,34 @@ export default function TranslationPopup({
         const settings = await getGeminiSettings();
         setGeminiSettingsState(settings);
 
-        // Use the translation model setting
-        const result = await translateWithGemini(
-          selection.selectedText,
-          selection.context,
-          settings.model
-        );
+        if (autoExplain) {
+          // Direct explanation mode - skip translation, get explanation only
+          const result = await explainDirectly(
+            selection.selectedText,
+            selection.context,
+            settings.explanationModel
+          );
 
-        if (!cancelled) {
-          console.log('Translation result:', JSON.stringify(result, null, 2));
-          setTranslationResponse(result);
+          if (!cancelled) {
+            console.log('Explanation result:', JSON.stringify(result, null, 2));
+            // Store summary and points from ExplanationResponse
+            setExplanationSummary(result.summary);
+            setExplanationPoints(result.points);
+            // Set a minimal translationResponse to trigger UI rendering
+            setTranslationResponse({ translation: '', points: [] });
+          }
+        } else {
+          // Translation mode
+          const result = await translateWithGemini(
+            selection.selectedText,
+            selection.context,
+            settings.model
+          );
+
+          if (!cancelled) {
+            console.log('Translation result:', JSON.stringify(result, null, 2));
+            setTranslationResponse(result);
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -247,12 +267,12 @@ export default function TranslationPopup({
       }
     };
 
-    doTranslate();
+    doProcess();
 
     return () => {
       cancelled = true;
     };
-  }, [selection]);
+  }, [selection, autoExplain]);
 
   // Handle "解説" button click - get more detailed explanation
   const handleExplain = useCallback(() => {
@@ -264,13 +284,14 @@ export default function TranslationPopup({
     // Use setTimeout to allow React to re-render before the blocking API call
     setTimeout(async () => {
       try {
-        const result = await explainTranslation(
+        const result = await explainDirectly(
           selection.selectedText,
-          translationResponse.translation,
+          selection.context,
           geminiSettings.explanationModel
         );
 
-        // Only update the explanation points, keep the original translation
+        // Update the explanation summary and points, keep the original translation
+        setExplanationSummary(result.summary);
         setExplanationPoints(result.points);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -278,14 +299,10 @@ export default function TranslationPopup({
         setIsExplaining(false);
       }
     }, 0);
-  }, [translationResponse, isExplaining, geminiSettings, selection.selectedText]);
+  }, [translationResponse, isExplaining, geminiSettings, selection.selectedText, selection.context]);
 
-  // Auto-trigger explanation when autoExplain is true and translation is done
-  useEffect(() => {
-    if (autoExplain && translationResponse && !isLoading && !explanationPoints && !isExplaining && geminiSettings) {
-      handleExplain();
-    }
-  }, [autoExplain, translationResponse, isLoading, explanationPoints, isExplaining, geminiSettings, handleExplain]);
+  // Note: Auto-trigger explanation is no longer needed
+  // In autoExplain mode, we call explainDirectly in the initial useEffect
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -449,51 +466,92 @@ export default function TranslationPopup({
               </p>
             </CollapsibleSection>
 
-            {/* Translation Section */}
-            <CollapsibleSection
-              title="翻訳"
-              icon={MessageSquare}
-              defaultOpen={true}
-            >
-              <p className="text-text-primary text-sm leading-relaxed">
-                {translationResponse.translation || '(翻訳結果がありません)'}
-              </p>
-            </CollapsibleSection>
-
-            {/* Points Section */}
-            <CollapsibleSection
-              title="翻訳のポイント"
-              icon={BookOpen}
-              defaultOpen={true}
-            >
-              {translationResponse.points && translationResponse.points.length > 0 ? (
-                <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
-                  {translationResponse.points.map((point, index) => (
-                    <li key={index}>
-                      <ReactMarkdown components={markdownComponents}>{point}</ReactMarkdown>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-text-tertiary text-sm">(ポイントがありません)</p>
-              )}
-            </CollapsibleSection>
-
-            {/* Explanation Section (shown after clicking 解説 button) */}
-            {explanationPoints && explanationPoints.length > 0 && (
+            {/* In autoExplain mode with explanation loaded: show only explanation */}
+            {autoExplain && (explanationSummary || (explanationPoints && explanationPoints.length > 0)) ? (
               <CollapsibleSection
                 title="解説"
                 icon={Sparkles}
                 defaultOpen={true}
               >
-                <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
-                  {explanationPoints.map((point, index) => (
-                    <li key={index}>
-                      <ReactMarkdown components={markdownComponents}>{point}</ReactMarkdown>
-                    </li>
-                  ))}
-                </ul>
+                <div className="space-y-3">
+                  {/* Summary */}
+                  {explanationSummary && (
+                    <div className="text-text-primary text-sm font-medium bg-accent/10 p-2 rounded border-l-2 border-accent">
+                      <ReactMarkdown components={markdownComponents}>{explanationSummary}</ReactMarkdown>
+                    </div>
+                  )}
+                  {/* Points */}
+                  {explanationPoints && explanationPoints.length > 0 && (
+                    <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
+                      {explanationPoints.map((point, index) => (
+                        <li key={index}>
+                          <ReactMarkdown components={markdownComponents}>{point}</ReactMarkdown>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </CollapsibleSection>
+            ) : (
+              <>
+                {/* Translation Section */}
+                <CollapsibleSection
+                  title="翻訳"
+                  icon={MessageSquare}
+                  defaultOpen={true}
+                >
+                  <p className="text-text-primary text-sm leading-relaxed">
+                    {translationResponse.translation || '(翻訳結果がありません)'}
+                  </p>
+                </CollapsibleSection>
+
+                {/* Points Section */}
+                <CollapsibleSection
+                  title="翻訳のポイント"
+                  icon={BookOpen}
+                  defaultOpen={true}
+                >
+                  {translationResponse.points && translationResponse.points.length > 0 ? (
+                    <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
+                      {translationResponse.points.map((point, index) => (
+                        <li key={index}>
+                          <ReactMarkdown components={markdownComponents}>{point}</ReactMarkdown>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-text-tertiary text-sm">(ポイントがありません)</p>
+                  )}
+                </CollapsibleSection>
+
+                {/* Explanation Section (shown after clicking 解説 button in translation mode) */}
+                {(explanationSummary || (explanationPoints && explanationPoints.length > 0)) && (
+                  <CollapsibleSection
+                    title="解説"
+                    icon={Sparkles}
+                    defaultOpen={true}
+                  >
+                    <div className="space-y-3">
+                      {/* Summary */}
+                      {explanationSummary && (
+                        <div className="text-text-primary text-sm font-medium bg-accent/10 p-2 rounded border-l-2 border-accent">
+                          <ReactMarkdown components={markdownComponents}>{explanationSummary}</ReactMarkdown>
+                        </div>
+                      )}
+                      {/* Points */}
+                      {explanationPoints && explanationPoints.length > 0 && (
+                        <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
+                          {explanationPoints.map((point, index) => (
+                            <li key={index}>
+                              <ReactMarkdown components={markdownComponents}>{point}</ReactMarkdown>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </CollapsibleSection>
+                )}
+              </>
             )}
           </div>
         )}
@@ -504,13 +562,15 @@ export default function TranslationPopup({
         <div className="px-3 py-2 border-t border-bg-tertiary bg-bg-tertiary/30 flex items-center justify-between gap-2">
           {/* Model indicators */}
           <div className="flex items-center gap-3 text-xs text-text-tertiary">
-            {geminiSettings && (
+            {/* Show translation model only when not in autoExplain mode */}
+            {!autoExplain && geminiSettings && (
               <div className="flex items-center gap-1.5">
                 <Cpu className="w-3 h-3" />
                 <span>翻訳: {GEMINI_MODELS.find(m => m.id === geminiSettings.model)?.name || geminiSettings.model}</span>
               </div>
             )}
-            {explanationPoints && geminiSettings && (
+            {/* Show explanation model when explanation is loaded or in autoExplain mode */}
+            {(explanationPoints || autoExplain) && geminiSettings && (
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-3 h-3" />
                 <span>解説: {GEMINI_MODELS.find(m => m.id === geminiSettings.explanationModel)?.name || geminiSettings.explanationModel}</span>
@@ -518,8 +578,8 @@ export default function TranslationPopup({
             )}
           </div>
 
-          {/* Action buttons - hide after explanation is loaded */}
-          {!explanationPoints && (
+          {/* Action buttons - hide in autoExplain mode or after explanation is loaded */}
+          {!autoExplain && !explanationPoints && (
             <button
               onClick={handleExplain}
               disabled={isExplaining}

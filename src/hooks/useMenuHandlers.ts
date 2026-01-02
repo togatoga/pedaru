@@ -6,35 +6,75 @@ import {
 } from '@/lib/eventUtils';
 import type { ViewMode } from './types';
 
+interface MenuHandlersConfig {
+  // State management
+  resetAllState: (options?: { resetViewMode?: boolean }) => void;
+  loadPdfFromPath: (path: string) => Promise<void>;
+  filePathRef: MutableRefObject<string | null>;
+  isStandaloneMode: boolean;
+  // View controls
+  handleZoomIn: () => void;
+  handleZoomOut: () => void;
+  handleZoomReset: () => void;
+  handleToggleHeader: () => void;
+  setViewMode: Dispatch<SetStateAction<ViewMode>>;
+  handleOpenSettings: () => void;
+  // Navigation
+  goToPage: (page: number) => void;
+  goToPrevPage: () => void;
+  goToNextPage: () => void;
+  goBack: () => void;
+  goForward: () => void;
+  totalPages: number;
+  currentPage: number;
+  // Tabs
+  addTabFromCurrent: () => void;
+  closeCurrentTab: () => void;
+  selectPrevTab: () => void;
+  selectNextTab: () => void;
+  // Window
+  openStandaloneWindow: (page: number) => void;
+  // Tools
+  focusSearch: () => void;
+  toggleBookmark: () => void;
+  triggerTranslation: () => void;
+  triggerExplanation: () => void;
+}
+
 /**
  * Custom hook for handling application menu events
  *
- * Manages menu-triggered actions including reset, zoom controls,
- * view mode toggles, and opening recent files
- *
- * @param resetAllState - Function to reset all application state
- * @param loadPdfFromPath - Function to load a PDF from path
- * @param filePathRef - Ref to current file path
- * @param isStandaloneMode - Whether running in standalone window mode
- * @param handleZoomIn - Function to zoom in
- * @param handleZoomOut - Function to zoom out
- * @param handleZoomReset - Function to reset zoom
- * @param handleToggleHeader - Function to toggle header visibility
- * @param setViewMode - Setter for view mode
- * @param handleOpenSettings - Function to open settings
+ * Manages menu-triggered actions including navigation, zoom controls,
+ * tabs, windows, tools, and opening recent files
  */
-export function useMenuHandlers(
-  resetAllState: (options?: { resetViewMode?: boolean }) => void,
-  loadPdfFromPath: (path: string) => Promise<void>,
-  filePathRef: MutableRefObject<string | null>,
-  isStandaloneMode: boolean,
-  handleZoomIn: () => void,
-  handleZoomOut: () => void,
-  handleZoomReset: () => void,
-  handleToggleHeader: () => void,
-  setViewMode: Dispatch<SetStateAction<ViewMode>>,
-  handleOpenSettings: () => void
-) {
+export function useMenuHandlers({
+  resetAllState,
+  loadPdfFromPath,
+  filePathRef,
+  isStandaloneMode,
+  handleZoomIn,
+  handleZoomOut,
+  handleZoomReset,
+  handleToggleHeader,
+  setViewMode,
+  handleOpenSettings,
+  goToPage,
+  goToPrevPage,
+  goToNextPage,
+  goBack,
+  goForward,
+  totalPages,
+  currentPage,
+  addTabFromCurrent,
+  closeCurrentTab,
+  selectPrevTab,
+  selectNextTab,
+  openStandaloneWindow,
+  focusSearch,
+  toggleBookmark,
+  triggerTranslation,
+  triggerExplanation,
+}: MenuHandlersConfig) {
   // Handle reset all data request from app menu
   const handleResetAllData = useCallback(async () => {
     // Show native confirmation dialog
@@ -89,6 +129,21 @@ export function useMenuHandlers(
     setViewMode((prev) => (prev === 'two-column' ? 'single' : 'two-column'));
   }, [setViewMode]);
 
+  // Go to first page
+  const handleGoFirstPage = useCallback(() => {
+    goToPage(1);
+  }, [goToPage]);
+
+  // Go to last page
+  const handleGoLastPage = useCallback(() => {
+    goToPage(totalPages);
+  }, [goToPage, totalPages]);
+
+  // Open new standalone window with current page
+  const handleNewWindow = useCallback(() => {
+    openStandaloneWindow(currentPage);
+  }, [openStandaloneWindow, currentPage]);
+
   // Listen for reset all data request from app menu (main window only)
   useTauriEventListener(
     'reset-all-data-requested',
@@ -114,6 +169,44 @@ export function useMenuHandlers(
       handleToggleHeader,
       handleOpenSettings,
     ]
+  );
+
+  // Listen for Go menu events (navigation)
+  useTauriEventListeners(
+    [
+      { event: 'menu-go-first-page', handler: handleGoFirstPage },
+      { event: 'menu-go-last-page', handler: handleGoLastPage },
+      { event: 'menu-go-prev-page', handler: goToPrevPage },
+      { event: 'menu-go-next-page', handler: goToNextPage },
+      { event: 'menu-go-back', handler: goBack },
+      { event: 'menu-go-forward', handler: goForward },
+    ],
+    [handleGoFirstPage, handleGoLastPage, goToPrevPage, goToNextPage, goBack, goForward]
+  );
+
+  // Listen for Tabs menu events
+  useTauriEventListeners(
+    [
+      { event: 'menu-new-tab', handler: addTabFromCurrent },
+      { event: 'menu-close-tab', handler: closeCurrentTab },
+      { event: 'menu-prev-tab', handler: selectPrevTab },
+      { event: 'menu-next-tab', handler: selectNextTab },
+    ],
+    [addTabFromCurrent, closeCurrentTab, selectPrevTab, selectNextTab]
+  );
+
+  // Listen for Window menu events
+  useTauriEventListener('menu-new-window', handleNewWindow, [handleNewWindow]);
+
+  // Listen for Tools menu events
+  useTauriEventListeners(
+    [
+      { event: 'menu-search', handler: focusSearch },
+      { event: 'menu-toggle-bookmark', handler: toggleBookmark },
+      { event: 'menu-translate', handler: triggerTranslation },
+      { event: 'menu-translate-explain', handler: triggerExplanation },
+    ],
+    [focusSearch, toggleBookmark, triggerTranslation, triggerExplanation]
   );
 
   // Listen for open recent file selection (needs payload access)

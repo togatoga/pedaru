@@ -6,7 +6,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import type { GeminiSettings, GeminiModelOption, TranslationResponse } from '@/types';
+import type { GeminiSettings, GeminiModelOption, TranslationResponse, ExplanationResponse } from '@/types';
 
 // ============================================
 // Default Values
@@ -105,16 +105,17 @@ export async function translateWithGemini(
 }
 
 /**
- * Get a more detailed explanation of a translation
+ * Get explanation of text
+ * Returns summary + explanation points
  */
-export async function explainTranslation(
+export async function explainDirectly(
   text: string,
-  previousTranslation: string,
+  context: string,
   modelOverride?: string
-): Promise<TranslationResponse> {
-  const result = await invoke<TranslationResponse>('explain_translation', {
+): Promise<ExplanationResponse> {
+  const result = await invoke<ExplanationResponse>('explain_directly', {
     text,
-    previousTranslation,
+    context,
     modelOverride: modelOverride ?? null,
   });
   return result;

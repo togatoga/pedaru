@@ -127,6 +127,30 @@ fn build_app_menu_internal(app: &tauri::AppHandle) -> anyhow::Result<Menu<tauri:
         ],
     )?;
 
+    // Go menu - Navigation
+    let go_first_page = MenuItem::with_id(app, "go_first_page", "First Page", true, Some("Home"))?;
+    let go_last_page = MenuItem::with_id(app, "go_last_page", "Last Page", true, Some("End"))?;
+    let go_prev_page = MenuItem::with_id(app, "go_prev_page", "Previous Page", true, Some("Left"))?;
+    let go_next_page = MenuItem::with_id(app, "go_next_page", "Next Page", true, Some("Right"))?;
+    let go_back = MenuItem::with_id(app, "go_back", "Back", true, Some("Ctrl+,"))?;
+    let go_forward = MenuItem::with_id(app, "go_forward", "Forward", true, Some("Ctrl+."))?;
+
+    let go_submenu = Submenu::with_items(
+        app,
+        "Go",
+        true,
+        &[
+            &go_prev_page,
+            &go_next_page,
+            &PredefinedMenuItem::separator(app)?,
+            &go_first_page,
+            &go_last_page,
+            &PredefinedMenuItem::separator(app)?,
+            &go_back,
+            &go_forward,
+        ],
+    )?;
+
     // View menu with Zoom and Two-Column options
     let zoom_in = MenuItem::with_id(app, "zoom_in", "Zoom In", true, Some(&shortcut("=")))?;
     let zoom_out = MenuItem::with_id(app, "zoom_out", "Zoom Out", true, Some(&shortcut("-")))?;
@@ -144,7 +168,7 @@ fn build_app_menu_internal(app: &tauri::AppHandle) -> anyhow::Result<Menu<tauri:
         "toggle_header",
         "Hide Header",
         true,
-        Some(&shortcut("H")),
+        Some("CmdOrCtrl+Shift+H"),
     )?;
 
     let view_submenu = Submenu::with_items(
@@ -163,15 +187,72 @@ fn build_app_menu_internal(app: &tauri::AppHandle) -> anyhow::Result<Menu<tauri:
         ],
     )?;
 
+    // Tabs menu
+    let new_tab = MenuItem::with_id(app, "new_tab", "New Tab", true, Some(&shortcut("T")))?;
+    let close_tab = MenuItem::with_id(app, "close_tab", "Close Tab", true, Some(&shortcut("W")))?;
+    let prev_tab = MenuItem::with_id(app, "prev_tab", "Previous Tab", true, Some(&shortcut("[")))?;
+    let next_tab = MenuItem::with_id(app, "next_tab", "Next Tab", true, Some(&shortcut("]")))?;
+
+    let tabs_submenu = Submenu::with_items(
+        app,
+        "Tabs",
+        true,
+        &[
+            &new_tab,
+            &close_tab,
+            &PredefinedMenuItem::separator(app)?,
+            &prev_tab,
+            &next_tab,
+        ],
+    )?;
+
+    // Window menu
+    let new_window =
+        MenuItem::with_id(app, "new_window", "New Window", true, Some(&shortcut("N")))?;
+
     let window_submenu = Submenu::with_items(
         app,
         "Window",
         true,
         &[
+            &new_window,
+            &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::minimize(app, None)?,
             &PredefinedMenuItem::maximize(app, None)?,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::close_window(app, None)?,
+        ],
+    )?;
+
+    // Tools menu
+    let search = MenuItem::with_id(app, "search", "Search...", true, Some(&shortcut("F")))?;
+    let toggle_bookmark = MenuItem::with_id(
+        app,
+        "toggle_bookmark",
+        "Toggle Bookmark",
+        true,
+        Some(&shortcut("B")),
+    )?;
+    let translate = MenuItem::with_id(app, "translate", "Translate", true, Some(&shortcut("J")))?;
+    let translate_explain = MenuItem::with_id(
+        app,
+        "translate_explain",
+        "Translate with Explanation",
+        true,
+        Some(&shortcut("E")),
+    )?;
+
+    let tools_submenu = Submenu::with_items(
+        app,
+        "Tools",
+        true,
+        &[
+            &search,
+            &PredefinedMenuItem::separator(app)?,
+            &toggle_bookmark,
+            &PredefinedMenuItem::separator(app)?,
+            &translate,
+            &translate_explain,
         ],
     )?;
 
@@ -181,8 +262,11 @@ fn build_app_menu_internal(app: &tauri::AppHandle) -> anyhow::Result<Menu<tauri:
             &app_submenu,
             &file_submenu,
             &edit_submenu,
+            &go_submenu,
             &view_submenu,
+            &tabs_submenu,
             &window_submenu,
+            &tools_submenu,
         ],
     )
     .context("Failed to create menu with items")?;

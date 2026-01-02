@@ -170,6 +170,34 @@ export function useTabManagement(
   );
 
   /**
+   * Switch to the previous tab (wraps to last if at first)
+   */
+  const selectPrevTab = useCallback(() => {
+    if (tabs.length <= 1) return;
+    const currentIndex = tabs.findIndex((t) => t.id === activeTabId);
+    if (currentIndex > 0) {
+      selectTab(tabs[currentIndex - 1].id);
+    } else {
+      // Wrap to last tab
+      selectTab(tabs[tabs.length - 1].id);
+    }
+  }, [tabs, activeTabId, selectTab]);
+
+  /**
+   * Switch to the next tab (wraps to first if at last)
+   */
+  const selectNextTab = useCallback(() => {
+    if (tabs.length <= 1) return;
+    const currentIndex = tabs.findIndex((t) => t.id === activeTabId);
+    if (currentIndex < tabs.length - 1) {
+      selectTab(tabs[currentIndex + 1].id);
+    } else {
+      // Wrap to first tab
+      selectTab(tabs[0].id);
+    }
+  }, [tabs, activeTabId, selectTab]);
+
+  /**
    * Close the currently active tab
    * If no tabs remain, closes the PDF (returns to empty state)
    */
@@ -221,6 +249,8 @@ export function useTabManagement(
     addTabFromCurrent,
     addTabForPage,
     selectTab,
+    selectPrevTab,
+    selectNextTab,
     closeCurrentTab,
   };
 }

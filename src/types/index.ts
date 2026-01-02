@@ -315,6 +315,14 @@ export interface TranslationResponse {
 }
 
 /**
+ * Structured explanation response from Gemini
+ */
+export interface ExplanationResponse {
+  summary: string;
+  points: string[];
+}
+
+/**
  * Text selection data for translation
  */
 export interface TextSelection {

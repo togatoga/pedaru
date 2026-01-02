@@ -64,15 +64,15 @@ Output only valid JSON. Do not use markdown code blocks. The points array must c
 
 const EXPLANATION_PROMPT: &str = r#"Explain the following text in simple, easy-to-understand terms. Output MUST be in Japanese.
 
-## Original text:
-{text}
+## Context (for understanding only - DO NOT include in explanation):
+{context}
 
-## Translation:
-{previous_translation}
+## Text to explain:
+{text}
 
 Output in the following JSON format:
 {
-  "translation": "Simplified summary in 1-2 sentences (in Japanese)",
+  "summary": "One-sentence summary: 要するに〜ということ (in Japanese)",
   "points": [
     "Explanation point 1 in Japanese",
     "Explanation point 2 in Japanese",
@@ -80,23 +80,21 @@ Output in the following JSON format:
   ]
 }
 
-## Guidelines for "easy-to-understand" explanation:
+## Guidelines:
 
-### 1. What is it in one sentence? (translation field)
-- Summarize difficult content in simple words that even a middle school student could understand
-- Convey the essence using phrases like "要するに〜ということ" or "つまり〜"
+### Summary (summary field):
+- Summarize the essence in ONE sentence
+- Use phrases like "要するに〜ということ" or "つまり〜"
+- Make it understandable even for someone unfamiliar with the topic
 
-### 2. Broken-down explanation (points field)
+### Explanation points (points field):
 - Rephrase technical terms in plain language: "〇〇（つまり△△のこと）"
 - Use familiar analogies or metaphors to explain abstract concepts
 - Add context about "why this matters" or "what benefit does this provide"
 - For technical content, explain practical use cases and benefits concretely
 - For academic content, explain the importance in the field and application examples
-
-### 3. Structuring rules
 - Each point should be independently understandable
-- Avoid long explanations; keep each point to 2-3 sentences
-- Use "→" or "：" for further structuring within bullet points if needed
+- Keep each point to 2-3 sentences
 
 Output only valid JSON. Do not use markdown code blocks."#;
 
@@ -161,6 +159,13 @@ struct GeminiApiError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranslationResponse {
     pub translation: String,
+    pub points: Vec<String>,
+}
+
+/// Structured explanation result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExplanationResponse {
+    pub summary: String,
     pub points: Vec<String>,
 }
 
@@ -330,6 +335,72 @@ fn parse_translation_response(text: &str) -> Result<TranslationResponse, PedaruE
     })
 }
 
+/// Parse JSON response for explanation, with fallback for markdown code blocks
+fn parse_explanation_response(text: &str) -> Result<ExplanationResponse, PedaruError> {
+    eprintln!("[Gemini] Raw API response (explanation): {}", text);
+
+    // Try to parse directly first
+    if let Ok(response) = serde_json::from_str::<ExplanationResponse>(text) {
+        eprintln!("[Gemini] Parsed directly: {:?}", response);
+        return Ok(response);
+    }
+
+    // Try to extract JSON from markdown code block
+    let cleaned = text
+        .trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+
+    eprintln!("[Gemini] Cleaned text: {}", cleaned);
+
+    if let Ok(response) = serde_json::from_str::<ExplanationResponse>(cleaned) {
+        eprintln!("[Gemini] Parsed from cleaned: {:?}", response);
+        return Ok(response);
+    }
+
+    // Try to parse as a more flexible JSON structure
+    if let Ok(value) = serde_json::from_str::<Value>(cleaned) {
+        eprintln!("[Gemini] Parsed as Value: {:?}", value);
+
+        // Handle both object and array responses
+        let obj = if value.is_array() {
+            value.as_array().and_then(|arr| arr.first()).cloned()
+        } else {
+            Some(value)
+        };
+
+        if let Some(obj) = obj {
+            let summary = obj
+                .get("summary")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            let points = obj
+                .get("points")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            let response = ExplanationResponse { summary, points };
+            eprintln!("[Gemini] Flexible parse result: {:?}", response);
+            return Ok(response);
+        }
+    }
+
+    eprintln!("[Gemini] All parsing failed, returning raw text");
+    Ok(ExplanationResponse {
+        summary: text.to_string(),
+        points: vec![],
+    })
+}
+
 /// Translate text using Gemini API
 ///
 /// Returns a structured response with translation and explanation points.
@@ -347,17 +418,20 @@ pub async fn translate_text(
     parse_translation_response(&response_text)
 }
 
-/// Get a more detailed explanation of a previous translation
-pub async fn explain_translation(
+/// Get explanation of text
+///
+/// Returns a summary and explanation points.
+/// The context parameter helps understand the text but is not included in output.
+pub async fn explain_text(
     api_key: &str,
     model: &str,
     text: &str,
-    previous_translation: &str,
-) -> Result<TranslationResponse, PedaruError> {
+    context: &str,
+) -> Result<ExplanationResponse, PedaruError> {
     let prompt = EXPLANATION_PROMPT
         .replace("{text}", text)
-        .replace("{previous_translation}", previous_translation);
+        .replace("{context}", context);
 
     let response_text = call_gemini_api(api_key, model, &prompt).await?;
-    parse_translation_response(&response_text)
+    parse_explanation_response(&response_text)
 }

@@ -237,6 +237,8 @@ export default function Home() {
     addTabFromCurrent,
     addTabForPage,
     selectTab,
+    selectPrevTab,
+    selectNextTab,
     closeCurrentTab,
   } = useTabManagement(
     tabs,
@@ -376,8 +378,32 @@ export default function Home() {
     setShowSettingsModal(true);
   }, []);
 
+  // Focus search input callback (for menu)
+  const focusSearch = useCallback(() => {
+    if (isStandaloneMode) {
+      setShowStandaloneSearch(true);
+      setTimeout(() => standaloneSearchInputRef.current?.focus(), 0);
+    } else {
+      // If header is hidden, show it and remember the state
+      if (!showHeader) {
+        headerWasHiddenBeforeSearchRef.current = true;
+        setShowHeader(true);
+      }
+      // Focus search input in main window
+      const searchInput = document.querySelector('input[placeholder="Search..."]') as HTMLInputElement;
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+      // If there's a search query, show the results panel
+      if (searchQuery && searchResults.length > 0) {
+        setShowSearchResults(true);
+      }
+    }
+  }, [isStandaloneMode, showHeader, searchQuery, searchResults.length]);
+
   // Menu event handlers (extracted to hook)
-  useMenuHandlers(
+  useMenuHandlers({
     resetAllState,
     loadPdfFromPath,
     filePathRef,
@@ -387,8 +413,24 @@ export default function Home() {
     handleZoomReset,
     handleToggleHeader,
     setViewMode,
-    handleOpenSettings
-  );
+    handleOpenSettings,
+    goToPage,
+    goToPrevPage,
+    goToNextPage,
+    goBack,
+    goForward,
+    totalPages,
+    currentPage,
+    addTabFromCurrent,
+    closeCurrentTab,
+    selectPrevTab,
+    selectNextTab,
+    openStandaloneWindow,
+    focusSearch,
+    toggleBookmark,
+    triggerTranslation,
+    triggerExplanation,
+  });
 
   // Application startup logic (standalone mode, CLI file, session restore)
   useStartup({

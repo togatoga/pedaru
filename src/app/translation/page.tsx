@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { Loader2, Languages, AlertCircle, ChevronDown, ChevronUp, Sparkles, BookOpen, MessageSquare, Cpu, GripHorizontal } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { TranslationResponse, GeminiSettings } from '@/types';
-import { explainTranslation, getGeminiSettings, GEMINI_MODELS } from '@/lib/settings';
+import { explainDirectly, getGeminiSettings, GEMINI_MODELS } from '@/lib/settings';
 
 interface TranslationData {
   selectedText: string;
@@ -90,6 +90,7 @@ function TranslationContent() {
   const windowLabel = searchParams.get('windowLabel');
 
   const [data, setData] = useState<TranslationData | null>(null);
+  const [explanationSummary, setExplanationSummary] = useState<string | null>(null);
   const [explanationPoints, setExplanationPoints] = useState<string[] | null>(null);
   const [isExplaining, setIsExplaining] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,11 +149,12 @@ function TranslationContent() {
 
     setTimeout(async () => {
       try {
-        const result = await explainTranslation(
+        const result = await explainDirectly(
           data.selectedText,
-          data.translationResponse.translation,
+          data.context,
           geminiSettings.explanationModel
         );
+        setExplanationSummary(result.summary);
         setExplanationPoints(result.points);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -256,19 +258,30 @@ function TranslationContent() {
         </CollapsibleSection>
 
         {/* Explanation Section */}
-        {explanationPoints && explanationPoints.length > 0 && (
+        {(explanationSummary || (explanationPoints && explanationPoints.length > 0)) && (
           <CollapsibleSection
             title="解説"
             icon={Sparkles}
             defaultOpen={true}
           >
-            <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
-              {explanationPoints.map((point, index) => (
-                <li key={index}>
-                  <ReactMarkdown components={markdownComponents}>{point}</ReactMarkdown>
-                </li>
-              ))}
-            </ul>
+            <div className="space-y-3">
+              {/* Summary */}
+              {explanationSummary && (
+                <div className="text-text-primary text-sm font-medium bg-accent/10 p-2 rounded border-l-2 border-accent">
+                  <ReactMarkdown components={markdownComponents}>{explanationSummary}</ReactMarkdown>
+                </div>
+              )}
+              {/* Points */}
+              {explanationPoints && explanationPoints.length > 0 && (
+                <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
+                  {explanationPoints.map((point, index) => (
+                    <li key={index}>
+                      <ReactMarkdown components={markdownComponents}>{point}</ReactMarkdown>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </CollapsibleSection>
         )}
       </div>

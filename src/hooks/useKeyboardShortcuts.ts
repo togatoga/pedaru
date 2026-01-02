@@ -229,8 +229,8 @@ export function useKeyboardShortcuts({
           break;
         case 'h':
         case 'H':
-          // Cmd/Ctrl+H - toggle header visibility (main window only)
-          if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !isStandaloneMode) {
+          // Cmd/Ctrl+Shift+H - toggle header visibility (main window only)
+          if ((e.metaKey || e.ctrlKey) && e.shiftKey && !isStandaloneMode) {
             e.preventDefault();
             toggleHeader();
           }

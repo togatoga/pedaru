@@ -95,6 +95,8 @@ AI-enhanced PDF reader with Gemini translation
 | Close Tab | `Cmd + W` | `Ctrl + W` |
 | Previous Tab | `Cmd + [` | `Ctrl + [` |
 | Next Tab | `Cmd + ]` | `Ctrl + ]` |
+| Switch to Tab 1-8 | `Cmd + 1-8` | `Ctrl + 1-8` |
+| Switch to Last Tab | `Cmd + 9` | `Ctrl + 9` |
 | New Window | `Cmd + N` | `Ctrl + N` |
 
 ### View
@@ -102,7 +104,7 @@ AI-enhanced PDF reader with Gemini translation
 | Action | macOS | Windows/Linux |
 |--------|-------|---------------|
 | Toggle Two-Column | `Cmd + \` | `Ctrl + \` |
-| Toggle Header | `Cmd + H` | `Ctrl + H` |
+| Toggle Header | `Cmd + Shift + H` | `Ctrl + Shift + H` |
 
 ### Tools
 
@@ -112,6 +114,7 @@ AI-enhanced PDF reader with Gemini translation
 | Toggle Bookmark | `Cmd + B` | `Ctrl + B` |
 | Translate | `Cmd + J` | `Ctrl + J` |
 | Translate with Explanation | `Cmd + E` | `Ctrl + E` |
+| Select All Text | `Cmd + A` | `Ctrl + A` |
 
 ### Search (when active)
 

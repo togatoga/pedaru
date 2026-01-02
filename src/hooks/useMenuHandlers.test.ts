@@ -27,6 +27,49 @@ describe('useMenuHandlers', () => {
   const mockHandleToggleHeader = vi.fn();
   const mockSetViewMode = vi.fn();
   const mockHandleOpenSettings = vi.fn();
+  const mockGoToPage = vi.fn();
+  const mockGoToPrevPage = vi.fn();
+  const mockGoToNextPage = vi.fn();
+  const mockGoBack = vi.fn();
+  const mockGoForward = vi.fn();
+  const mockAddTabFromCurrent = vi.fn();
+  const mockCloseCurrentTab = vi.fn();
+  const mockSelectPrevTab = vi.fn();
+  const mockSelectNextTab = vi.fn();
+  const mockOpenStandaloneWindow = vi.fn();
+  const mockFocusSearch = vi.fn();
+  const mockToggleBookmark = vi.fn();
+  const mockTriggerTranslation = vi.fn();
+  const mockTriggerExplanation = vi.fn();
+
+  const getDefaultConfig = () => ({
+    resetAllState: mockResetAllState,
+    loadPdfFromPath: mockLoadPdfFromPath,
+    filePathRef: mockFilePathRef,
+    isStandaloneMode: false,
+    handleZoomIn: mockHandleZoomIn,
+    handleZoomOut: mockHandleZoomOut,
+    handleZoomReset: mockHandleZoomReset,
+    handleToggleHeader: mockHandleToggleHeader,
+    setViewMode: mockSetViewMode,
+    handleOpenSettings: mockHandleOpenSettings,
+    goToPage: mockGoToPage,
+    goToPrevPage: mockGoToPrevPage,
+    goToNextPage: mockGoToNextPage,
+    goBack: mockGoBack,
+    goForward: mockGoForward,
+    totalPages: 100,
+    currentPage: 1,
+    addTabFromCurrent: mockAddTabFromCurrent,
+    closeCurrentTab: mockCloseCurrentTab,
+    selectPrevTab: mockSelectPrevTab,
+    selectNextTab: mockSelectNextTab,
+    openStandaloneWindow: mockOpenStandaloneWindow,
+    focusSearch: mockFocusSearch,
+    toggleBookmark: mockToggleBookmark,
+    triggerTranslation: mockTriggerTranslation,
+    triggerExplanation: mockTriggerExplanation,
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -48,20 +91,7 @@ describe('useMenuHandlers', () => {
 
   it('should initialize without errors', () => {
     expect(() => {
-      renderHook(() =>
-        useMenuHandlers(
-          mockResetAllState,
-          mockLoadPdfFromPath,
-          mockFilePathRef,
-          false,
-          mockHandleZoomIn,
-          mockHandleZoomOut,
-          mockHandleZoomReset,
-          mockHandleToggleHeader,
-          mockSetViewMode,
-          mockHandleOpenSettings
-        )
-      );
+      renderHook(() => useMenuHandlers(getDefaultConfig()));
     }).not.toThrow();
   });
 
@@ -69,20 +99,7 @@ describe('useMenuHandlers', () => {
     const mockedListener = useTauriEventListener as ReturnType<typeof vi.fn>;
     const mockedListeners = useTauriEventListeners as ReturnType<typeof vi.fn>;
 
-    renderHook(() =>
-      useMenuHandlers(
-        mockResetAllState,
-        mockLoadPdfFromPath,
-        mockFilePathRef,
-        false,
-        mockHandleZoomIn,
-        mockHandleZoomOut,
-        mockHandleZoomReset,
-        mockHandleToggleHeader,
-        mockSetViewMode,
-        mockHandleOpenSettings
-      )
-    );
+    renderHook(() => useMenuHandlers(getDefaultConfig()));
 
     // Verify event listeners were registered
     expect(mockedListener).toHaveBeenCalled();
@@ -92,20 +109,7 @@ describe('useMenuHandlers', () => {
   it('should handle setViewMode toggle correctly', () => {
     const mockedListeners = useTauriEventListeners as ReturnType<typeof vi.fn>;
 
-    renderHook(() =>
-      useMenuHandlers(
-        mockResetAllState,
-        mockLoadPdfFromPath,
-        mockFilePathRef,
-        false,
-        mockHandleZoomIn,
-        mockHandleZoomOut,
-        mockHandleZoomReset,
-        mockHandleToggleHeader,
-        mockSetViewMode,
-        mockHandleOpenSettings
-      )
-    );
+    renderHook(() => useMenuHandlers(getDefaultConfig()));
 
     // Get the registered handler from useTauriEventListeners mock
     const handlers = mockedListeners.mock.calls[0][0];
@@ -128,20 +132,7 @@ describe('useMenuHandlers', () => {
     mockFilePathRef.current = '/test.pdf';
     const mockedListener = useTauriEventListener as ReturnType<typeof vi.fn>;
 
-    renderHook(() =>
-      useMenuHandlers(
-        mockResetAllState,
-        mockLoadPdfFromPath,
-        mockFilePathRef,
-        false,
-        mockHandleZoomIn,
-        mockHandleZoomOut,
-        mockHandleZoomReset,
-        mockHandleToggleHeader,
-        mockSetViewMode,
-        mockHandleOpenSettings
-      )
-    );
+    renderHook(() => useMenuHandlers(getDefaultConfig()));
 
     // Get the registered handler from useTauriEventListener mock
     // Find the open-recent handler (last call)
@@ -163,20 +154,7 @@ describe('useMenuHandlers', () => {
     mockFilePathRef.current = '/current.pdf';
     const mockedListener = useTauriEventListener as ReturnType<typeof vi.fn>;
 
-    renderHook(() =>
-      useMenuHandlers(
-        mockResetAllState,
-        mockLoadPdfFromPath,
-        mockFilePathRef,
-        false,
-        mockHandleZoomIn,
-        mockHandleZoomOut,
-        mockHandleZoomReset,
-        mockHandleToggleHeader,
-        mockSetViewMode,
-        mockHandleOpenSettings
-      )
-    );
+    renderHook(() => useMenuHandlers(getDefaultConfig()));
 
     const calls = mockedListener.mock.calls;
     const openRecentCall = calls.find(
@@ -190,5 +168,89 @@ describe('useMenuHandlers', () => {
     });
 
     expect(mockLoadPdfFromPath).toHaveBeenCalledWith('/different.pdf');
+  });
+
+  it('should register Go menu event listeners', () => {
+    const mockedListeners = useTauriEventListeners as ReturnType<typeof vi.fn>;
+
+    renderHook(() => useMenuHandlers(getDefaultConfig()));
+
+    // Find the Go menu event listeners
+    const goMenuCall = mockedListeners.mock.calls.find(
+      (call: unknown[]) => {
+        const handlers = call[0] as { event: string }[];
+        return handlers.some(h => h.event === 'menu-go-first-page');
+      }
+    );
+    expect(goMenuCall).toBeDefined();
+
+    const handlers = goMenuCall![0] as { event: string; handler: () => void }[];
+    const prevPageHandler = handlers.find(h => h.event === 'menu-go-prev-page');
+    const nextPageHandler = handlers.find(h => h.event === 'menu-go-next-page');
+
+    act(() => {
+      prevPageHandler!.handler();
+      nextPageHandler!.handler();
+    });
+
+    expect(mockGoToPrevPage).toHaveBeenCalled();
+    expect(mockGoToNextPage).toHaveBeenCalled();
+  });
+
+  it('should register Tabs menu event listeners', () => {
+    const mockedListeners = useTauriEventListeners as ReturnType<typeof vi.fn>;
+
+    renderHook(() => useMenuHandlers(getDefaultConfig()));
+
+    // Find the Tabs menu event listeners
+    const tabsMenuCall = mockedListeners.mock.calls.find(
+      (call: unknown[]) => {
+        const handlers = call[0] as { event: string }[];
+        return handlers.some(h => h.event === 'menu-new-tab');
+      }
+    );
+    expect(tabsMenuCall).toBeDefined();
+
+    const handlers = tabsMenuCall![0] as { event: string; handler: () => void }[];
+    const newTabHandler = handlers.find(h => h.event === 'menu-new-tab');
+    const closeTabHandler = handlers.find(h => h.event === 'menu-close-tab');
+
+    act(() => {
+      newTabHandler!.handler();
+      closeTabHandler!.handler();
+    });
+
+    expect(mockAddTabFromCurrent).toHaveBeenCalled();
+    expect(mockCloseCurrentTab).toHaveBeenCalled();
+  });
+
+  it('should register Tools menu event listeners', () => {
+    const mockedListeners = useTauriEventListeners as ReturnType<typeof vi.fn>;
+
+    renderHook(() => useMenuHandlers(getDefaultConfig()));
+
+    // Find the Tools menu event listeners
+    const toolsMenuCall = mockedListeners.mock.calls.find(
+      (call: unknown[]) => {
+        const handlers = call[0] as { event: string }[];
+        return handlers.some(h => h.event === 'menu-search');
+      }
+    );
+    expect(toolsMenuCall).toBeDefined();
+
+    const handlers = toolsMenuCall![0] as { event: string; handler: () => void }[];
+    const searchHandler = handlers.find(h => h.event === 'menu-search');
+    const bookmarkHandler = handlers.find(h => h.event === 'menu-toggle-bookmark');
+    const translateHandler = handlers.find(h => h.event === 'menu-translate');
+
+    act(() => {
+      searchHandler!.handler();
+      bookmarkHandler!.handler();
+      translateHandler!.handler();
+    });
+
+    expect(mockFocusSearch).toHaveBeenCalled();
+    expect(mockToggleBookmark).toHaveBeenCalled();
+    expect(mockTriggerTranslation).toHaveBeenCalled();
   });
 });

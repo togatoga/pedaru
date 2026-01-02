@@ -520,27 +520,22 @@ async fn translate_with_gemini(
         .map_err(|e| e.into_tauri_error())
 }
 
-/// Get a more detailed explanation of a previous translation
+/// Get explanation of text (returns summary + explanation points)
 #[tauri::command(rename_all = "camelCase")]
-async fn explain_translation(
+async fn explain_directly(
     app: tauri::AppHandle,
     text: String,
-    previous_translation: String,
+    context: String,
     model_override: Option<String>,
-) -> Result<gemini::TranslationResponse, String> {
+) -> Result<gemini::ExplanationResponse, String> {
     let gemini_settings = settings::get_gemini_settings(&app).map_err(|e| e.into_tauri_error())?;
     let model = model_override
         .as_deref()
         .unwrap_or(&gemini_settings.explanation_model);
 
-    gemini::explain_translation(
-        &gemini_settings.api_key,
-        model,
-        &text,
-        &previous_translation,
-    )
-    .await
-    .map_err(|e| e.into_tauri_error())
+    gemini::explain_text(&gemini_settings.api_key, model, &text, &context)
+        .await
+        .map_err(|e| e.into_tauri_error())
 }
 
 // ============================================================================
@@ -550,9 +545,14 @@ async fn explain_translation(
 /// Handle menu events from the application menu
 fn handle_menu_event(app: &tauri::AppHandle, event_id: &str) {
     match event_id {
+        // App menu
         "reset_all_data" => {
             app.emit("reset-all-data-requested", ()).ok();
         }
+        "open_settings" => {
+            app.emit("menu-open-settings", ()).ok();
+        }
+        // File menu
         "open_file" => {
             app.emit("menu-open-file-requested", ()).ok();
         }
@@ -561,6 +561,26 @@ fn handle_menu_event(app: &tauri::AppHandle, event_id: &str) {
                 app.emit("menu-open-recent-selected", file_path).ok();
             }
         }
+        // Go menu
+        "go_first_page" => {
+            app.emit("menu-go-first-page", ()).ok();
+        }
+        "go_last_page" => {
+            app.emit("menu-go-last-page", ()).ok();
+        }
+        "go_prev_page" => {
+            app.emit("menu-go-prev-page", ()).ok();
+        }
+        "go_next_page" => {
+            app.emit("menu-go-next-page", ()).ok();
+        }
+        "go_back" => {
+            app.emit("menu-go-back", ()).ok();
+        }
+        "go_forward" => {
+            app.emit("menu-go-forward", ()).ok();
+        }
+        // View menu
         "zoom_in" => {
             app.emit("menu-zoom-in", ()).ok();
         }
@@ -576,8 +596,35 @@ fn handle_menu_event(app: &tauri::AppHandle, event_id: &str) {
         "toggle_header" => {
             app.emit("menu-toggle-header", ()).ok();
         }
-        "open_settings" => {
-            app.emit("menu-open-settings", ()).ok();
+        // Tabs menu
+        "new_tab" => {
+            app.emit("menu-new-tab", ()).ok();
+        }
+        "close_tab" => {
+            app.emit("menu-close-tab", ()).ok();
+        }
+        "prev_tab" => {
+            app.emit("menu-prev-tab", ()).ok();
+        }
+        "next_tab" => {
+            app.emit("menu-next-tab", ()).ok();
+        }
+        // Window menu
+        "new_window" => {
+            app.emit("menu-new-window", ()).ok();
+        }
+        // Tools menu
+        "search" => {
+            app.emit("menu-search", ()).ok();
+        }
+        "toggle_bookmark" => {
+            app.emit("menu-toggle-bookmark", ()).ok();
+        }
+        "translate" => {
+            app.emit("menu-translate", ()).ok();
+        }
+        "translate_explain" => {
+            app.emit("menu-translate-explain", ()).ok();
         }
         _ => {}
     }
@@ -741,7 +788,7 @@ pub fn run() {
             get_gemini_settings,
             save_gemini_settings,
             translate_with_gemini,
-            explain_translation
+            explain_directly
         ])
         .setup(|app| {
             // Build and set the initial menu
