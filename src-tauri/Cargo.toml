@@ -2,7 +2,7 @@
 name = "pedaru"
 version = "0.1.0"
 description = "A PDF Viewer built with Tauri"
-authors = ["you"]
+authors = ["togatoga"]
 edition = "2024"
 default-run = "pedaru"
 
