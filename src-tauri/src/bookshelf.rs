@@ -551,10 +551,7 @@ pub fn remove_items_from_inactive_folders(app: &AppHandle) -> Result<i32, Pedaru
                 [],
             )
             .db_err()?;
-        eprintln!(
-            "[Pedaru] Removed {} cloud items (no active folders)",
-            count
-        );
+        eprintln!("[Pedaru] Removed {} cloud items (no active folders)", count);
         return Ok(count as i32);
     }
 

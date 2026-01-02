@@ -160,7 +160,10 @@ pub async fn list_drive_items(
             .bearer_auth(&access_token)
             .query(&[
                 ("q", query.as_str()),
-                ("fields", "files(id,name,size,mimeType,modifiedTime,thumbnailLink),nextPageToken"),
+                (
+                    "fields",
+                    "files(id,name,size,mimeType,modifiedTime,thumbnailLink),nextPageToken",
+                ),
                 ("orderBy", "folder,name"),
                 ("pageSize", "100"),
             ]);
@@ -169,10 +172,9 @@ pub async fn list_drive_items(
             request = request.query(&[("pageToken", token.as_str())]);
         }
 
-        let response = request
-            .send()
-            .await
-            .map_err(|e| PedaruError::GoogleDrive(GoogleDriveError::ApiRequestFailed(e.to_string())))?;
+        let response = request.send().await.map_err(|e| {
+            PedaruError::GoogleDrive(GoogleDriveError::ApiRequestFailed(e.to_string()))
+        })?;
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
@@ -181,10 +183,9 @@ pub async fn list_drive_items(
             )));
         }
 
-        let raw_response: RawListResponse = response
-            .json()
-            .await
-            .map_err(|e| PedaruError::GoogleDrive(GoogleDriveError::ApiRequestFailed(e.to_string())))?;
+        let raw_response: RawListResponse = response.json().await.map_err(|e| {
+            PedaruError::GoogleDrive(GoogleDriveError::ApiRequestFailed(e.to_string()))
+        })?;
 
         // Convert to DriveItem with is_folder flag
         let items: Vec<DriveItem> = raw_response
