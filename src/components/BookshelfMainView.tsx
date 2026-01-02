@@ -818,18 +818,23 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                       <div className="text-text-tertiary text-xs">Add all PDFs from folder</div>
                     </div>
                   </button>
-                  {authStatus.configured && (
-                    <button
-                      onClick={() => { setShowAddMenu(false); setShowSettings(true); }}
-                      className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary text-left border-t border-bg-tertiary"
-                    >
-                      <Cloud className="w-5 h-5 text-accent" />
-                      <div>
-                        <div className="text-text-primary text-sm">Google Drive</div>
-                        <div className="text-text-tertiary text-xs">Manage synced folders</div>
-                      </div>
-                    </button>
-                  )}
+                  <button
+                    onClick={async () => {
+                      setShowAddMenu(false);
+                      // Check auth status when clicking Google Drive option
+                      if (!hasCheckedAuth) {
+                        await checkAuthStatus();
+                      }
+                      setShowSettings(true);
+                    }}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary text-left border-t border-bg-tertiary"
+                  >
+                    <Cloud className="w-5 h-5 text-accent" />
+                    <div>
+                      <div className="text-text-primary text-sm">Google Drive</div>
+                      <div className="text-text-tertiary text-xs">Manage synced folders</div>
+                    </div>
+                  </button>
                 </div>
               </>
             )}
