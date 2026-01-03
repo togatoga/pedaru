@@ -8,6 +8,12 @@ A cross-platform desktop PDF reader with Gemini translation
 <img src="./images/main.png" width="800">
 
 
+## Prerequisites
+
+- Node.js >= 18.17.0
+- Rust >= 1.85
+- Tauri CLI (`cargo install tauri-cli`)
+
 ## How to install
 
 ```bash
