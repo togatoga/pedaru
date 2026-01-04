@@ -93,12 +93,14 @@ export async function saveGeminiSettings(settings: GeminiSettings): Promise<void
  */
 export async function translateWithGemini(
   text: string,
-  context: string,
+  contextBefore: string,
+  contextAfter: string,
   modelOverride?: string
 ): Promise<TranslationResponse> {
   const result = await invoke<TranslationResponse>('translate_with_gemini', {
     text,
-    context,
+    contextBefore,
+    contextAfter,
     modelOverride: modelOverride ?? null,
   });
   return result;
@@ -110,12 +112,14 @@ export async function translateWithGemini(
  */
 export async function explainDirectly(
   text: string,
-  context: string,
+  contextBefore: string,
+  contextAfter: string,
   modelOverride?: string
 ): Promise<ExplanationResponse> {
   const result = await invoke<ExplanationResponse>('explain_directly', {
     text,
-    context,
+    contextBefore,
+    contextAfter,
     modelOverride: modelOverride ?? null,
   });
   return result;

@@ -15,32 +15,33 @@ const GEMINI_API_BASE: &str = "https://generativelanguage.googleapis.com/v1beta"
 // Default Prompts (hardcoded in backend)
 // ============================================================================
 
-const TRANSLATION_PROMPT: &str = r#"Translate and explain the following text. Output MUST be in Japanese.
+// System instruction for translation (behavioral guidelines)
+const TRANSLATION_SYSTEM_INSTRUCTION: &str = r#"You are a professional English-to-Japanese translator and language teacher.
 
-## Context (for understanding only - DO NOT translate this):
-{context}
+## Your Task
+Translate ONLY the "SELECTED TEXT" provided by the user. The context is for understanding only.
 
-## Text to translate (ONLY translate this text):
-{text}
-
-IMPORTANT: The Context section is provided ONLY to help you understand the meaning and usage of the text.
-You must ONLY translate the "Text to translate" section. DO NOT include any translation of the Context in your output.
-
-## JSON Output Format (STRICT - follow exactly):
+## Output Format (STRICT - follow exactly):
+- Output MUST be valid JSON only. No markdown code blocks, no extra text.
+- The JSON structure MUST be:
 {
   "translation": "Translation result in Japanese (string)",
   "points": ["Point 1 (string)", "Point 2 (string)", "Point 3 (string)"]
 }
 
-CRITICAL: The "points" field MUST be a flat array of strings. DO NOT use nested objects. Each element in points must be a simple string, not an object.
+## Critical Rules:
+- The "points" field MUST be a flat array of strings. DO NOT use nested objects.
+- Each element in points must be a simple string, not an object.
+- All output text MUST be in Japanese.
+- IMPORTANT: Translate ONLY the SELECTED TEXT, not the context.
 
-## Output Rules:
+## Translation Rules:
 - For single words, idioms, or short phrases (no spaces, or 2-3 words):
   - translation: Only the meaning of the word/idiom. NOT a translation of the entire sentence.
   - points: A flat array of strings containing:
     1. "単語の意味: [explanation of the word in Japanese]"
-    2. "原文: [English sentence with ***highlighted*** word]"
-    3. "訳: [Japanese translation with ***highlighted*** translation]"
+    2. "原文: [Extract the COMPLETE English sentence containing the word from the context, with ***highlighted*** word]"
+    3. "訳: [Japanese translation of that complete sentence, with ***highlighted*** translation of the word]"
     4. "類語・言い換え: [synonyms in English with Japanese meanings]"
   - Example output:
     {
@@ -52,35 +53,45 @@ CRITICAL: The "points" field MUST be a flat array of strings. DO NOT use nested 
         "類語・言い換え: utilize（活用する）, leverage（活かす）, exploit（利用する）"
       ]
     }
+  - CRITICAL: How to find the 原文 (original sentence):
+    - The selected word appears at the EXACT BOUNDARY between "Context before" and "Context after".
+    - The 原文 containing the selected word is: (end of "Context before") + (selected word) + (beginning of "Context after")
+    - If the same word appears multiple times in the context, you MUST use ONLY the occurrence at the boundary position.
+    - DO NOT pick a sentence from earlier in Context before that happens to contain the same word.
 
 - For sentences or longer text:
   - translation: Full Japanese translation of the text
   - points: A flat array of strings with grammatical explanations:
     1. Each point is a single string explaining one grammar structure
     2. Focus on challenging structures: relative clauses, participle constructions, etc.
-    3. Include synonyms or alternative expressions where helpful
+    3. Include synonyms or alternative expressions where helpful"#;
 
-Output only valid JSON. Do not use markdown code blocks. The points array must contain only strings."#;
-
-const EXPLANATION_PROMPT: &str = r#"Explain the following text in simple, easy-to-understand terms. Output MUST be in Japanese.
-
-## Context (for understanding only - DO NOT include in explanation):
-{context}
-
-## Text to explain:
+// User prompt for translation (actual content - data only)
+const TRANSLATION_PROMPT: &str = r#"SELECTED TEXT (translate this):
 {text}
 
-Output in the following JSON format:
+Context before:
+{context_before}
+
+Context after:
+{context_after}"#;
+
+// System instruction for explanation (behavioral guidelines)
+const EXPLANATION_SYSTEM_INSTRUCTION: &str = r#"You are an expert at explaining complex concepts in simple, easy-to-understand terms.
+
+## Output Format (STRICT - follow exactly):
+- Output MUST be valid JSON only. No markdown code blocks, no extra text.
+- The JSON structure MUST be:
 {
-  "summary": "One-sentence summary: 要するに〜ということ (in Japanese)",
-  "points": [
-    "Explanation point 1 in Japanese",
-    "Explanation point 2 in Japanese",
-    "Explanation point 3 in Japanese"
-  ]
+  "summary": "One-sentence summary (string)",
+  "points": ["Point 1 (string)", "Point 2 (string)", "Point 3 (string)"]
 }
 
-## Guidelines:
+## Critical Rules:
+- The "points" field MUST be a flat array of strings. DO NOT use nested objects.
+- All output text MUST be in Japanese.
+
+## Explanation Guidelines:
 
 ### Summary (summary field):
 - Summarize the essence in ONE sentence
@@ -94,9 +105,26 @@ Output in the following JSON format:
 - For technical content, explain practical use cases and benefits concretely
 - For academic content, explain the importance in the field and application examples
 - Each point should be independently understandable
-- Keep each point to 2-3 sentences
+- Keep each point to 2-3 sentences"#;
 
-Output only valid JSON. Do not use markdown code blocks."#;
+// User prompt for explanation (actual content)
+const EXPLANATION_PROMPT: &str = r#"Explain the following text.
+
+The user has selected text from a PDF document. The context shows the surrounding text:
+- "Context before" = text that appears BEFORE the selected text in the document
+- "Text to explain" = the actual text the user selected
+- "Context after" = text that appears AFTER the selected text in the document
+
+## Context before (for understanding only):
+{context_before}
+
+## Text to explain:
+{text}
+
+## Context after (for understanding only):
+{context_after}
+
+Use the context to understand the meaning, but explain only the selected text."#;
 
 // ============================================================================
 // Request/Response Types
@@ -106,6 +134,8 @@ Output only valid JSON. Do not use markdown code blocks."#;
 #[serde(rename_all = "camelCase")]
 struct GeminiRequest {
     contents: Vec<GeminiContent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system_instruction: Option<GeminiContent>,
     generation_config: Option<GenerationConfig>,
 }
 
@@ -173,8 +203,13 @@ pub struct ExplanationResponse {
 // API Functions
 // ============================================================================
 
-/// Call Gemini API with the given prompt
-async fn call_gemini_api(api_key: &str, model: &str, prompt: &str) -> Result<String, PedaruError> {
+/// Call Gemini API with the given prompt and optional system instruction
+async fn call_gemini_api(
+    api_key: &str,
+    model: &str,
+    prompt: &str,
+    system_instruction: Option<&str>,
+) -> Result<String, PedaruError> {
     if api_key.is_empty() {
         return Err(PedaruError::Gemini(GeminiError::ApiKeyMissing));
     }
@@ -195,6 +230,11 @@ async fn call_gemini_api(api_key: &str, model: &str, prompt: &str) -> Result<Str
                 text: prompt.to_string(),
             }],
         }],
+        system_instruction: system_instruction.map(|text| GeminiContent {
+            parts: vec![GeminiPart {
+                text: text.to_string(),
+            }],
+        }),
         generation_config: Some(GenerationConfig {
             response_mime_type: "application/json".to_string(),
         }),
@@ -408,30 +448,46 @@ pub async fn translate_text(
     api_key: &str,
     model: &str,
     text: &str,
-    context: &str,
+    context_before: &str,
+    context_after: &str,
 ) -> Result<TranslationResponse, PedaruError> {
     let prompt = TRANSLATION_PROMPT
         .replace("{text}", text)
-        .replace("{context}", context);
+        .replace("{context_before}", context_before)
+        .replace("{context_after}", context_after);
 
-    let response_text = call_gemini_api(api_key, model, &prompt).await?;
+    let response_text = call_gemini_api(
+        api_key,
+        model,
+        &prompt,
+        Some(TRANSLATION_SYSTEM_INSTRUCTION),
+    )
+    .await?;
     parse_translation_response(&response_text)
 }
 
 /// Get explanation of text
 ///
 /// Returns a summary and explanation points.
-/// The context parameter helps understand the text but is not included in output.
+/// The context parameters help understand the text but are not included in output.
 pub async fn explain_text(
     api_key: &str,
     model: &str,
     text: &str,
-    context: &str,
+    context_before: &str,
+    context_after: &str,
 ) -> Result<ExplanationResponse, PedaruError> {
     let prompt = EXPLANATION_PROMPT
         .replace("{text}", text)
-        .replace("{context}", context);
+        .replace("{context_before}", context_before)
+        .replace("{context_after}", context_after);
 
-    let response_text = call_gemini_api(api_key, model, &prompt).await?;
+    let response_text = call_gemini_api(
+        api_key,
+        model,
+        &prompt,
+        Some(EXPLANATION_SYSTEM_INSTRUCTION),
+    )
+    .await?;
     parse_explanation_response(&response_text)
 }

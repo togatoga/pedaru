@@ -327,7 +327,8 @@ export interface ExplanationResponse {
  */
 export interface TextSelection {
   selectedText: string;
-  context: string;
+  contextBefore: string;
+  contextAfter: string;
   isWord: boolean;
   position: { x: number; y: number };
   contextLoading?: boolean;

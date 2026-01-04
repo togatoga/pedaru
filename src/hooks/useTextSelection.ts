@@ -146,13 +146,13 @@ export function useTextSelection(
     return { offset, pageNumber };
   }, []);
 
-  // Get surrounding context for the selection
-  const getContext = useCallback(
+  // Get surrounding context for the selection (before and after separately)
+  const getContextParts = useCallback(
     async (
       selectedText: string,
       pageNum: number,
       selectionOffset: number
-    ): Promise<string> => {
+    ): Promise<{ contextBefore: string; contextAfter: string }> => {
       const contextLength = 500; // Characters before/after
 
       // Get text from current page and adjacent pages
@@ -213,28 +213,32 @@ export function useTextSelection(
       }
 
       if (selectionIndex === -1) {
-        // If still not found, just return current page text as context
-        return currentPageText.slice(0, contextLength * 2);
+        // If still not found, return current page text split in half as fallback
+        const halfLength = Math.min(contextLength, currentPageText.length / 2);
+        return {
+          contextBefore: '...' + currentPageText.slice(0, halfLength),
+          contextAfter: currentPageText.slice(-halfLength) + '...',
+        };
       }
 
-      // Extract context around the selection
-      const startIndex = Math.max(0, selectionIndex - contextLength);
-      const endIndex = Math.min(
+      // Extract context before the selection
+      const beforeStartIndex = Math.max(0, selectionIndex - contextLength);
+      let contextBefore = fullText.slice(beforeStartIndex, selectionIndex);
+      if (beforeStartIndex > 0) {
+        contextBefore = '...' + contextBefore;
+      }
+
+      // Extract context after the selection
+      const afterEndIndex = Math.min(
         fullText.length,
         selectionIndex + selectedText.length + contextLength
       );
-
-      let context = fullText.slice(startIndex, endIndex);
-
-      // Add ellipsis if truncated
-      if (startIndex > 0) {
-        context = '...' + context;
-      }
-      if (endIndex < fullText.length) {
-        context = context + '...';
+      let contextAfter = fullText.slice(selectionIndex + selectedText.length, afterEndIndex);
+      if (afterEndIndex < fullText.length) {
+        contextAfter = contextAfter + '...';
       }
 
-      return context;
+      return { contextBefore, contextAfter };
     },
     [getPageText, totalPages]
   );
@@ -296,7 +300,8 @@ export function useTextSelection(
     // Show popup immediately with loading state
     setSelection({
       selectedText,
-      context: '',
+      contextBefore: '',
+      contextAfter: '',
       isWord,
       position,
       contextLoading: true,
@@ -304,16 +309,17 @@ export function useTextSelection(
     });
 
     // Get context asynchronously and update (using selection page and offset for accurate positioning)
-    const context = await getContext(selectedText, selectionPage, selectionOffset);
+    const { contextBefore, contextAfter } = await getContextParts(selectedText, selectionPage, selectionOffset);
     setSelection({
       selectedText,
-      context,
+      contextBefore,
+      contextAfter,
       isWord,
       position,
       contextLoading: false,
       pageNumber: selectionPage,
     });
-  }, [currentPage, getContext, getSelectionInfo, isWordSelection]);
+  }, [currentPage, getContextParts, getSelectionInfo, isWordSelection]);
 
   // Trigger translation with auto-explanation (called by Cmd+E)
   const triggerExplanation = useCallback(async () => {

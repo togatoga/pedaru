@@ -231,7 +231,8 @@ export default function TranslationPopup({
           // Direct explanation mode - skip translation, get explanation only
           const result = await explainDirectly(
             selection.selectedText,
-            selection.context,
+            selection.contextBefore,
+            selection.contextAfter,
             settings.explanationModel
           );
 
@@ -247,7 +248,8 @@ export default function TranslationPopup({
           // Translation mode
           const result = await translateWithGemini(
             selection.selectedText,
-            selection.context,
+            selection.contextBefore,
+            selection.contextAfter,
             settings.model
           );
 
@@ -286,7 +288,8 @@ export default function TranslationPopup({
       try {
         const result = await explainDirectly(
           selection.selectedText,
-          selection.context,
+          selection.contextBefore,
+          selection.contextAfter,
           geminiSettings.explanationModel
         );
 
@@ -299,7 +302,7 @@ export default function TranslationPopup({
         setIsExplaining(false);
       }
     }, 0);
-  }, [translationResponse, isExplaining, geminiSettings, selection.selectedText, selection.context]);
+  }, [translationResponse, isExplaining, geminiSettings, selection.selectedText, selection.contextBefore, selection.contextAfter]);
 
   // Note: Auto-trigger explanation is no longer needed
   // In autoExplain mode, we call explainDirectly in the initial useEffect
@@ -330,7 +333,8 @@ export default function TranslationPopup({
           unlisten();
           await emitTo(windowLabel, 'translation-data', {
             selectedText: selection.selectedText,
-            context: selection.context,
+            contextBefore: selection.contextBefore,
+            contextAfter: selection.contextAfter,
             translationResponse,
             autoExplain,
           });
@@ -355,7 +359,7 @@ export default function TranslationPopup({
     } catch (e) {
       console.error('Failed to open translation window:', e);
     }
-  }, [translationResponse, selection.selectedText, selection.context, autoExplain, onClose]);
+  }, [translationResponse, selection.selectedText, selection.contextBefore, selection.contextAfter, autoExplain, onClose]);
 
   return (
     <div
@@ -407,10 +411,19 @@ export default function TranslationPopup({
           {showContext ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         </button>
         {showContext && (
-          <div className="px-3 pb-2">
-            <p className="text-xs text-text-tertiary font-mono whitespace-pre-wrap max-h-[150px] overflow-y-auto bg-bg-primary p-2 rounded">
-              {selection.context || '(no context)'}
-            </p>
+          <div className="px-3 pb-2 space-y-2">
+            <div>
+              <span className="text-xs text-text-tertiary">Before:</span>
+              <p className="text-xs text-text-tertiary font-mono whitespace-pre-wrap max-h-[75px] overflow-y-auto bg-bg-primary p-2 rounded">
+                {selection.contextBefore || '(no context)'}
+              </p>
+            </div>
+            <div>
+              <span className="text-xs text-text-tertiary">After:</span>
+              <p className="text-xs text-text-tertiary font-mono whitespace-pre-wrap max-h-[75px] overflow-y-auto bg-bg-primary p-2 rounded">
+                {selection.contextAfter || '(no context)'}
+              </p>
+            </div>
           </div>
         )}
       </div>
