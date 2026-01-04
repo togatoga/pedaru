@@ -11,7 +11,8 @@ import { explainDirectly, getGeminiSettings, GEMINI_MODELS } from '@/lib/setting
 
 interface TranslationData {
   selectedText: string;
-  context: string;
+  contextBefore: string;
+  contextAfter: string;
   translationResponse: TranslationResponse;
   autoExplain: boolean;
 }
@@ -151,7 +152,8 @@ function TranslationContent() {
       try {
         const result = await explainDirectly(
           data.selectedText,
-          data.context,
+          data.contextBefore,
+          data.contextAfter,
           geminiSettings.explanationModel
         );
         setExplanationSummary(result.summary);
@@ -199,10 +201,19 @@ function TranslationContent() {
           {showContext ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         </button>
         {showContext && (
-          <div className="px-3 pb-2">
-            <p className="text-xs text-text-tertiary font-mono whitespace-pre-wrap max-h-[150px] overflow-y-auto bg-bg-secondary p-2 rounded">
-              {data.context || '(no context)'}
-            </p>
+          <div className="px-3 pb-2 space-y-2">
+            <div>
+              <span className="text-xs text-text-tertiary">Before:</span>
+              <p className="text-xs text-text-tertiary font-mono whitespace-pre-wrap max-h-[75px] overflow-y-auto bg-bg-secondary p-2 rounded">
+                {data.contextBefore || '(no context)'}
+              </p>
+            </div>
+            <div>
+              <span className="text-xs text-text-tertiary">After:</span>
+              <p className="text-xs text-text-tertiary font-mono whitespace-pre-wrap max-h-[75px] overflow-y-auto bg-bg-secondary p-2 rounded">
+                {data.contextAfter || '(no context)'}
+              </p>
+            </div>
           </div>
         )}
       </div>

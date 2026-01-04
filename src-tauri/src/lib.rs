@@ -510,15 +510,22 @@ fn save_gemini_settings(
 async fn translate_with_gemini(
     app: tauri::AppHandle,
     text: String,
-    context: String,
+    context_before: String,
+    context_after: String,
     model_override: Option<String>,
 ) -> Result<gemini::TranslationResponse, String> {
     let gemini_settings = settings::get_gemini_settings(&app).map_err(|e| e.into_tauri_error())?;
     let model = model_override.as_deref().unwrap_or(&gemini_settings.model);
 
-    gemini::translate_text(&gemini_settings.api_key, model, &text, &context)
-        .await
-        .map_err(|e| e.into_tauri_error())
+    gemini::translate_text(
+        &gemini_settings.api_key,
+        model,
+        &text,
+        &context_before,
+        &context_after,
+    )
+    .await
+    .map_err(|e| e.into_tauri_error())
 }
 
 /// Get explanation of text (returns summary + explanation points)
@@ -526,7 +533,8 @@ async fn translate_with_gemini(
 async fn explain_directly(
     app: tauri::AppHandle,
     text: String,
-    context: String,
+    context_before: String,
+    context_after: String,
     model_override: Option<String>,
 ) -> Result<gemini::ExplanationResponse, String> {
     let gemini_settings = settings::get_gemini_settings(&app).map_err(|e| e.into_tauri_error())?;
@@ -534,9 +542,15 @@ async fn explain_directly(
         .as_deref()
         .unwrap_or(&gemini_settings.explanation_model);
 
-    gemini::explain_text(&gemini_settings.api_key, model, &text, &context)
-        .await
-        .map_err(|e| e.into_tauri_error())
+    gemini::explain_text(
+        &gemini_settings.api_key,
+        model,
+        &text,
+        &context_before,
+        &context_after,
+    )
+    .await
+    .map_err(|e| e.into_tauri_error())
 }
 
 // ============================================================================
