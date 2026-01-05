@@ -5,7 +5,9 @@ A cross-platform desktop PDF reader with Gemini translation
 ![Pedaru PDF Viewer](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue)
 
-<img src="./images/main.png" width="800">
+<img width="2416" height="1334" alt="image" src="https://github.com/user-attachments/assets/3417878f-08f1-4593-9f99-4da30e42e9fd" />
+
+
 
 
 ## Prerequisites
