@@ -3,18 +3,18 @@
  * Centralized Props interfaces for all components
  */
 
-import type { ReactNode, RefObject, Dispatch, SetStateAction } from 'react';
-import type { PDFPageProxy } from 'pdfjs-dist';
+import type { PDFPageProxy } from "pdfjs-dist";
+import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
 import type {
-  ViewMode,
   Bookmark,
-  Tab,
   HistoryEntry,
-  SearchResult,
   OpenWindow,
+  SearchResult,
+  Tab,
   TextSelection,
-} from './index';
-import type { TocEntry } from './pdf';
+  ViewMode,
+} from "./index";
+import type { TocEntry } from "./pdf";
 
 // ============================================
 // Header Component

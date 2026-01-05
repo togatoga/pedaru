@@ -1,42 +1,46 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
+  AlertCircle,
+  Check,
+  ChevronRight,
+  Cloud,
+  Download,
+  ExternalLink,
+  FilePlus,
+  FileText,
+  FolderOpen,
+  FolderPlus,
+  Grid,
+  HardDrive,
   Library,
-  RefreshCw,
-  Settings,
+  List,
+  Loader2,
   LogIn,
   LogOut,
-  FolderPlus,
-  ChevronRight,
-  Loader2,
-  X,
-  Download,
-  Grid,
-  List,
-  Search,
-  FileText,
-  ExternalLink,
-  Trash2,
-  Check,
-  AlertCircle,
   Plus,
-  FilePlus,
-  FolderOpen,
-  HardDrive,
-  Cloud,
+  RefreshCw,
+  Search,
+  Settings,
   Star,
-} from 'lucide-react';
-import { useGoogleAuth } from '@/hooks/useGoogleAuth';
-import { useBookshelf } from '@/hooks/useBookshelf';
-import { generateThumbnailsInBackground } from '@/lib/thumbnailGenerator';
-import type { BookshelfItem as BookshelfItemType, DriveItem } from '@/types';
-import type { BookshelfMainViewProps } from '@/types/components';
+  Trash2,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useBookshelf } from "@/hooks/useBookshelf";
+import { useGoogleAuth } from "@/hooks/useGoogleAuth";
+import { generateThumbnailsInBackground } from "@/lib/thumbnailGenerator";
+import type { BookshelfItem as BookshelfItemType, DriveItem } from "@/types";
+import type { BookshelfMainViewProps } from "@/types/components";
 
 /**
  * Main view bookshelf component for full-screen book selection
  */
-export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose }: BookshelfMainViewProps) {
+export default function BookshelfMainView({
+  onOpenPdf,
+  currentFilePath,
+  onClose,
+}: BookshelfMainViewProps) {
   const {
     authStatus,
     isLoading: authLoading,
@@ -82,21 +86,29 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [browseItems, setBrowseItems] = useState<DriveItem[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<DriveItem[]>([]);
-  const [folderPath, setFolderPath] = useState<Array<{ id: string; name: string }>>([]);
+  const [folderPath, setFolderPath] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [isBrowsing, setIsBrowsing] = useState(false);
-  const [browserViewMode, setBrowserViewMode] = useState<'grid' | 'list'>('grid');
+  const [browserViewMode, setBrowserViewMode] = useState<"grid" | "list">(
+    "grid",
+  );
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [searchQuery, setSearchQuery] = useState("");
   const [currentDownloadIndex, setCurrentDownloadIndex] = useState(0);
   const [totalDownloads, setTotalDownloads] = useState(0);
-  const [filterMode, setFilterMode] = useState<'all' | 'pending' | 'downloaded'>('all');
-  const [sourceFilter, setSourceFilter] = useState<'local' | 'cloud' | null>(null);
+  const [filterMode, setFilterMode] = useState<
+    "all" | "pending" | "downloaded"
+  >("all");
+  const [sourceFilter, setSourceFilter] = useState<"local" | "cloud" | null>(
+    null,
+  );
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   // Credentials input (for first-time setup)
-  const [clientId, setClientId] = useState('');
-  const [clientSecret, setClientSecret] = useState('');
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
 
   // Track items that have been queued for thumbnail generation
   const thumbnailQueueRef = useRef<Set<string>>(new Set());
@@ -107,11 +119,13 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
     if (isGeneratingRef.current) return;
 
     // Get items needing thumbnails and filter those not already queued
-    const itemsNeedingThumbnails = getItemsNeedingThumbnails().filter((item) => {
-      // Use driveFileId for cloud items, or `local-${id}` for local items
-      const queueKey = item.driveFileId || `local-${item.id}`;
-      return !thumbnailQueueRef.current.has(queueKey);
-    });
+    const itemsNeedingThumbnails = getItemsNeedingThumbnails().filter(
+      (item) => {
+        // Use driveFileId for cloud items, or `local-${id}` for local items
+        const queueKey = item.driveFileId || `local-${item.id}`;
+        return !thumbnailQueueRef.current.has(queueKey);
+      },
+    );
 
     if (itemsNeedingThumbnails.length === 0) return;
 
@@ -139,7 +153,7 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
               // Local item
               await updateLocalThumbnail(thumbnailItem.itemId, thumbnailData);
             }
-          }
+          },
         );
       } finally {
         isGeneratingRef.current = false;
@@ -148,51 +162,63 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
   }, [getItemsNeedingThumbnails, updateThumbnail, updateLocalThumbnail]);
 
   // Browse folders only (for folder sync in settings)
-  const browseFoldersOnly = useCallback(async (folderId: string | null) => {
-    setIsBrowsing(true);
-    try {
-      const folders = await listDriveFolders(folderId || undefined);
-      // Convert DriveFolder to DriveItem format
-      const items: DriveItem[] = folders.map(f => ({
-        id: f.id,
-        name: f.name,
-        mimeType: 'application/vnd.google-apps.folder',
-        modifiedTime: f.modifiedTime,
-        isFolder: true,
-      }));
-      setBrowseItems(items);
-      setCurrentFolderId(folderId);
-    } catch (err) {
-      console.error('Failed to browse folders:', err);
-    } finally {
-      setIsBrowsing(false);
-    }
-  }, [listDriveFolders]);
+  const browseFoldersOnly = useCallback(
+    async (folderId: string | null) => {
+      setIsBrowsing(true);
+      try {
+        const folders = await listDriveFolders(folderId || undefined);
+        // Convert DriveFolder to DriveItem format
+        const items: DriveItem[] = folders.map((f) => ({
+          id: f.id,
+          name: f.name,
+          mimeType: "application/vnd.google-apps.folder",
+          modifiedTime: f.modifiedTime,
+          isFolder: true,
+        }));
+        setBrowseItems(items);
+        setCurrentFolderId(folderId);
+      } catch (err) {
+        console.error("Failed to browse folders:", err);
+      } finally {
+        setIsBrowsing(false);
+      }
+    },
+    [listDriveFolders],
+  );
 
   // Browse files and folders (for file import)
-  const browseFilesAndFolders = useCallback(async (folderId: string | null) => {
-    setIsBrowsing(true);
-    try {
-      const items = await listDriveItems(folderId || undefined);
-      setBrowseItems(items);
-      setCurrentFolderId(folderId);
-      setSelectedFiles([]); // Clear selection when navigating
-    } catch (err) {
-      console.error('Failed to browse items:', err);
-    } finally {
-      setIsBrowsing(false);
-    }
-  }, [listDriveItems]);
+  const browseFilesAndFolders = useCallback(
+    async (folderId: string | null) => {
+      setIsBrowsing(true);
+      try {
+        const items = await listDriveItems(folderId || undefined);
+        setBrowseItems(items);
+        setCurrentFolderId(folderId);
+        setSelectedFiles([]); // Clear selection when navigating
+      } catch (err) {
+        console.error("Failed to browse items:", err);
+      } finally {
+        setIsBrowsing(false);
+      }
+    },
+    [listDriveItems],
+  );
 
-  const navigateToFolderForSync = useCallback((item: DriveItem) => {
-    setFolderPath((prev) => [...prev, { id: item.id, name: item.name }]);
-    browseFoldersOnly(item.id);
-  }, [browseFoldersOnly]);
+  const navigateToFolderForSync = useCallback(
+    (item: DriveItem) => {
+      setFolderPath((prev) => [...prev, { id: item.id, name: item.name }]);
+      browseFoldersOnly(item.id);
+    },
+    [browseFoldersOnly],
+  );
 
-  const navigateToFolderForImport = useCallback((item: DriveItem) => {
-    setFolderPath((prev) => [...prev, { id: item.id, name: item.name }]);
-    browseFilesAndFolders(item.id);
-  }, [browseFilesAndFolders]);
+  const navigateToFolderForImport = useCallback(
+    (item: DriveItem) => {
+      setFolderPath((prev) => [...prev, { id: item.id, name: item.name }]);
+      browseFilesAndFolders(item.id);
+    },
+    [browseFilesAndFolders],
+  );
 
   const toggleFileSelection = useCallback((file: DriveItem) => {
     setSelectedFiles((prev) => {
@@ -205,17 +231,27 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
     });
   }, []);
 
-  const navigateBackForSync = useCallback((index: number) => {
-    const newPath = folderPath.slice(0, index);
-    setFolderPath(newPath);
-    browseFoldersOnly(newPath.length > 0 ? newPath[newPath.length - 1].id : null);
-  }, [folderPath, browseFoldersOnly]);
+  const navigateBackForSync = useCallback(
+    (index: number) => {
+      const newPath = folderPath.slice(0, index);
+      setFolderPath(newPath);
+      browseFoldersOnly(
+        newPath.length > 0 ? newPath[newPath.length - 1].id : null,
+      );
+    },
+    [folderPath, browseFoldersOnly],
+  );
 
-  const navigateBackForImport = useCallback((index: number) => {
-    const newPath = folderPath.slice(0, index);
-    setFolderPath(newPath);
-    browseFilesAndFolders(newPath.length > 0 ? newPath[newPath.length - 1].id : null);
-  }, [folderPath, browseFilesAndFolders]);
+  const navigateBackForImport = useCallback(
+    (index: number) => {
+      const newPath = folderPath.slice(0, index);
+      setFolderPath(newPath);
+      browseFilesAndFolders(
+        newPath.length > 0 ? newPath[newPath.length - 1].id : null,
+      );
+    },
+    [folderPath, browseFilesAndFolders],
+  );
 
   const handleAddCurrentFolder = useCallback(async () => {
     if (folderPath.length > 0) {
@@ -242,68 +278,87 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
       // Trigger sync immediately after importing files
       await sync();
     } catch (error) {
-      console.error('Failed to import files:', error);
+      console.error("Failed to import files:", error);
     } finally {
       setIsImporting(false);
     }
   }, [selectedFiles, currentFolderId, importDriveFiles, sync]);
 
-  const handleOpenPdf = useCallback(async (item: BookshelfItemType) => {
-    if (item.localPath) {
-      if (currentFilePath === item.localPath) {
-        console.log('File already open, skipping reload');
-        onClose?.();
-        return;
-      }
-
-      try {
-        const { exists } = await import('@tauri-apps/plugin-fs');
-        const fileExists = await exists(item.localPath);
-
-        if (!fileExists) {
-          console.error('File missing:', item.localPath);
-          if (item.driveFileId) {
-            // Cloud item: reset download status so it can be re-downloaded
-            await resetDownloadStatus(item.driveFileId);
-          } else {
-            // Local item: remove from bookshelf since file no longer exists
-            await deleteItem(item.id);
-          }
+  const handleOpenPdf = useCallback(
+    async (item: BookshelfItemType) => {
+      if (item.localPath) {
+        if (currentFilePath === item.localPath) {
+          console.log("File already open, skipping reload");
+          onClose?.();
           return;
         }
 
-        // Update last opened timestamp
-        await updateLastOpened(item.localPath);
+        try {
+          const { exists } = await import("@tauri-apps/plugin-fs");
+          const fileExists = await exists(item.localPath);
 
-        onOpenPdf(item.localPath);
-        onClose?.();
-      } catch (error) {
-        console.error('Error checking file:', error);
+          if (!fileExists) {
+            console.error("File missing:", item.localPath);
+            if (item.driveFileId) {
+              // Cloud item: reset download status so it can be re-downloaded
+              await resetDownloadStatus(item.driveFileId);
+            } else {
+              // Local item: remove from bookshelf since file no longer exists
+              await deleteItem(item.id);
+            }
+            return;
+          }
+
+          // Update last opened timestamp
+          await updateLastOpened(item.localPath);
+
+          onOpenPdf(item.localPath);
+          onClose?.();
+        } catch (error) {
+          console.error("Error checking file:", error);
+        }
       }
-    }
-  }, [onOpenPdf, resetDownloadStatus, deleteItem, updateLastOpened, currentFilePath, onClose]);
+    },
+    [
+      onOpenPdf,
+      resetDownloadStatus,
+      deleteItem,
+      updateLastOpened,
+      currentFilePath,
+      onClose,
+    ],
+  );
 
-  const handleDownload = useCallback(async (item: BookshelfItemType) => {
-    // Check auth status first if it's a cloud item (triggers Keychain access)
-    if (!hasCheckedAuth && item.driveFileId) {
-      await checkAuthStatus();
-    }
-    await downloadItem(item);
-  }, [hasCheckedAuth, checkAuthStatus, downloadItem]);
+  const handleDownload = useCallback(
+    async (item: BookshelfItemType) => {
+      // Check auth status first if it's a cloud item (triggers Keychain access)
+      if (!hasCheckedAuth && item.driveFileId) {
+        await checkAuthStatus();
+      }
+      await downloadItem(item);
+    },
+    [hasCheckedAuth, checkAuthStatus, downloadItem],
+  );
 
-  const handleDelete = useCallback(async (item: BookshelfItemType) => {
-    await deleteLocalCopy(item.driveFileId || '');
-  }, [deleteLocalCopy]);
+  const handleDelete = useCallback(
+    async (item: BookshelfItemType) => {
+      await deleteLocalCopy(item.driveFileId || "");
+    },
+    [deleteLocalCopy],
+  );
 
-  const handleCancel = useCallback(async (item: BookshelfItemType) => {
-    await cancelDownload(item.driveFileId || '');
-  }, [cancelDownload]);
+  const handleCancel = useCallback(
+    async (item: BookshelfItemType) => {
+      await cancelDownload(item.driveFileId || "");
+    },
+    [cancelDownload],
+  );
 
   const handleSaveCredentials = useCallback(async () => {
     if (clientId && clientSecret) {
       await saveCredentials(clientId, clientSecret);
-      setClientId('');
-      setClientSecret('');
+      setClientId("");
+      setClientSecret("");
     }
   }, [clientId, clientSecret, saveCredentials]);
 
@@ -323,22 +378,27 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
   const handleImportFiles = useCallback(async () => {
     setShowAddMenu(false);
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
+      const { open } = await import("@tauri-apps/plugin-dialog");
       const selected = await open({
         multiple: true,
-        filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
+        filters: [{ name: "PDF Files", extensions: ["pdf"] }],
       });
 
-      if (selected && (Array.isArray(selected) ? selected.length > 0 : selected)) {
+      if (
+        selected &&
+        (Array.isArray(selected) ? selected.length > 0 : selected)
+      ) {
         setIsImporting(true);
         const paths = Array.isArray(selected) ? selected : [selected];
         const result = await importLocalFiles(paths);
         if (result) {
-          console.log(`Imported: ${result.importedCount}, Skipped: ${result.skippedCount}, Errors: ${result.errorCount}`);
+          console.log(
+            `Imported: ${result.importedCount}, Skipped: ${result.skippedCount}, Errors: ${result.errorCount}`,
+          );
         }
       }
     } catch (error) {
-      console.error('Failed to import files:', error);
+      console.error("Failed to import files:", error);
     } finally {
       setIsImporting(false);
     }
@@ -348,47 +408,56 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
   const handleImportDirectory = useCallback(async () => {
     setShowAddMenu(false);
     try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
+      const { open } = await import("@tauri-apps/plugin-dialog");
       const selected = await open({
         directory: true,
         multiple: false,
       });
 
-      if (selected && typeof selected === 'string') {
+      if (selected && typeof selected === "string") {
         setIsImporting(true);
         const result = await importLocalDirectory(selected);
         if (result) {
-          console.log(`Imported: ${result.importedCount}, Skipped: ${result.skippedCount}, Errors: ${result.errorCount}`);
+          console.log(
+            `Imported: ${result.importedCount}, Skipped: ${result.skippedCount}, Errors: ${result.errorCount}`,
+          );
         }
       }
     } catch (error) {
-      console.error('Failed to import directory:', error);
+      console.error("Failed to import directory:", error);
     } finally {
       setIsImporting(false);
     }
   }, [importLocalDirectory]);
 
   // Handle delete for both local and cloud items
-  const handleDeleteItem = useCallback(async (item: BookshelfItemType) => {
-    if (item.sourceType === 'local') {
-      await deleteItem(item.id);
-    } else {
-      await deleteLocalCopy(item.driveFileId || '');
-    }
-  }, [deleteItem, deleteLocalCopy]);
+  const handleDeleteItem = useCallback(
+    async (item: BookshelfItemType) => {
+      if (item.sourceType === "local") {
+        await deleteItem(item.id);
+      } else {
+        await deleteLocalCopy(item.driveFileId || "");
+      }
+    },
+    [deleteItem, deleteLocalCopy],
+  );
 
   // Handle toggle favorite
-  const handleToggleFavorite = useCallback(async (item: BookshelfItemType, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const isCloud = item.sourceType === 'google_drive';
-    await toggleFavorite(item.id, isCloud);
-  }, [toggleFavorite]);
+  const handleToggleFavorite = useCallback(
+    async (item: BookshelfItemType, e: React.MouseEvent) => {
+      e.stopPropagation();
+      const isCloud = item.sourceType === "google_drive";
+      await toggleFavorite(item.id, isCloud);
+    },
+    [toggleFavorite],
+  );
 
   // Get downloadable items count (only cloud files can be downloaded)
   const downloadableItems = useMemo(() => {
-    return items.filter(item =>
-      item.sourceType === 'google_drive' &&
-      (item.downloadStatus === 'pending' || item.downloadStatus === 'error')
+    return items.filter(
+      (item) =>
+        item.sourceType === "google_drive" &&
+        (item.downloadStatus === "pending" || item.downloadStatus === "error"),
     );
   }, [items]);
   const downloadableCount = downloadableItems.length;
@@ -399,32 +468,36 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
 
     // Favorites filter
     if (showFavoritesOnly) {
-      filtered = filtered.filter(item => item.isFavorite);
+      filtered = filtered.filter((item) => item.isFavorite);
     }
 
     // Source type filter
-    if (sourceFilter === 'local') {
-      filtered = filtered.filter(item => item.sourceType === 'local');
-    } else if (sourceFilter === 'cloud') {
-      filtered = filtered.filter(item => item.sourceType === 'google_drive');
+    if (sourceFilter === "local") {
+      filtered = filtered.filter((item) => item.sourceType === "local");
+    } else if (sourceFilter === "cloud") {
+      filtered = filtered.filter((item) => item.sourceType === "google_drive");
     }
     // When sourceFilter is null, show all items
 
     // Download status filter
-    if (filterMode === 'pending') {
-      filtered = filtered.filter(item => item.downloadStatus !== 'completed');
-    } else if (filterMode === 'downloaded') {
-      filtered = filtered.filter(item => item.downloadStatus === 'completed');
+    if (filterMode === "pending") {
+      filtered = filtered.filter((item) => item.downloadStatus !== "completed");
+    } else if (filterMode === "downloaded") {
+      filtered = filtered.filter((item) => item.downloadStatus === "completed");
     }
 
     // Search query filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(item => {
-        const title = (item.pdfTitle || '').toLowerCase();
-        const fileName = (item.fileName || '').toLowerCase();
-        const author = (item.pdfAuthor || '').toLowerCase();
-        return title.includes(query) || fileName.includes(query) || author.includes(query);
+      filtered = filtered.filter((item) => {
+        const title = (item.pdfTitle || "").toLowerCase();
+        const fileName = (item.fileName || "").toLowerCase();
+        const author = (item.pdfAuthor || "").toLowerCase();
+        return (
+          title.includes(query) ||
+          fileName.includes(query) ||
+          author.includes(query)
+        );
       });
     }
 
@@ -432,27 +505,27 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
   }, [items, searchQuery, filterMode, sourceFilter, showFavoritesOnly]);
 
   const downloadedCount = useMemo(() => {
-    return items.filter(item => item.downloadStatus === 'completed').length;
+    return items.filter((item) => item.downloadStatus === "completed").length;
   }, [items]);
 
   const notDownloadedCount = useMemo(() => {
-    return items.filter(item => item.downloadStatus !== 'completed').length;
+    return items.filter((item) => item.downloadStatus !== "completed").length;
   }, [items]);
 
   const localCount = useMemo(() => {
-    return items.filter(item => item.sourceType === 'local').length;
+    return items.filter((item) => item.sourceType === "local").length;
   }, [items]);
 
   const cloudCount = useMemo(() => {
-    return items.filter(item => item.sourceType === 'google_drive').length;
+    return items.filter((item) => item.sourceType === "google_drive").length;
   }, [items]);
 
   const favoriteCount = useMemo(() => {
-    return items.filter(item => item.isFavorite).length;
+    return items.filter((item) => item.isFavorite).length;
   }, [items]);
 
   const downloadingItem = useMemo(() => {
-    return items.find(item => item.downloadStatus === 'downloading');
+    return items.find((item) => item.downloadStatus === "downloading");
   }, [items]);
 
   const handleDownloadAll = useCallback(async () => {
@@ -475,7 +548,7 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
 
   // Format file size
   const formatFileSize = (bytes?: number) => {
-    if (!bytes) return '-';
+    if (!bytes) return "-";
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -484,21 +557,21 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
   // Format date
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
-    return date.toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
+    return date.toLocaleDateString("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
     });
   };
 
   // Render a single book item
   const renderBookItem = (item: BookshelfItemType) => {
-    const isDownloaded = item.downloadStatus === 'completed' && item.localPath;
-    const isDownloading = item.downloadStatus === 'downloading';
-    const hasError = item.downloadStatus === 'error';
+    const isDownloaded = item.downloadStatus === "completed" && item.localPath;
+    const isDownloading = item.downloadStatus === "downloading";
+    const hasError = item.downloadStatus === "error";
     const displayName = item.pdfTitle || item.fileName;
 
-    if (viewMode === 'list') {
+    if (viewMode === "list") {
       // Table row for list view - rendered inside tbody
       return null; // Table rows are rendered separately
     }
@@ -511,7 +584,7 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
           relative group rounded-lg overflow-hidden
           bg-bg-tertiary hover:bg-bg-secondary
           transition-all duration-200
-          ${isDownloaded ? 'cursor-pointer' : ''}
+          ${isDownloaded ? "cursor-pointer" : ""}
         `}
         onClick={() => isDownloaded && handleOpenPdf(item)}
       >
@@ -529,7 +602,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
           {isDownloading && (
             <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center">
               <Loader2 className="w-10 h-10 text-white animate-spin" />
-              <span className="text-white text-base mt-2">{item.downloadProgress.toFixed(0)}%</span>
+              <span className="text-white text-base mt-2">
+                {item.downloadProgress.toFixed(0)}%
+              </span>
               <div className="w-3/4 h-1.5 bg-white/30 rounded-full mt-2">
                 <div
                   className="h-full bg-accent rounded-full transition-all duration-200"
@@ -537,7 +612,10 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                 />
               </div>
               <button
-                onClick={(e) => { e.stopPropagation(); handleCancel(item); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCancel(item);
+                }}
                 className="mt-3 px-4 py-1.5 bg-red-500/80 hover:bg-red-500 text-white text-sm rounded transition-colors flex items-center gap-1"
               >
                 <X className="w-4 h-4" />
@@ -572,7 +650,10 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
             {displayName}
           </p>
           {item.pdfAuthor && (
-            <p className="text-xs text-text-secondary truncate mt-0.5" title={item.pdfAuthor}>
+            <p
+              className="text-xs text-text-secondary truncate mt-0.5"
+              title={item.pdfAuthor}
+            >
               {item.pdfAuthor}
             </p>
           )}
@@ -589,33 +670,48 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
             onClick={(e) => handleToggleFavorite(item, e)}
             className={`p-2 rounded transition-colors ${
               item.isFavorite
-                ? 'bg-yellow-500 text-white hover:bg-yellow-600'
-                : 'bg-bg-tertiary text-text-secondary hover:bg-bg-secondary'
+                ? "bg-yellow-500 text-white hover:bg-yellow-600"
+                : "bg-bg-tertiary text-text-secondary hover:bg-bg-secondary"
             }`}
-            title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            title={
+              item.isFavorite ? "Remove from favorites" : "Add to favorites"
+            }
           >
-            <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-white' : ''}`} />
+            <Star
+              className={`w-4 h-4 ${item.isFavorite ? "fill-white" : ""}`}
+            />
           </button>
           {isDownloaded ? (
             <>
               <button
-                onClick={(e) => { e.stopPropagation(); handleOpenPdf(item); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenPdf(item);
+                }}
                 className="p-2 bg-accent text-white rounded hover:bg-accent/80 transition-colors"
                 title="Open"
               >
                 <ExternalLink className="w-4 h-4" />
               </button>
               <button
-                onClick={(e) => { e.stopPropagation(); handleDeleteItem(item); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteItem(item);
+                }}
                 className="p-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
                 title="Delete"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
             </>
-          ) : !isDownloading && authStatus.authenticated && item.sourceType !== 'local' ? (
+          ) : !isDownloading &&
+            authStatus.authenticated &&
+            item.sourceType !== "local" ? (
             <button
-              onClick={(e) => { e.stopPropagation(); handleDownload(item); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDownload(item);
+              }}
               className="p-2 bg-accent text-white rounded hover:bg-accent/80 transition-colors"
               title="Download"
             >
@@ -634,7 +730,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
         <div className="flex items-center justify-between px-6 py-4 border-b border-bg-tertiary">
           <div className="flex items-center gap-3">
             <Settings className="w-5 h-5 text-accent" />
-            <span className="text-lg font-medium text-text-primary">Bookshelf Settings</span>
+            <span className="text-lg font-medium text-text-primary">
+              Bookshelf Settings
+            </span>
           </div>
           <button
             onClick={() => setShowSettings(false)}
@@ -651,7 +749,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                 Set up OAuth credentials to connect to Google Drive.
               </p>
               <div>
-                <label className="block text-sm text-text-tertiary mb-2">Client ID</label>
+                <label className="block text-sm text-text-tertiary mb-2">
+                  Client ID
+                </label>
                 <input
                   type="text"
                   value={clientId}
@@ -661,7 +761,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                 />
               </div>
               <div>
-                <label className="block text-sm text-text-tertiary mb-2">Client Secret</label>
+                <label className="block text-sm text-text-tertiary mb-2">
+                  Client Secret
+                </label>
                 <input
                   type="password"
                   value={clientSecret}
@@ -675,7 +777,11 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                 disabled={!clientId || !clientSecret || authLoading}
                 className="w-full px-4 py-2 bg-accent text-white rounded font-medium disabled:opacity-50 hover:bg-accent/80 transition-colors"
               >
-                {authLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Save Credentials'}
+                {authLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                ) : (
+                  "Save Credentials"
+                )}
               </button>
             </div>
           )}
@@ -684,15 +790,17 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <span className="text-text-primary">
-                  {authStatus.authenticated ? 'Connected to Google' : 'Not connected'}
+                  {authStatus.authenticated
+                    ? "Connected to Google"
+                    : "Not connected"}
                 </span>
                 <button
                   onClick={authStatus.authenticated ? logout : login}
                   disabled={authLoading}
                   className={`px-4 py-2 rounded flex items-center gap-2 ${
                     authStatus.authenticated
-                      ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                      : 'bg-accent text-white hover:bg-accent/80'
+                      ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                      : "bg-accent text-white hover:bg-accent/80"
                   }`}
                 >
                   {authLoading ? (
@@ -714,7 +822,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
               {(authStatus.authenticated || hasCheckedAuth) && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm text-text-tertiary">Synced Folders</span>
+                    <span className="text-sm text-text-tertiary">
+                      Synced Folders
+                    </span>
                     <button
                       onClick={async () => {
                         // Ensure auth is checked before browsing folders
@@ -745,7 +855,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                           key={folder.folderId || `synced-${index}`}
                           className="flex items-center justify-between py-2 px-3 bg-bg-tertiary rounded"
                         >
-                          <span className="text-text-primary truncate">{folder.folderName}</span>
+                          <span className="text-text-primary truncate">
+                            {folder.folderName}
+                          </span>
                           <button
                             onClick={() => removeSyncFolder(folder.folderId)}
                             className="text-text-tertiary hover:text-red-400"
@@ -761,8 +873,10 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                     disabled={isSyncing}
                     className="w-full px-4 py-2 bg-accent text-white rounded font-medium hover:bg-accent/80 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
-                    {isSyncing ? 'Syncing...' : 'Sync Now'}
+                    <RefreshCw
+                      className={`w-5 h-5 ${isSyncing ? "animate-spin" : ""}`}
+                    />
+                    {isSyncing ? "Syncing..." : "Sync Now"}
                   </button>
                 </div>
               )}
@@ -775,17 +889,22 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
 
   // Folder browser modal (for folder sync - shows only folders)
   if (showFolderBrowser) {
-    const folders = browseItems.filter(item => item.isFolder);
+    const folders = browseItems.filter((item) => item.isFolder);
 
     return (
       <div className="h-full flex flex-col bg-bg-primary">
         <div className="flex items-center justify-between px-6 py-4 border-b border-bg-tertiary">
           <div className="flex items-center gap-3">
             <FolderPlus className="w-5 h-5 text-accent" />
-            <span className="text-lg font-medium text-text-primary">Select Folder to Sync</span>
+            <span className="text-lg font-medium text-text-primary">
+              Select Folder to Sync
+            </span>
           </div>
           <button
-            onClick={() => { setShowFolderBrowser(false); setFolderPath([]); }}
+            onClick={() => {
+              setShowFolderBrowser(false);
+              setFolderPath([]);
+            }}
             className="p-2 hover:bg-bg-tertiary rounded"
           >
             <X className="w-5 h-5 text-text-secondary" />
@@ -793,13 +912,22 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
         </div>
 
         <div className="px-6 py-3 border-b border-bg-tertiary flex items-center gap-2 text-sm flex-wrap">
-          <button onClick={() => navigateBackForSync(0)} className="text-accent hover:underline">
+          <button
+            onClick={() => navigateBackForSync(0)}
+            className="text-accent hover:underline"
+          >
             My Drive
           </button>
           {folderPath.map((folder, index) => (
-            <span key={folder.id || `path-${index}`} className="flex items-center gap-2">
+            <span
+              key={folder.id || `path-${index}`}
+              className="flex items-center gap-2"
+            >
               <ChevronRight className="w-4 h-4 text-text-tertiary" />
-              <button onClick={() => navigateBackForSync(index + 1)} className="text-accent hover:underline">
+              <button
+                onClick={() => navigateBackForSync(index + 1)}
+                className="text-accent hover:underline"
+              >
                 {folder.name}
               </button>
             </span>
@@ -812,7 +940,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
               <Loader2 className="w-8 h-8 text-accent animate-spin" />
             </div>
           ) : folders.length === 0 ? (
-            <div className="text-center py-12 text-text-tertiary">No folders found</div>
+            <div className="text-center py-12 text-text-tertiary">
+              No folders found
+            </div>
           ) : (
             <ul className="space-y-2">
               {folders.map((folder, index) => (
@@ -822,7 +952,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                     className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary rounded-lg text-left"
                   >
                     <FolderOpen className="w-5 h-5 text-accent" />
-                    <span className="text-text-primary truncate flex-1">{folder.name}</span>
+                    <span className="text-text-primary truncate flex-1">
+                      {folder.name}
+                    </span>
                     <ChevronRight className="w-5 h-5 text-text-tertiary" />
                   </button>
                 </li>
@@ -848,30 +980,38 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
 
   // Cloud file browser modal (for file import - shows files with thumbnails)
   if (showCloudFileBrowser) {
-    const folders = browseItems.filter(item => item.isFolder);
-    const files = browseItems.filter(item => !item.isFolder);
+    const folders = browseItems.filter((item) => item.isFolder);
+    const files = browseItems.filter((item) => !item.isFolder);
 
     return (
       <div className="h-full flex flex-col bg-bg-primary">
         <div className="flex items-center justify-between px-6 py-4 border-b border-bg-tertiary">
           <div className="flex items-center gap-3">
             <Cloud className="w-5 h-5 text-accent" />
-            <span className="text-lg font-medium text-text-primary">Import from Google Drive</span>
+            <span className="text-lg font-medium text-text-primary">
+              Import from Google Drive
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setBrowserViewMode(browserViewMode === 'grid' ? 'list' : 'grid')}
+              onClick={() =>
+                setBrowserViewMode(browserViewMode === "grid" ? "list" : "grid")
+              }
               className="p-2 hover:bg-bg-tertiary rounded transition-colors"
-              title={browserViewMode === 'grid' ? 'List view' : 'Grid view'}
+              title={browserViewMode === "grid" ? "List view" : "Grid view"}
             >
-              {browserViewMode === 'grid' ? (
+              {browserViewMode === "grid" ? (
                 <List className="w-5 h-5 text-text-secondary" />
               ) : (
                 <Grid className="w-5 h-5 text-text-secondary" />
               )}
             </button>
             <button
-              onClick={() => { setShowCloudFileBrowser(false); setFolderPath([]); setSelectedFiles([]); }}
+              onClick={() => {
+                setShowCloudFileBrowser(false);
+                setFolderPath([]);
+                setSelectedFiles([]);
+              }}
               className="p-2 hover:bg-bg-tertiary rounded"
             >
               <X className="w-5 h-5 text-text-secondary" />
@@ -880,13 +1020,22 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
         </div>
 
         <div className="px-6 py-3 border-b border-bg-tertiary flex items-center gap-2 text-sm flex-wrap">
-          <button onClick={() => navigateBackForImport(0)} className="text-accent hover:underline">
+          <button
+            onClick={() => navigateBackForImport(0)}
+            className="text-accent hover:underline"
+          >
             My Drive
           </button>
           {folderPath.map((folder, index) => (
-            <span key={folder.id || `path-${index}`} className="flex items-center gap-2">
+            <span
+              key={folder.id || `path-${index}`}
+              className="flex items-center gap-2"
+            >
               <ChevronRight className="w-4 h-4 text-text-tertiary" />
-              <button onClick={() => navigateBackForImport(index + 1)} className="text-accent hover:underline">
+              <button
+                onClick={() => navigateBackForImport(index + 1)}
+                className="text-accent hover:underline"
+              >
                 {folder.name}
               </button>
             </span>
@@ -899,14 +1048,18 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
               <Loader2 className="w-8 h-8 text-accent animate-spin" />
             </div>
           ) : browseItems.length === 0 ? (
-            <div className="text-center py-12 text-text-tertiary">No folders or PDF files found</div>
-          ) : browserViewMode === 'grid' ? (
+            <div className="text-center py-12 text-text-tertiary">
+              No folders or PDF files found
+            </div>
+          ) : browserViewMode === "grid" ? (
             /* Grid view */
             <div className="space-y-6">
               {/* Folders section - grid */}
               {folders.length > 0 && (
                 <div>
-                  <h3 className="text-xs uppercase text-text-tertiary mb-3 px-1">Folders</h3>
+                  <h3 className="text-xs uppercase text-text-tertiary mb-3 px-1">
+                    Folders
+                  </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                     {folders.map((folder, index) => (
                       <button
@@ -915,7 +1068,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                         className="p-4 bg-bg-tertiary hover:bg-bg-secondary rounded-lg flex flex-col items-center gap-2 transition-colors"
                       >
                         <FolderOpen className="w-12 h-12 text-accent" />
-                        <span className="text-text-primary text-sm truncate w-full text-center">{folder.name}</span>
+                        <span className="text-text-primary text-sm truncate w-full text-center">
+                          {folder.name}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -925,16 +1080,22 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
               {/* Files section - grid with thumbnails */}
               {files.length > 0 && (
                 <div>
-                  <h3 className="text-xs uppercase text-text-tertiary mb-3 px-1">PDF Files ({files.length})</h3>
+                  <h3 className="text-xs uppercase text-text-tertiary mb-3 px-1">
+                    PDF Files ({files.length})
+                  </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                     {files.map((file, index) => {
-                      const isSelected = selectedFiles.some((f) => f.id === file.id);
+                      const isSelected = selectedFiles.some(
+                        (f) => f.id === file.id,
+                      );
                       return (
                         <button
                           key={file.id || `file-${index}`}
                           onClick={() => toggleFileSelection(file)}
                           className={`relative rounded-lg overflow-hidden transition-all ${
-                            isSelected ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg-primary' : 'hover:ring-1 hover:ring-text-tertiary'
+                            isSelected
+                              ? "ring-2 ring-accent ring-offset-2 ring-offset-bg-primary"
+                              : "hover:ring-1 hover:ring-text-tertiary"
                           }`}
                         >
                           <div className="aspect-[3/4] bg-bg-tertiary flex items-center justify-center">
@@ -945,26 +1106,41 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   // Fallback to icon if thumbnail fails to load
-                                  e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                  e.currentTarget.style.display = "none";
+                                  e.currentTarget.nextElementSibling?.classList.remove(
+                                    "hidden",
+                                  );
                                 }}
                               />
                             ) : null}
-                            <FileText className={`w-12 h-12 text-text-tertiary ${file.thumbnailLink ? 'hidden' : ''}`} />
+                            <FileText
+                              className={`w-12 h-12 text-text-tertiary ${file.thumbnailLink ? "hidden" : ""}`}
+                            />
                           </div>
                           <div className="p-2 bg-bg-secondary">
-                            <p className="text-xs text-text-primary truncate">{file.name}</p>
+                            <p className="text-xs text-text-primary truncate">
+                              {file.name}
+                            </p>
                             {file.size && (
                               <p className="text-xs text-text-tertiary">
-                                {(parseInt(file.size) / (1024 * 1024)).toFixed(1)} MB
+                                {(parseInt(file.size) / (1024 * 1024)).toFixed(
+                                  1,
+                                )}{" "}
+                                MB
                               </p>
                             )}
                           </div>
                           {/* Selection indicator */}
-                          <div className={`absolute top-2 left-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                            isSelected ? 'bg-accent border-accent' : 'bg-black/30 border-white/50'
-                          }`}>
-                            {isSelected && <Check className="w-3 h-3 text-white" />}
+                          <div
+                            className={`absolute top-2 left-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                              isSelected
+                                ? "bg-accent border-accent"
+                                : "bg-black/30 border-white/50"
+                            }`}
+                          >
+                            {isSelected && (
+                              <Check className="w-3 h-3 text-white" />
+                            )}
                           </div>
                         </button>
                       );
@@ -979,7 +1155,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
               {/* Folders section - list */}
               {folders.length > 0 && (
                 <div>
-                  <h3 className="text-xs uppercase text-text-tertiary mb-2 px-2">Folders</h3>
+                  <h3 className="text-xs uppercase text-text-tertiary mb-2 px-2">
+                    Folders
+                  </h3>
                   <ul className="space-y-1">
                     {folders.map((folder, index) => (
                       <li key={folder.id || `folder-${index}`}>
@@ -988,7 +1166,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                           className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary rounded-lg text-left"
                         >
                           <FolderOpen className="w-5 h-5 text-accent" />
-                          <span className="text-text-primary truncate flex-1">{folder.name}</span>
+                          <span className="text-text-primary truncate flex-1">
+                            {folder.name}
+                          </span>
                           <ChevronRight className="w-5 h-5 text-text-tertiary" />
                         </button>
                       </li>
@@ -1000,22 +1180,34 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
               {/* Files section - list with thumbnails */}
               {files.length > 0 && (
                 <div>
-                  <h3 className="text-xs uppercase text-text-tertiary mb-2 px-2">PDF Files ({files.length})</h3>
+                  <h3 className="text-xs uppercase text-text-tertiary mb-2 px-2">
+                    PDF Files ({files.length})
+                  </h3>
                   <ul className="space-y-1">
                     {files.map((file, index) => {
-                      const isSelected = selectedFiles.some((f) => f.id === file.id);
+                      const isSelected = selectedFiles.some(
+                        (f) => f.id === file.id,
+                      );
                       return (
                         <li key={file.id || `file-${index}`}>
                           <button
                             onClick={() => toggleFileSelection(file)}
                             className={`w-full px-4 py-2 flex items-center gap-3 rounded-lg text-left transition-colors ${
-                              isSelected ? 'bg-accent/20 border border-accent' : 'hover:bg-bg-tertiary border border-transparent'
+                              isSelected
+                                ? "bg-accent/20 border border-accent"
+                                : "hover:bg-bg-tertiary border border-transparent"
                             }`}
                           >
-                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
-                              isSelected ? 'bg-accent border-accent' : 'border-text-tertiary'
-                            }`}>
-                              {isSelected && <Check className="w-3 h-3 text-white" />}
+                            <div
+                              className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                                isSelected
+                                  ? "bg-accent border-accent"
+                                  : "border-text-tertiary"
+                              }`}
+                            >
+                              {isSelected && (
+                                <Check className="w-3 h-3 text-white" />
+                              )}
                             </div>
                             {/* Thumbnail */}
                             <div className="w-10 h-14 bg-bg-tertiary rounded overflow-hidden flex items-center justify-center shrink-0">
@@ -1025,17 +1217,26 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                                   alt={file.name}
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                    e.currentTarget.style.display = "none";
+                                    e.currentTarget.nextElementSibling?.classList.remove(
+                                      "hidden",
+                                    );
                                   }}
                                 />
                               ) : null}
-                              <FileText className={`w-5 h-5 text-text-tertiary ${file.thumbnailLink ? 'hidden' : ''}`} />
+                              <FileText
+                                className={`w-5 h-5 text-text-tertiary ${file.thumbnailLink ? "hidden" : ""}`}
+                              />
                             </div>
-                            <span className="text-text-primary truncate flex-1">{file.name}</span>
+                            <span className="text-text-primary truncate flex-1">
+                              {file.name}
+                            </span>
                             {file.size && (
                               <span className="text-xs text-text-tertiary shrink-0">
-                                {(parseInt(file.size) / (1024 * 1024)).toFixed(1)} MB
+                                {(parseInt(file.size) / (1024 * 1024)).toFixed(
+                                  1,
+                                )}{" "}
+                                MB
                               </span>
                             )}
                           </button>
@@ -1063,7 +1264,8 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                 ) : (
                   <Download className="w-5 h-5" />
                 )}
-                Import {selectedFiles.length} File{selectedFiles.length > 1 ? 's' : ''}
+                Import {selectedFiles.length} File
+                {selectedFiles.length > 1 ? "s" : ""}
               </button>
             )}
             {folderPath.length > 0 && (
@@ -1079,8 +1281,8 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                 disabled={isImporting}
                 className={`w-full px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${
                   selectedFiles.length > 0
-                    ? 'bg-bg-tertiary text-text-primary hover:bg-bg-secondary'
-                    : 'bg-accent text-white hover:bg-accent/80'
+                    ? "bg-bg-tertiary text-text-primary hover:bg-bg-secondary"
+                    : "bg-accent text-white hover:bg-accent/80"
                 }`}
               >
                 <FolderPlus className="w-5 h-5" />
@@ -1100,8 +1302,12 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
       <div className="flex items-center justify-between px-6 py-4 border-b border-bg-tertiary shrink-0">
         <div className="flex items-center gap-3">
           <Library className="w-6 h-6 text-accent" />
-          <span className="text-xl font-medium text-text-primary">Bookshelf</span>
-          <span className="text-sm text-text-tertiary">({items.length} books)</span>
+          <span className="text-xl font-medium text-text-primary">
+            Bookshelf
+          </span>
+          <span className="text-sm text-text-tertiary">
+            ({items.length} books)
+          </span>
         </div>
         <div className="flex items-center gap-2">
           {/* Add button with dropdown */}
@@ -1131,8 +1337,12 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                   >
                     <FilePlus className="w-5 h-5 text-accent" />
                     <div>
-                      <div className="text-text-primary text-sm">Import Files</div>
-                      <div className="text-text-tertiary text-xs">Add PDF files</div>
+                      <div className="text-text-primary text-sm">
+                        Import Files
+                      </div>
+                      <div className="text-text-tertiary text-xs">
+                        Add PDF files
+                      </div>
                     </div>
                   </button>
                   <button
@@ -1141,8 +1351,12 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                   >
                     <FolderOpen className="w-5 h-5 text-accent" />
                     <div>
-                      <div className="text-text-primary text-sm">Import Folder</div>
-                      <div className="text-text-tertiary text-xs">Add all PDFs from folder</div>
+                      <div className="text-text-primary text-sm">
+                        Import Folder
+                      </div>
+                      <div className="text-text-tertiary text-xs">
+                        Add all PDFs from folder
+                      </div>
                     </div>
                   </button>
                   <button
@@ -1167,8 +1381,12 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                   >
                     <Cloud className="w-5 h-5 text-accent" />
                     <div>
-                      <div className="text-text-primary text-sm">Import from Cloud</div>
-                      <div className="text-text-tertiary text-xs">Select PDFs from Google Drive</div>
+                      <div className="text-text-primary text-sm">
+                        Import from Cloud
+                      </div>
+                      <div className="text-text-tertiary text-xs">
+                        Select PDFs from Google Drive
+                      </div>
                     </div>
                   </button>
                   <button
@@ -1184,8 +1402,12 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                   >
                     <Settings className="w-5 h-5 text-text-secondary" />
                     <div>
-                      <div className="text-text-primary text-sm">Cloud Settings</div>
-                      <div className="text-text-tertiary text-xs">Manage synced folders</div>
+                      <div className="text-text-primary text-sm">
+                        Cloud Settings
+                      </div>
+                      <div className="text-text-tertiary text-xs">
+                        Manage synced folders
+                      </div>
                     </div>
                   </button>
                 </div>
@@ -1193,11 +1415,11 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
             )}
           </div>
           <button
-            onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+            onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
             className="p-2 hover:bg-bg-tertiary rounded transition-colors"
-            title={viewMode === 'grid' ? 'List view' : 'Grid view'}
+            title={viewMode === "grid" ? "List view" : "Grid view"}
           >
-            {viewMode === 'grid' ? (
+            {viewMode === "grid" ? (
               <List className="w-5 h-5 text-text-secondary" />
             ) : (
               <Grid className="w-5 h-5 text-text-secondary" />
@@ -1209,7 +1431,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
             className="p-2 hover:bg-bg-tertiary rounded transition-colors"
             title="Sync with Google Drive"
           >
-            <RefreshCw className={`w-5 h-5 text-text-secondary ${isSyncing ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`w-5 h-5 text-text-secondary ${isSyncing ? "animate-spin" : ""}`}
+            />
           </button>
           <button
             onClick={() => setShowSettings(true)}
@@ -1266,7 +1490,7 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                 />
                 {searchQuery && (
                   <button
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => setSearchQuery("")}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary"
                   >
                     <X className="w-5 h-5" />
@@ -1275,25 +1499,31 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
               </div>
               <div className="flex border border-bg-tertiary rounded-lg overflow-hidden">
                 <button
-                  onClick={() => setFilterMode('all')}
+                  onClick={() => setFilterMode("all")}
                   className={`px-4 py-2 text-sm font-medium transition-colors ${
-                    filterMode === 'all' ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'
+                    filterMode === "all"
+                      ? "bg-accent text-white"
+                      : "text-text-tertiary hover:text-text-secondary"
                   }`}
                 >
                   All ({items.length})
                 </button>
                 <button
-                  onClick={() => setFilterMode('pending')}
+                  onClick={() => setFilterMode("pending")}
                   className={`px-4 py-2 text-sm font-medium transition-colors ${
-                    filterMode === 'pending' ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'
+                    filterMode === "pending"
+                      ? "bg-accent text-white"
+                      : "text-text-tertiary hover:text-text-secondary"
                   }`}
                 >
                   Not DL ({notDownloadedCount})
                 </button>
                 <button
-                  onClick={() => setFilterMode('downloaded')}
+                  onClick={() => setFilterMode("downloaded")}
                   className={`px-4 py-2 text-sm font-medium transition-colors ${
-                    filterMode === 'downloaded' ? 'bg-accent text-white' : 'text-text-tertiary hover:text-text-secondary'
+                    filterMode === "downloaded"
+                      ? "bg-accent text-white"
+                      : "text-text-tertiary hover:text-text-secondary"
                   }`}
                 >
                   Downloaded ({downloadedCount})
@@ -1302,18 +1532,26 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
               {/* Source type filter */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => setSourceFilter(sourceFilter === 'local' ? null : 'local')}
+                  onClick={() =>
+                    setSourceFilter(sourceFilter === "local" ? null : "local")
+                  }
                   className={`px-4 py-2 text-sm font-medium transition-colors flex items-center gap-1 border rounded-lg ${
-                    sourceFilter === 'local' ? 'bg-accent text-white border-accent' : 'text-text-tertiary hover:text-text-secondary border-bg-tertiary'
+                    sourceFilter === "local"
+                      ? "bg-accent text-white border-accent"
+                      : "text-text-tertiary hover:text-text-secondary border-bg-tertiary"
                   }`}
                 >
                   <HardDrive className="w-3.5 h-3.5" />
                   Local ({localCount})
                 </button>
                 <button
-                  onClick={() => setSourceFilter(sourceFilter === 'cloud' ? null : 'cloud')}
+                  onClick={() =>
+                    setSourceFilter(sourceFilter === "cloud" ? null : "cloud")
+                  }
                   className={`px-4 py-2 text-sm font-medium transition-colors flex items-center gap-1 border rounded-lg ${
-                    sourceFilter === 'cloud' ? 'bg-accent text-white border-accent' : 'text-text-tertiary hover:text-text-secondary border-bg-tertiary'
+                    sourceFilter === "cloud"
+                      ? "bg-accent text-white border-accent"
+                      : "text-text-tertiary hover:text-text-secondary border-bg-tertiary"
                   }`}
                 >
                   <Cloud className="w-3.5 h-3.5" />
@@ -1324,10 +1562,14 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
               <button
                 onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
                 className={`px-4 py-2 text-sm font-medium transition-colors flex items-center gap-1 border rounded-lg ${
-                  showFavoritesOnly ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50' : 'text-text-tertiary hover:text-text-secondary border-bg-tertiary'
+                  showFavoritesOnly
+                    ? "bg-yellow-500/20 text-yellow-500 border-yellow-500/50"
+                    : "text-text-tertiary hover:text-text-secondary border-bg-tertiary"
                 }`}
               >
-                <Star className={`w-3.5 h-3.5 ${showFavoritesOnly ? 'fill-yellow-500' : ''}`} />
+                <Star
+                  className={`w-3.5 h-3.5 ${showFavoritesOnly ? "fill-yellow-500" : ""}`}
+                />
                 Favorites ({favoriteCount})
               </button>
             </div>
@@ -1339,7 +1581,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
               <div className="flex items-center gap-3 text-sm text-text-primary">
                 <Loader2 className="w-4 h-4 text-accent animate-spin shrink-0" />
                 <span className="truncate flex-1">
-                  {downloadingItem ? (downloadingItem.pdfTitle || downloadingItem.fileName) : 'Starting...'}
+                  {downloadingItem
+                    ? downloadingItem.pdfTitle || downloadingItem.fileName
+                    : "Starting..."}
                 </span>
               </div>
               {isDownloadingAll && totalDownloads > 0 && (
@@ -1347,7 +1591,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                   <div className="flex-1 h-2 bg-bg-tertiary rounded-full overflow-hidden">
                     <div
                       className="h-full bg-accent transition-all duration-300"
-                      style={{ width: `${(currentDownloadIndex / totalDownloads) * 100}%` }}
+                      style={{
+                        width: `${(currentDownloadIndex / totalDownloads) * 100}%`,
+                      }}
                     />
                   </div>
                   <span className="text-sm text-text-tertiary shrink-0">
@@ -1359,18 +1605,21 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
           )}
 
           {/* Download All button (only for cloud files, hidden when viewing local only) */}
-          {authStatus.authenticated && downloadableCount > 0 && !isDownloadingAll && sourceFilter !== 'local' && (
-            <div className="px-6 py-3 border-b border-bg-tertiary shrink-0">
-              <button
-                onClick={handleDownloadAll}
-                disabled={isDownloadingAll}
-                className="px-6 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/80 transition-colors flex items-center gap-2 disabled:opacity-50"
-              >
-                <Download className="w-5 h-5" />
-                Download All ({downloadableCount})
-              </button>
-            </div>
-          )}
+          {authStatus.authenticated &&
+            downloadableCount > 0 &&
+            !isDownloadingAll &&
+            sourceFilter !== "local" && (
+              <div className="px-6 py-3 border-b border-bg-tertiary shrink-0">
+                <button
+                  onClick={handleDownloadAll}
+                  disabled={isDownloadingAll}
+                  className="px-6 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/80 transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Download className="w-5 h-5" />
+                  Download All ({downloadableCount})
+                </button>
+              </div>
+            )}
 
           {/* Items grid/list */}
           {filteredItems.length === 0 ? (
@@ -1379,14 +1628,14 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
               <p className="text-text-tertiary text-center">
                 {searchQuery
                   ? `No books found for "${searchQuery}"`
-                  : filterMode === 'pending'
-                    ? 'All books are downloaded'
-                    : filterMode === 'downloaded'
-                      ? 'No downloaded books yet'
-                      : 'No books found'}
+                  : filterMode === "pending"
+                    ? "All books are downloaded"
+                    : filterMode === "downloaded"
+                      ? "No downloaded books yet"
+                      : "No books found"}
               </p>
             </div>
-          ) : viewMode === 'list' ? (
+          ) : viewMode === "list" ? (
             // Table view
             <div className="flex-1 min-h-0 overflow-y-auto">
               <table className="w-full">
@@ -1395,22 +1644,25 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                     <th className="px-6 py-3 font-medium">Title</th>
                     <th className="px-4 py-3 font-medium">Author</th>
                     <th className="px-4 py-3 font-medium w-28">Added</th>
-                    <th className="px-4 py-3 font-medium w-24 text-right">Size</th>
+                    <th className="px-4 py-3 font-medium w-24 text-right">
+                      Size
+                    </th>
                     <th className="px-4 py-3 font-medium w-28">Status</th>
                     <th className="px-4 py-3 font-medium w-32">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-bg-tertiary">
                   {filteredItems.map((item) => {
-                    const isDownloaded = item.downloadStatus === 'completed' && item.localPath;
-                    const isDownloading = item.downloadStatus === 'downloading';
-                    const hasError = item.downloadStatus === 'error';
+                    const isDownloaded =
+                      item.downloadStatus === "completed" && item.localPath;
+                    const isDownloading = item.downloadStatus === "downloading";
+                    const hasError = item.downloadStatus === "error";
                     const displayName = item.pdfTitle || item.fileName;
 
                     return (
                       <tr
                         key={item.id}
-                        className={`hover:bg-bg-tertiary transition-colors ${isDownloaded ? 'cursor-pointer' : ''}`}
+                        className={`hover:bg-bg-tertiary transition-colors ${isDownloaded ? "cursor-pointer" : ""}`}
                         onClick={() => isDownloaded && handleOpenPdf(item)}
                       >
                         <td className="px-6 py-3">
@@ -1430,14 +1682,20 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                               {item.isFavorite && (
                                 <Star className="w-4 h-4 text-yellow-500 fill-yellow-500 flex-shrink-0" />
                               )}
-                              <span className="text-text-primary truncate" title={displayName}>
+                              <span
+                                className="text-text-primary truncate"
+                                title={displayName}
+                              >
                                 {displayName}
                               </span>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-text-secondary truncate max-w-[200px]" title={item.pdfAuthor || ''}>
-                          {item.pdfAuthor || '-'}
+                        <td
+                          className="px-4 py-3 text-sm text-text-secondary truncate max-w-[200px]"
+                          title={item.pdfAuthor || ""}
+                        >
+                          {item.pdfAuthor || "-"}
                         </td>
                         <td className="px-4 py-3 text-sm text-text-tertiary">
                           {formatDate(item.createdAt)}
@@ -1454,7 +1712,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                                   style={{ width: `${item.downloadProgress}%` }}
                                 />
                               </div>
-                              <span className="text-xs text-accent">{item.downloadProgress.toFixed(0)}%</span>
+                              <span className="text-xs text-accent">
+                                {item.downloadProgress.toFixed(0)}%
+                              </span>
                             </div>
                           ) : isDownloaded ? (
                             <span className="inline-flex items-center gap-1 text-xs text-green-500">
@@ -1467,7 +1727,9 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                               Error
                             </span>
                           ) : (
-                            <span className="text-xs text-text-tertiary">Pending</span>
+                            <span className="text-xs text-text-tertiary">
+                              Pending
+                            </span>
                           )}
                         </td>
                         <td className="px-4 py-3">
@@ -1476,15 +1738,26 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                             <button
                               onClick={(e) => handleToggleFavorite(item, e)}
                               className={`p-1.5 hover:bg-bg-hover rounded transition-colors ${
-                                item.isFavorite ? 'text-yellow-500' : 'text-text-tertiary hover:text-yellow-500'
+                                item.isFavorite
+                                  ? "text-yellow-500"
+                                  : "text-text-tertiary hover:text-yellow-500"
                               }`}
-                              title={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                              title={
+                                item.isFavorite
+                                  ? "Remove from favorites"
+                                  : "Add to favorites"
+                              }
                             >
-                              <Star className={`w-4 h-4 ${item.isFavorite ? 'fill-yellow-500' : ''}`} />
+                              <Star
+                                className={`w-4 h-4 ${item.isFavorite ? "fill-yellow-500" : ""}`}
+                              />
                             </button>
                             {isDownloading && (
                               <button
-                                onClick={(e) => { e.stopPropagation(); handleCancel(item); }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCancel(item);
+                                }}
                                 className="p-1.5 hover:bg-bg-hover rounded transition-colors"
                                 title="Cancel"
                               >
@@ -1494,14 +1767,20 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                             {isDownloaded && (
                               <>
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); handleOpenPdf(item); }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenPdf(item);
+                                  }}
                                   className="p-1.5 hover:bg-bg-hover rounded transition-colors"
                                   title="Open"
                                 >
                                   <ExternalLink className="w-4 h-4 text-text-secondary" />
                                 </button>
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); handleDeleteItem(item); }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteItem(item);
+                                  }}
                                   className="p-1.5 hover:bg-bg-hover rounded transition-colors"
                                   title="Delete"
                                 >
@@ -1509,15 +1788,21 @@ export default function BookshelfMainView({ onOpenPdf, currentFilePath, onClose 
                                 </button>
                               </>
                             )}
-                            {!isDownloaded && !isDownloading && authStatus.authenticated && item.sourceType !== 'local' && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleDownload(item); }}
-                                className="p-1.5 hover:bg-bg-hover rounded transition-colors"
-                                title="Download"
-                              >
-                                <Download className="w-4 h-4 text-accent" />
-                              </button>
-                            )}
+                            {!isDownloaded &&
+                              !isDownloading &&
+                              authStatus.authenticated &&
+                              item.sourceType !== "local" && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDownload(item);
+                                  }}
+                                  className="p-1.5 hover:bg-bg-hover rounded transition-colors"
+                                  title="Download"
+                                >
+                                  <Download className="w-4 h-4 text-accent" />
+                                </button>
+                              )}
                           </div>
                         </td>
                       </tr>

@@ -1,5 +1,5 @@
-import { useEffect, Dispatch, SetStateAction } from 'react';
-import type { Tab, SearchResult } from './types';
+import { Dispatch, SetStateAction, useEffect } from "react";
+import type { SearchResult, Tab } from "./types";
 
 /**
  * Custom hook for managing keyboard shortcuts
@@ -138,105 +138,105 @@ export function useKeyboardShortcuts({
         document.activeElement instanceof HTMLTextAreaElement;
 
       switch (e.key) {
-        case 'ArrowUp':
+        case "ArrowUp":
           // If search results are active, preview previous result
           if (searchQuery && searchResults.length > 0) {
             e.preventDefault();
             handleSearchPrevPreview();
           }
           break;
-        case 'ArrowDown':
+        case "ArrowDown":
           // If search results are active, preview next result
           if (searchQuery && searchResults.length > 0) {
             e.preventDefault();
             handleSearchNextPreview();
           }
           break;
-        case 'ArrowLeft':
+        case "ArrowLeft":
           // Skip page navigation if input is focused (allow text cursor movement)
           if (isInputFocused) break;
           e.preventDefault();
           goToPrevPage();
           break;
-        case 'ArrowRight':
+        case "ArrowRight":
           // Skip page navigation if input is focused (allow text cursor movement)
           if (isInputFocused) break;
           e.preventDefault();
           goToNextPage();
           break;
-        case 'PageUp':
+        case "PageUp":
           e.preventDefault();
           goToPrevPage();
           break;
-        case 'PageDown':
+        case "PageDown":
           e.preventDefault();
           goToNextPage();
           break;
-        case 'Home':
+        case "Home":
           // Skip page navigation if input is focused (allow cursor to move to start)
           if (!isStandaloneMode && !isInputFocused) {
             e.preventDefault();
             goToPage(1);
           }
           break;
-        case 'End':
+        case "End":
           // Skip page navigation if input is focused (allow cursor to move to end)
           if (!isStandaloneMode && !isInputFocused) {
             e.preventDefault();
             goToPage(totalPages);
           }
           break;
-        case '+':
-        case '=':
+        case "+":
+        case "=":
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             handleZoomIn();
           }
           break;
-        case '-':
+        case "-":
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             handleZoomOut();
           }
           break;
-        case '0':
+        case "0":
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             handleZoomReset();
           }
           break;
-        case 't':
-        case 'T':
+        case "t":
+        case "T":
           if (e.metaKey || e.ctrlKey) {
             e.preventDefault();
             addTabFromCurrent();
             showHeaderTemporarily();
           }
           break;
-        case 'n':
-        case 'N':
+        case "n":
+        case "N":
           if ((e.metaKey || e.ctrlKey) && !isStandaloneMode) {
             e.preventDefault();
             openStandaloneWindow(currentPage);
           }
           break;
-        case 'b':
-        case 'B':
+        case "b":
+        case "B":
           if (e.metaKey || e.ctrlKey) {
             e.preventDefault();
             toggleBookmark();
           }
           break;
-        case 'h':
-        case 'H':
+        case "h":
+        case "H":
           // Cmd/Ctrl+Shift+H - toggle header visibility (main window only)
           if ((e.metaKey || e.ctrlKey) && e.shiftKey && !isStandaloneMode) {
             e.preventDefault();
             toggleHeader();
           }
           break;
-        case 'f':
-        case 'F':
+        case "f":
+        case "F":
           if (e.metaKey || e.ctrlKey) {
             e.preventDefault();
             if (isStandaloneMode) {
@@ -251,7 +251,9 @@ export function useKeyboardShortcuts({
                 setShowHeader(true);
               }
               // Focus search input in main window
-              const searchInput = document.querySelector('input[placeholder="Search..."]') as HTMLInputElement;
+              const searchInput = document.querySelector(
+                'input[placeholder="Search..."]',
+              ) as HTMLInputElement;
               if (searchInput) {
                 searchInput.focus();
                 searchInput.select();
@@ -263,33 +265,33 @@ export function useKeyboardShortcuts({
             }
           }
           break;
-        case 'w':
-        case 'W':
+        case "w":
+        case "W":
           if (e.metaKey || e.ctrlKey) {
             e.preventDefault();
             closeCurrentTab();
             showHeaderTemporarily();
           }
           break;
-        case 'F4':
+        case "F4":
           if (e.ctrlKey) {
             e.preventDefault();
             closeCurrentTab();
             showHeaderTemporarily();
           }
           break;
-        case 'Enter':
+        case "Enter":
           // Confirm search result when search is active
           if (searchQuery && searchResults.length > 0) {
             e.preventDefault();
             handleSearchConfirm();
           }
           break;
-        case 'Escape':
+        case "Escape":
           // Clear search and close sidebar
           if (searchQuery || showSearchResults) {
             e.preventDefault();
-            setSearchQuery('');
+            setSearchQuery("");
             setSearchResults([]);
             setShowSearchResults(false);
             // If header was hidden before search, restore that state
@@ -299,21 +301,21 @@ export function useKeyboardShortcuts({
             }
           }
           break;
-        case ',':
+        case ",":
           // Ctrl+, - go back in history (without updating history)
           if (e.ctrlKey && !e.metaKey && !e.shiftKey) {
             e.preventDefault();
             goBack();
           }
           break;
-        case '.':
+        case ".":
           // Ctrl+. - go forward in history (without updating history)
           if (e.ctrlKey && !e.metaKey && !e.shiftKey) {
             e.preventDefault();
             goForward();
           }
           break;
-        case '[':
+        case "[":
           // Cmd/Ctrl+[ - go to previous tab
           if ((e.metaKey || e.ctrlKey) && !e.shiftKey && tabs.length > 1) {
             e.preventDefault();
@@ -327,7 +329,7 @@ export function useKeyboardShortcuts({
             showHeaderTemporarily();
           }
           break;
-        case ']':
+        case "]":
           // Cmd/Ctrl+] - go to next tab
           if ((e.metaKey || e.ctrlKey) && !e.shiftKey && tabs.length > 1) {
             e.preventDefault();
@@ -341,19 +343,21 @@ export function useKeyboardShortcuts({
             showHeaderTemporarily();
           }
           break;
-        case '\\':
+        case "\\":
           // Cmd/Ctrl+\ - toggle two-column view mode (main window only)
           if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !isStandaloneMode) {
             e.preventDefault();
             toggleTwoColumn();
           }
           break;
-        case 'a':
-        case 'A':
+        case "a":
+        case "A":
           // Cmd/Ctrl+A - select all text in PDF viewer only (skip if input is focused)
           if ((e.metaKey || e.ctrlKey) && !isInputFocused) {
             e.preventDefault();
-            const pdfContainer = document.getElementById('pdf-viewer-container');
+            const pdfContainer = document.getElementById(
+              "pdf-viewer-container",
+            );
             if (pdfContainer) {
               const selection = window.getSelection();
               if (selection) {
@@ -365,37 +369,41 @@ export function useKeyboardShortcuts({
             }
           }
           break;
-        case 'j':
-        case 'J':
+        case "j":
+        case "J":
           // Cmd/Ctrl+J - translate selected text
           if (e.metaKey || e.ctrlKey) {
             e.preventDefault();
             triggerTranslation();
           }
           break;
-        case 'e':
-        case 'E':
+        case "e":
+        case "E":
           // Cmd/Ctrl+E - translate and explain selected text (skip if input is focused)
           if ((e.metaKey || e.ctrlKey) && !isInputFocused) {
             e.preventDefault();
             triggerExplanation();
           }
           break;
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9':
+        case "1":
+        case "2":
+        case "3":
+        case "4":
+        case "5":
+        case "6":
+        case "7":
+        case "8":
+        case "9":
           // Cmd/Ctrl+1-9 - switch to tab by number (main window only)
-          if ((e.metaKey || e.ctrlKey) && !isStandaloneMode && tabs.length > 0) {
+          if (
+            (e.metaKey || e.ctrlKey) &&
+            !isStandaloneMode &&
+            tabs.length > 0
+          ) {
             e.preventDefault();
             const tabIndex = parseInt(e.key) - 1;
             // Cmd/Ctrl+9 goes to last tab if there are more than 9 tabs
-            if (e.key === '9' && tabs.length > 9) {
+            if (e.key === "9" && tabs.length > 9) {
               selectTab(tabs[tabs.length - 1].id);
               showHeaderTemporarily();
             } else if (tabIndex < tabs.length) {
@@ -407,8 +415,8 @@ export function useKeyboardShortcuts({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     currentPage,
     totalPages,

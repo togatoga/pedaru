@@ -1,12 +1,28 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { X, Monitor, Columns, Eye, EyeOff, Loader2, Check, Cloud, LogIn, LogOut } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-shell';
-import type { ViewMode, GeminiSettings, AuthStatus } from '@/types';
-import { getGeminiSettings, saveGeminiSettings, DEFAULT_GEMINI_SETTINGS, GEMINI_MODELS } from '@/lib/settings';
-import type { SettingsProps } from '@/types/components';
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-shell";
+import {
+  Check,
+  Cloud,
+  Columns,
+  Eye,
+  EyeOff,
+  Loader2,
+  LogIn,
+  LogOut,
+  Monitor,
+  X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  DEFAULT_GEMINI_SETTINGS,
+  GEMINI_MODELS,
+  getGeminiSettings,
+  saveGeminiSettings,
+} from "@/lib/settings";
+import type { AuthStatus, GeminiSettings, ViewMode } from "@/types";
+import type { SettingsProps } from "@/types/components";
 
 // Re-export for backward compatibility
 export type { ViewMode };
@@ -17,17 +33,24 @@ export default function Settings({
   onViewModeChange,
   onClose,
 }: SettingsProps) {
-  const [geminiSettings, setGeminiSettings] = useState<GeminiSettings>(DEFAULT_GEMINI_SETTINGS);
+  const [geminiSettings, setGeminiSettings] = useState<GeminiSettings>(
+    DEFAULT_GEMINI_SETTINGS,
+  );
   const [showApiKey, setShowApiKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'display' | 'translation' | 'cloud'>('display');
+  const [activeTab, setActiveTab] = useState<
+    "display" | "translation" | "cloud"
+  >("display");
 
   // Google Drive OAuth state
-  const [clientId, setClientId] = useState('');
-  const [clientSecret, setClientSecret] = useState('');
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
   const [showClientSecret, setShowClientSecret] = useState(false);
-  const [authStatus, setAuthStatus] = useState<AuthStatus>({ authenticated: false, configured: false });
+  const [authStatus, setAuthStatus] = useState<AuthStatus>({
+    authenticated: false,
+    configured: false,
+  });
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [isSavingOAuth, setIsSavingOAuth] = useState(false);
   const [oauthSaveSuccess, setOauthSaveSuccess] = useState(false);
@@ -48,22 +71,25 @@ export default function Settings({
 
   const loadAuthStatus = async () => {
     try {
-      const status = await invoke<AuthStatus>('get_google_auth_status');
+      const status = await invoke<AuthStatus>("get_google_auth_status");
       setAuthStatus(status);
     } catch (error) {
-      console.error('Failed to get auth status:', error);
+      console.error("Failed to get auth status:", error);
     }
   };
 
   const loadOAuthCredentials = async () => {
     try {
-      const credentials = await invoke<{ client_id: string; client_secret: string } | null>('get_oauth_credentials');
+      const credentials = await invoke<{
+        client_id: string;
+        client_secret: string;
+      } | null>("get_oauth_credentials");
       if (credentials) {
         setClientId(credentials.client_id);
         setClientSecret(credentials.client_secret);
       }
     } catch (error) {
-      console.error('Failed to get OAuth credentials:', error);
+      console.error("Failed to get OAuth credentials:", error);
     }
   };
 
@@ -73,12 +99,12 @@ export default function Settings({
     setIsSavingOAuth(true);
     setOauthSaveSuccess(false);
     try {
-      await invoke('save_oauth_credentials', { clientId, clientSecret });
+      await invoke("save_oauth_credentials", { clientId, clientSecret });
       setOauthSaveSuccess(true);
       await loadAuthStatus();
       setTimeout(() => setOauthSaveSuccess(false), 2000);
     } catch (error) {
-      console.error('Failed to save OAuth credentials:', error);
+      console.error("Failed to save OAuth credentials:", error);
     } finally {
       setIsSavingOAuth(false);
     }
@@ -87,7 +113,7 @@ export default function Settings({
   const handleGoogleAuth = async () => {
     setIsAuthLoading(true);
     try {
-      const authUrl = await invoke<string>('start_google_auth');
+      const authUrl = await invoke<string>("start_google_auth");
       await open(authUrl);
 
       // Poll for auth completion
@@ -97,7 +123,7 @@ export default function Settings({
       const pollInterval = setInterval(async () => {
         attempts++;
         try {
-          const status = await invoke<AuthStatus>('get_google_auth_status');
+          const status = await invoke<AuthStatus>("get_google_auth_status");
           if (status.authenticated) {
             clearInterval(pollInterval);
             setAuthStatus(status);
@@ -113,17 +139,17 @@ export default function Settings({
         }
       }, 2000);
     } catch (error) {
-      console.error('Failed to authenticate:', error);
+      console.error("Failed to authenticate:", error);
       setIsAuthLoading(false);
     }
   };
 
   const handleLogout = async () => {
     try {
-      await invoke('logout_google');
+      await invoke("logout_google");
       await loadAuthStatus();
     } catch (error) {
-      console.error('Failed to logout:', error);
+      console.error("Failed to logout:", error);
     }
   };
 
@@ -135,7 +161,7 @@ export default function Settings({
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (error) {
-      console.error('Failed to save Gemini settings:', error);
+      console.error("Failed to save Gemini settings:", error);
     } finally {
       setIsSaving(false);
     }
@@ -144,7 +170,10 @@ export default function Settings({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]" role="dialog">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]"
+      role="dialog"
+    >
       <div className="bg-bg-secondary rounded-xl shadow-2xl w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-bg-tertiary">
@@ -160,31 +189,31 @@ export default function Settings({
         {/* Tabs */}
         <div className="flex border-b border-bg-tertiary">
           <button
-            onClick={() => setActiveTab('display')}
+            onClick={() => setActiveTab("display")}
             className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'display'
-                ? 'text-accent border-b-2 border-accent'
-                : 'text-text-secondary hover:text-text-primary'
+              activeTab === "display"
+                ? "text-accent border-b-2 border-accent"
+                : "text-text-secondary hover:text-text-primary"
             }`}
           >
             Display
           </button>
           <button
-            onClick={() => setActiveTab('translation')}
+            onClick={() => setActiveTab("translation")}
             className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'translation'
-                ? 'text-accent border-b-2 border-accent'
-                : 'text-text-secondary hover:text-text-primary'
+              activeTab === "translation"
+                ? "text-accent border-b-2 border-accent"
+                : "text-text-secondary hover:text-text-primary"
             }`}
           >
             Translation
           </button>
           <button
-            onClick={() => setActiveTab('cloud')}
+            onClick={() => setActiveTab("cloud")}
             className={`px-4 py-2 text-sm font-medium transition-colors flex items-center gap-1.5 ${
-              activeTab === 'cloud'
-                ? 'text-accent border-b-2 border-accent'
-                : 'text-text-secondary hover:text-text-primary'
+              activeTab === "cloud"
+                ? "text-accent border-b-2 border-accent"
+                : "text-text-secondary hover:text-text-primary"
             }`}
           >
             <Cloud className="w-4 h-4" />
@@ -194,36 +223,46 @@ export default function Settings({
 
         {/* Content */}
         <div className="p-4 overflow-y-auto flex-1">
-          {activeTab === 'display' && (
+          {activeTab === "display" && (
             <div className="space-y-6">
               {/* View Mode */}
               <div>
-                <h3 className="text-sm font-medium text-text-primary mb-3">Display Mode</h3>
+                <h3 className="text-sm font-medium text-text-primary mb-3">
+                  Display Mode
+                </h3>
                 <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={() => onViewModeChange('single')}
+                    onClick={() => onViewModeChange("single")}
                     className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
-                      viewMode === 'single'
-                        ? 'border-accent bg-accent/10'
-                        : 'border-bg-tertiary hover:border-bg-hover'
+                      viewMode === "single"
+                        ? "border-accent bg-accent/10"
+                        : "border-bg-tertiary hover:border-bg-hover"
                     }`}
                   >
-                    <Monitor className={`w-8 h-8 ${viewMode === 'single' ? 'text-accent' : 'text-text-secondary'}`} />
-                    <span className={`text-sm font-medium ${viewMode === 'single' ? 'text-accent' : 'text-text-primary'}`}>
+                    <Monitor
+                      className={`w-8 h-8 ${viewMode === "single" ? "text-accent" : "text-text-secondary"}`}
+                    />
+                    <span
+                      className={`text-sm font-medium ${viewMode === "single" ? "text-accent" : "text-text-primary"}`}
+                    >
                       Single Page
                     </span>
                   </button>
 
                   <button
-                    onClick={() => onViewModeChange('two-column')}
+                    onClick={() => onViewModeChange("two-column")}
                     className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
-                      viewMode === 'two-column'
-                        ? 'border-accent bg-accent/10'
-                        : 'border-bg-tertiary hover:border-bg-hover'
+                      viewMode === "two-column"
+                        ? "border-accent bg-accent/10"
+                        : "border-bg-tertiary hover:border-bg-hover"
                     }`}
                   >
-                    <Columns className={`w-8 h-8 ${viewMode === 'two-column' ? 'text-accent' : 'text-text-secondary'}`} />
-                    <span className={`text-sm font-medium ${viewMode === 'two-column' ? 'text-accent' : 'text-text-primary'}`}>
+                    <Columns
+                      className={`w-8 h-8 ${viewMode === "two-column" ? "text-accent" : "text-text-secondary"}`}
+                    />
+                    <span
+                      className={`text-sm font-medium ${viewMode === "two-column" ? "text-accent" : "text-text-primary"}`}
+                    >
                       Two Column
                     </span>
                   </button>
@@ -232,7 +271,7 @@ export default function Settings({
             </div>
           )}
 
-          {activeTab === 'translation' && (
+          {activeTab === "translation" && (
             <div className="space-y-6">
               {/* API Key */}
               <div>
@@ -241,10 +280,13 @@ export default function Settings({
                 </label>
                 <div className="relative">
                   <input
-                    type={showApiKey ? 'text' : 'password'}
+                    type={showApiKey ? "text" : "password"}
                     value={geminiSettings.apiKey}
                     onChange={(e) =>
-                      setGeminiSettings({ ...geminiSettings, apiKey: e.target.value })
+                      setGeminiSettings({
+                        ...geminiSettings,
+                        apiKey: e.target.value,
+                      })
                     }
                     placeholder="Enter your Gemini API key"
                     className="w-full px-3 py-2 pr-10 bg-bg-primary border border-bg-tertiary rounded-lg text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent/50"
@@ -254,11 +296,15 @@ export default function Settings({
                     onClick={() => setShowApiKey(!showApiKey)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-tertiary hover:text-text-primary transition-colors"
                   >
-                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showApiKey ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
                 <p className="mt-1 text-xs text-text-tertiary">
-                  Get your API key from{' '}
+                  Get your API key from{" "}
                   <a
                     href="https://aistudio.google.com/app/apikey"
                     target="_blank"
@@ -278,7 +324,10 @@ export default function Settings({
                 <select
                   value={geminiSettings.model}
                   onChange={(e) =>
-                    setGeminiSettings({ ...geminiSettings, model: e.target.value })
+                    setGeminiSettings({
+                      ...geminiSettings,
+                      model: e.target.value,
+                    })
                   }
                   className="w-full px-3 py-2 bg-bg-primary border border-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/50"
                 >
@@ -301,7 +350,10 @@ export default function Settings({
                 <select
                   value={geminiSettings.explanationModel}
                   onChange={(e) =>
-                    setGeminiSettings({ ...geminiSettings, explanationModel: e.target.value })
+                    setGeminiSettings({
+                      ...geminiSettings,
+                      explanationModel: e.target.value,
+                    })
                   }
                   className="w-full px-3 py-2 bg-bg-primary border border-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent/50"
                 >
@@ -328,25 +380,27 @@ export default function Settings({
                   ) : saveSuccess ? (
                     <Check className="w-4 h-4" />
                   ) : null}
-                  {saveSuccess ? 'Saved!' : 'Save Settings'}
+                  {saveSuccess ? "Saved!" : "Save Settings"}
                 </button>
               </div>
             </div>
           )}
 
-          {activeTab === 'cloud' && (
+          {activeTab === "cloud" && (
             <div className="space-y-6">
               {/* Auth Status */}
               <div className="p-4 bg-bg-primary rounded-lg">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-medium text-text-primary">Google Drive</h4>
+                    <h4 className="text-sm font-medium text-text-primary">
+                      Google Drive
+                    </h4>
                     <p className="text-xs text-text-tertiary mt-1">
                       {authStatus.authenticated
-                        ? 'Connected to Google Drive'
+                        ? "Connected to Google Drive"
                         : authStatus.configured
-                        ? 'Ready to connect'
-                        : 'Not configured'}
+                          ? "Ready to connect"
+                          : "Not configured"}
                     </p>
                   </div>
                   {authStatus.authenticated ? (
@@ -376,9 +430,11 @@ export default function Settings({
 
               {/* OAuth Credentials */}
               <div>
-                <h3 className="text-sm font-medium text-text-primary mb-3">OAuth Credentials</h3>
+                <h3 className="text-sm font-medium text-text-primary mb-3">
+                  OAuth Credentials
+                </h3>
                 <p className="text-xs text-text-tertiary mb-4">
-                  Create OAuth credentials in{' '}
+                  Create OAuth credentials in{" "}
                   <a
                     href="https://console.cloud.google.com/apis/credentials"
                     target="_blank"
@@ -386,8 +442,8 @@ export default function Settings({
                     className="text-accent hover:underline"
                   >
                     Google Cloud Console
-                  </a>
-                  {' '}with Google Drive API enabled.
+                  </a>{" "}
+                  with Google Drive API enabled.
                 </p>
 
                 {/* Client ID */}
@@ -411,7 +467,7 @@ export default function Settings({
                   </label>
                   <div className="relative">
                     <input
-                      type={showClientSecret ? 'text' : 'password'}
+                      type={showClientSecret ? "text" : "password"}
                       value={clientSecret}
                       onChange={(e) => setClientSecret(e.target.value)}
                       placeholder="Enter your OAuth Client Secret"
@@ -422,7 +478,11 @@ export default function Settings({
                       onClick={() => setShowClientSecret(!showClientSecret)}
                       className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-tertiary hover:text-text-primary transition-colors"
                     >
-                      {showClientSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showClientSecret ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -430,7 +490,9 @@ export default function Settings({
                 {/* Save Button */}
                 <button
                   onClick={handleSaveOAuthCredentials}
-                  disabled={isSavingOAuth || !clientId.trim() || !clientSecret.trim()}
+                  disabled={
+                    isSavingOAuth || !clientId.trim() || !clientSecret.trim()
+                  }
                   className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50"
                 >
                   {isSavingOAuth ? (
@@ -438,7 +500,7 @@ export default function Settings({
                   ) : oauthSaveSuccess ? (
                     <Check className="w-4 h-4" />
                   ) : null}
-                  {oauthSaveSuccess ? 'Saved!' : 'Save Credentials'}
+                  {oauthSaveSuccess ? "Saved!" : "Save Credentials"}
                 </button>
               </div>
             </div>

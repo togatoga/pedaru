@@ -1,10 +1,16 @@
-'use client';
+"use client";
 
-import type { OpenWindow } from '@/types';
-import { useAutoScroll } from '@/hooks/useAutoScroll';
-import type { WindowSidebarProps } from '@/types/components';
+import { useAutoScroll } from "@/hooks/useAutoScroll";
+import type { OpenWindow } from "@/types";
+import type { WindowSidebarProps } from "@/types/components";
 
-export default function WindowSidebar({ windows, currentPage, onFocus, onClose, onMoveToTab }: WindowSidebarProps) {
+export default function WindowSidebar({
+  windows,
+  currentPage,
+  onFocus,
+  onClose,
+  onMoveToTab,
+}: WindowSidebarProps) {
   const activeItemRef = useAutoScroll<HTMLLIElement>([currentPage]);
 
   return (
@@ -21,20 +27,25 @@ export default function WindowSidebar({ windows, currentPage, onFocus, onClose, 
             ref={w.page === currentPage ? activeItemRef : null}
             draggable
             onDragStart={(e) => {
-              e.dataTransfer.effectAllowed = 'move';
-              e.dataTransfer.setData('application/x-pedaru-window', JSON.stringify({ label: w.label, page: w.page }));
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData(
+                "application/x-pedaru-window",
+                JSON.stringify({ label: w.label, page: w.page }),
+              );
             }}
             className="px-3 py-2 hover:bg-bg-tertiary transition-colors cursor-grab active:cursor-grabbing"
             onClick={async () => {
               try {
                 await onFocus(w.label);
               } catch (e) {
-                console.warn('Failed to focus window', w.label, e);
+                console.warn("Failed to focus window", w.label, e);
               }
             }}
           >
             <div className="flex items-center justify-between">
-              <span className={`text-sm ${w.page === currentPage ? 'text-text-primary font-medium' : 'text-text-secondary'}`}>
+              <span
+                className={`text-sm ${w.page === currentPage ? "text-text-primary font-medium" : "text-text-secondary"}`}
+              >
                 Page {w.page}
               </span>
               <div className="flex items-center gap-2">
@@ -63,18 +74,23 @@ export default function WindowSidebar({ windows, currentPage, onFocus, onClose, 
               </div>
             </div>
             {w.chapter && (
-              <div className="text-xs text-accent mt-1 truncate" title={w.chapter}>
+              <div
+                className="text-xs text-accent mt-1 truncate"
+                title={w.chapter}
+              >
                 {w.chapter}
               </div>
             )}
             <div className="text-xs text-text-tertiary mt-1 flex items-center gap-2">
               <span>{Math.round(w.zoom * 100)}%</span>
-              <span>{w.viewMode === 'two-column' ? '2col' : '1col'}</span>
+              <span>{w.viewMode === "two-column" ? "2col" : "1col"}</span>
             </div>
           </li>
         ))}
         {windows.length === 0 && (
-          <li className="px-3 py-2 text-text-secondary text-sm">No open windows</li>
+          <li className="px-3 py-2 text-text-secondary text-sm">
+            No open windows
+          </li>
         )}
       </ul>
     </aside>

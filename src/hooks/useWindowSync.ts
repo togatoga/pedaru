@@ -1,9 +1,18 @@
-import { useCallback, useEffect, Dispatch, SetStateAction, MutableRefObject } from 'react';
-import { emit } from '@tauri-apps/api/event';
-import { getCurrentWebviewWindow, WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { useTauriEventListener } from '@/lib/eventUtils';
-import { getTabLabel, getWindowTitle } from '@/lib/formatUtils';
-import type { ViewMode, Bookmark, Tab, OpenWindow } from './types';
+import { emit } from "@tauri-apps/api/event";
+import {
+  getCurrentWebviewWindow,
+  WebviewWindow,
+} from "@tauri-apps/api/webviewWindow";
+import {
+  Dispatch,
+  MutableRefObject,
+  SetStateAction,
+  useCallback,
+  useEffect,
+} from "react";
+import { useTauriEventListener } from "@/lib/eventUtils";
+import { getTabLabel, getWindowTitle } from "@/lib/formatUtils";
+import type { Bookmark, OpenWindow, Tab, ViewMode } from "./types";
 
 /**
  * Custom hook for handling multi-window synchronization
@@ -32,7 +41,7 @@ export function useWindowSync(
   setTabs: Dispatch<SetStateAction<Tab[]>>,
   setActiveTabId: Dispatch<SetStateAction<number | null>>,
   setCurrentPage: Dispatch<SetStateAction<number>>,
-  tabIdRef: MutableRefObject<number>
+  tabIdRef: MutableRefObject<number>,
 ) {
   // Handle page change events from standalone windows
   const handleWindowPageChanged = useCallback(
@@ -41,7 +50,7 @@ export function useWindowSync(
       const { label, page } = payload;
       const chapter = getChapterForPage(page);
       setOpenWindows((prev) =>
-        prev.map((w) => (w.label === label ? { ...w, page, chapter } : w))
+        prev.map((w) => (w.label === label ? { ...w, page, chapter } : w)),
       );
       WebviewWindow.getByLabel(label).then((win) => {
         if (win) {
@@ -49,7 +58,7 @@ export function useWindowSync(
         }
       });
     },
-    [isStandaloneMode, getChapterForPage, setOpenWindows]
+    [isStandaloneMode, getChapterForPage, setOpenWindows],
   );
 
   // Handle state change events from standalone windows
@@ -59,11 +68,13 @@ export function useWindowSync(
       const { label, zoom: winZoom, viewMode: winViewMode } = payload;
       setOpenWindows((prev) =>
         prev.map((w) =>
-          w.label === label ? { ...w, zoom: winZoom, viewMode: winViewMode } : w
-        )
+          w.label === label
+            ? { ...w, zoom: winZoom, viewMode: winViewMode }
+            : w,
+        ),
       );
     },
-    [isStandaloneMode, setOpenWindows]
+    [isStandaloneMode, setOpenWindows],
   );
 
   // Handle window-to-tab conversion requests
@@ -87,7 +98,7 @@ export function useWindowSync(
       setActiveTabId,
       setCurrentPage,
       tabIdRef,
-    ]
+    ],
   );
 
   // Handle bookmark sync from other windows
@@ -95,37 +106,37 @@ export function useWindowSync(
     (payload: { bookmarks: Bookmark[]; sourceLabel: string }) => {
       const myLabel = isStandaloneMode
         ? getCurrentWebviewWindow().label
-        : 'main';
+        : "main";
       const { bookmarks: newBookmarks, sourceLabel } = payload;
       if (sourceLabel === myLabel) return;
       setBookmarks(newBookmarks);
     },
-    [isStandaloneMode, setBookmarks]
+    [isStandaloneMode, setBookmarks],
   );
 
   // Listen for window events using the utility hooks
   useTauriEventListener<{ label: string; page: number }>(
-    'window-page-changed',
+    "window-page-changed",
     handleWindowPageChanged,
-    [handleWindowPageChanged]
+    [handleWindowPageChanged],
   );
 
   useTauriEventListener<{ label: string; zoom: number; viewMode: ViewMode }>(
-    'window-state-changed',
+    "window-state-changed",
     handleWindowStateChanged,
-    [handleWindowStateChanged]
+    [handleWindowStateChanged],
   );
 
   useTauriEventListener<{ label: string; page: number }>(
-    'move-window-to-tab',
+    "move-window-to-tab",
     handleMoveWindowToTab,
-    [handleMoveWindowToTab]
+    [handleMoveWindowToTab],
   );
 
   useTauriEventListener<{ bookmarks: Bookmark[]; sourceLabel: string }>(
-    'bookmark-sync',
+    "bookmark-sync",
     handleBookmarkSync,
-    [handleBookmarkSync]
+    [handleBookmarkSync],
   );
 
   // Emit state changes from standalone windows to main window
@@ -133,7 +144,7 @@ export function useWindowSync(
     if (!isStandaloneMode) return;
 
     const win = getCurrentWebviewWindow();
-    emit('window-state-changed', {
+    emit("window-state-changed", {
       label: win.label,
       zoom,
       viewMode,

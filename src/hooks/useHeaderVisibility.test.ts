@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useHeaderVisibility } from './useHeaderVisibility';
+import { act, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useHeaderVisibility } from "./useHeaderVisibility";
 
-describe('useHeaderVisibility', () => {
+describe("useHeaderVisibility", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -11,13 +11,18 @@ describe('useHeaderVisibility', () => {
     vi.useRealTimers();
   });
 
-  it('should toggle header visibility', () => {
+  it("should toggle header visibility", () => {
     const setShowHeader = vi.fn();
     const tempShowHeaderRef = { current: false };
     const headerTimerRef = { current: null };
 
     const { result } = renderHook(() =>
-      useHeaderVisibility(true, setShowHeader, tempShowHeaderRef, headerTimerRef)
+      useHeaderVisibility(
+        true,
+        setShowHeader,
+        tempShowHeaderRef,
+        headerTimerRef,
+      ),
     );
 
     act(() => {
@@ -27,19 +32,24 @@ describe('useHeaderVisibility', () => {
     expect(setShowHeader).toHaveBeenCalled();
     // Check that the callback was passed to setState
     const callback = setShowHeader.mock.calls[0][0];
-    expect(typeof callback).toBe('function');
+    expect(typeof callback).toBe("function");
     // Simulate the setState callback
     expect(callback(true)).toBe(false);
     expect(callback(false)).toBe(true);
   });
 
-  it('should show header temporarily when header is hidden', () => {
+  it("should show header temporarily when header is hidden", () => {
     const setShowHeader = vi.fn();
     const tempShowHeaderRef = { current: false };
     const headerTimerRef = { current: null };
 
     const { result } = renderHook(() =>
-      useHeaderVisibility(false, setShowHeader, tempShowHeaderRef, headerTimerRef)
+      useHeaderVisibility(
+        false,
+        setShowHeader,
+        tempShowHeaderRef,
+        headerTimerRef,
+      ),
     );
 
     act(() => {
@@ -51,13 +61,18 @@ describe('useHeaderVisibility', () => {
     expect(headerTimerRef.current).not.toBeNull();
   });
 
-  it('should hide header after 2 seconds', () => {
+  it("should hide header after 2 seconds", () => {
     const setShowHeader = vi.fn();
     const tempShowHeaderRef = { current: false };
     const headerTimerRef = { current: null };
 
     const { result } = renderHook(() =>
-      useHeaderVisibility(false, setShowHeader, tempShowHeaderRef, headerTimerRef)
+      useHeaderVisibility(
+        false,
+        setShowHeader,
+        tempShowHeaderRef,
+        headerTimerRef,
+      ),
     );
 
     act(() => {
@@ -76,13 +91,18 @@ describe('useHeaderVisibility', () => {
     expect(headerTimerRef.current).toBeNull();
   });
 
-  it('should not auto-hide when header is permanently shown', () => {
+  it("should not auto-hide when header is permanently shown", () => {
     const setShowHeader = vi.fn();
     const tempShowHeaderRef = { current: false }; // Not temporary
     const headerTimerRef = { current: null };
 
     const { result } = renderHook(() =>
-      useHeaderVisibility(true, setShowHeader, tempShowHeaderRef, headerTimerRef)
+      useHeaderVisibility(
+        true,
+        setShowHeader,
+        tempShowHeaderRef,
+        headerTimerRef,
+      ),
     );
 
     act(() => {
@@ -93,13 +113,18 @@ describe('useHeaderVisibility', () => {
     expect(setShowHeader).not.toHaveBeenCalled();
   });
 
-  it('should reset timer when called multiple times', () => {
+  it("should reset timer when called multiple times", () => {
     const setShowHeader = vi.fn();
     const tempShowHeaderRef = { current: false };
     const headerTimerRef = { current: null };
 
     const { result } = renderHook(() =>
-      useHeaderVisibility(false, setShowHeader, tempShowHeaderRef, headerTimerRef)
+      useHeaderVisibility(
+        false,
+        setShowHeader,
+        tempShowHeaderRef,
+        headerTimerRef,
+      ),
     );
 
     act(() => {
@@ -116,7 +141,12 @@ describe('useHeaderVisibility', () => {
 
     // Re-render with showHeader=true (header is now visible)
     const { result: result2 } = renderHook(() =>
-      useHeaderVisibility(true, setShowHeader, tempShowHeaderRef, headerTimerRef)
+      useHeaderVisibility(
+        true,
+        setShowHeader,
+        tempShowHeaderRef,
+        headerTimerRef,
+      ),
     );
 
     act(() => {

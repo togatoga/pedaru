@@ -1,24 +1,24 @@
-'use client';
+"use client";
 
 import {
-  FileUp,
+  AppWindow,
+  Bookmark,
   ChevronLeft,
   ChevronRight,
-  ZoomIn,
-  ZoomOut,
+  Columns,
+  FileUp,
+  History,
+  Library,
   List,
   Loader2,
   Monitor,
-  Columns,
-  History,
   Search,
   X,
-  AppWindow,
   XSquare,
-  Bookmark,
-  Library,
-} from 'lucide-react';
-import type { HeaderProps } from '@/types/components';
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
+import type { HeaderProps } from "@/types/components";
 
 export default function Header({
   fileName,
@@ -74,14 +74,17 @@ export default function Header({
         </button>
         <button
           onClick={onToggleBookshelf}
-          className={`flex items-center justify-center p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary transition-colors ${showBookshelf ? 'border border-accent text-accent' : 'border border-transparent'}`}
-          title={showBookshelf ? 'Hide Bookshelf' : 'Show Bookshelf'}
-          aria-label={showBookshelf ? 'Hide Bookshelf' : 'Show Bookshelf'}
+          className={`flex items-center justify-center p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary transition-colors ${showBookshelf ? "border border-accent text-accent" : "border border-transparent"}`}
+          title={showBookshelf ? "Hide Bookshelf" : "Show Bookshelf"}
+          aria-label={showBookshelf ? "Hide Bookshelf" : "Show Bookshelf"}
         >
           <Library className="w-4 h-4" />
         </button>
         {(pdfTitle || fileName) && (
-          <span className="text-text-secondary text-sm truncate max-w-[200px]" title={pdfTitle || undefined}>
+          <span
+            className="text-text-secondary text-sm truncate max-w-[200px]"
+            title={pdfTitle || undefined}
+          >
             {fileName || pdfTitle}
           </span>
         )}
@@ -104,7 +107,7 @@ export default function Header({
             />
             {searchQuery && (
               <button
-                onClick={() => onSearchChange('')}
+                onClick={() => onSearchChange("")}
                 className="absolute right-2 p-0.5 rounded hover:bg-bg-hover text-text-secondary"
               >
                 <X className="w-3 h-3" />
@@ -213,9 +216,9 @@ export default function Header({
         <button
           onClick={onToggleHistory}
           disabled={!isPdfLoaded}
-          className={`flex items-center justify-center p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 transition-colors ${showHistory ? 'border border-accent text-accent' : 'border border-transparent'}`}
-          title={showHistory ? 'Hide History' : 'Show History'}
-          aria-label={showHistory ? 'Hide History' : 'Show History'}
+          className={`flex items-center justify-center p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 transition-colors ${showHistory ? "border border-accent text-accent" : "border border-transparent"}`}
+          title={showHistory ? "Hide History" : "Show History"}
+          aria-label={showHistory ? "Hide History" : "Show History"}
         >
           <History className="w-5 h-5" />
         </button>
@@ -223,14 +226,14 @@ export default function Header({
         <button
           onClick={onToggleBookmarks}
           disabled={!isPdfLoaded}
-          className={`relative flex items-center justify-center p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 transition-colors ${showBookmarks ? 'border border-accent text-accent' : 'border border-transparent'}`}
-          title={showBookmarks ? 'Hide Bookmarks' : 'Show Bookmarks'}
-          aria-label={showBookmarks ? 'Hide Bookmarks' : 'Show Bookmarks'}
+          className={`relative flex items-center justify-center p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 transition-colors ${showBookmarks ? "border border-accent text-accent" : "border border-transparent"}`}
+          title={showBookmarks ? "Hide Bookmarks" : "Show Bookmarks"}
+          aria-label={showBookmarks ? "Hide Bookmarks" : "Show Bookmarks"}
         >
           <Bookmark className="w-5 h-5" />
           {bookmarkCount > 0 && (
             <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-yellow-500 text-white text-xs font-bold rounded-full px-1">
-              {bookmarkCount > 99 ? '99+' : bookmarkCount}
+              {bookmarkCount > 99 ? "99+" : bookmarkCount}
             </span>
           )}
         </button>
@@ -239,14 +242,14 @@ export default function Header({
         <button
           onClick={onToggleWindows}
           disabled={!isPdfLoaded}
-          className={`relative flex items-center justify-center p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 transition-colors ${showWindows ? 'border border-accent text-accent' : 'border border-transparent'}`}
-          title={showWindows ? 'Hide Windows' : 'Show Windows'}
-          aria-label={showWindows ? 'Hide Windows' : 'Show Windows'}
+          className={`relative flex items-center justify-center p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 transition-colors ${showWindows ? "border border-accent text-accent" : "border border-transparent"}`}
+          title={showWindows ? "Hide Windows" : "Show Windows"}
+          aria-label={showWindows ? "Hide Windows" : "Show Windows"}
         >
           <AppWindow className="w-5 h-5" />
           {windowCount > 0 && (
             <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-accent text-white text-xs font-bold rounded-full px-1">
-              {windowCount > 99 ? '99+' : windowCount}
+              {windowCount > 99 ? "99+" : windowCount}
             </span>
           )}
         </button>
@@ -266,24 +269,24 @@ export default function Header({
         {/* View Mode Toggle */}
         <div className="flex items-center gap-1 bg-bg-tertiary rounded-lg p-1">
           <button
-            onClick={() => onViewModeChange('single')}
+            onClick={() => onViewModeChange("single")}
             disabled={!isPdfLoaded}
             className={`p-2 rounded transition-colors disabled:opacity-40 ${
-              viewMode === 'single'
-                ? 'bg-accent text-white'
-                : 'text-text-secondary hover:text-text-primary'
+              viewMode === "single"
+                ? "bg-accent text-white"
+                : "text-text-secondary hover:text-text-primary"
             }`}
             title="Single Page"
           >
             <Monitor className="w-4 h-4" />
           </button>
           <button
-            onClick={() => onViewModeChange('two-column')}
+            onClick={() => onViewModeChange("two-column")}
             disabled={!isPdfLoaded}
             className={`p-2 rounded transition-colors disabled:opacity-40 ${
-              viewMode === 'two-column'
-                ? 'bg-accent text-white'
-                : 'text-text-secondary hover:text-primary'
+              viewMode === "two-column"
+                ? "bg-accent text-white"
+                : "text-text-secondary hover:text-primary"
             }`}
             title="Two Column"
           >

@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import { useState, useRef, useCallback, Dispatch, SetStateAction } from 'react';
+import { Dispatch, SetStateAction, useCallback, useRef, useState } from "react";
 import type {
-  ViewMode,
-  PdfInfo,
   Bookmark,
-  SearchResult,
-  OpenWindow,
-  Tab,
   HistoryEntry,
+  OpenWindow,
+  PdfInfo,
+  SearchResult,
+  Tab,
   TabState,
+  ViewMode,
   WindowState,
-} from '@/types';
+} from "@/types";
 
 /**
  * PDF file state group
@@ -233,7 +233,7 @@ export function usePdfViewerState(): PdfViewerState {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [zoom, setZoom] = useState(1.0);
-  const [viewMode, setViewMode] = useState<ViewMode>('single');
+  const [viewMode, setViewMode] = useState<ViewMode>("single");
   const [isLoading, setIsLoading] = useState(false);
   const [isStandaloneMode, setIsStandaloneMode] = useState(false);
 
@@ -253,7 +253,7 @@ export function usePdfViewerState(): PdfViewerState {
   // ============================================
   // Search State
   // ============================================
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
@@ -279,9 +279,15 @@ export function usePdfViewerState(): PdfViewerState {
   // ============================================
   // Pending Restore States
   // ============================================
-  const [pendingTabsRestore, setPendingTabsRestore] = useState<TabState[] | null>(null);
-  const [pendingActiveTabIndex, setPendingActiveTabIndex] = useState<number | null>(null);
-  const [pendingWindowsRestore, setPendingWindowsRestore] = useState<WindowState[] | null>(null);
+  const [pendingTabsRestore, setPendingTabsRestore] = useState<
+    TabState[] | null
+  >(null);
+  const [pendingActiveTabIndex, setPendingActiveTabIndex] = useState<
+    number | null
+  >(null);
+  const [pendingWindowsRestore, setPendingWindowsRestore] = useState<
+    WindowState[] | null
+  >(null);
 
   // ============================================
   // Refs
@@ -312,7 +318,7 @@ export function usePdfViewerState(): PdfViewerState {
     setTotalPages(0);
     setZoom(1.0);
     if (options?.resetViewMode) {
-      setViewMode('single');
+      setViewMode("single");
     }
 
     // Tab/Window state
@@ -327,7 +333,7 @@ export function usePdfViewerState(): PdfViewerState {
     setHistoryIndex(-1);
 
     // Search state
-    setSearchQuery('');
+    setSearchQuery("");
     setSearchResults([]);
     setShowSearchResults(false);
 

@@ -1,4 +1,4 @@
-import { useCallback, Dispatch, SetStateAction, MutableRefObject } from 'react';
+import { Dispatch, MutableRefObject, SetStateAction, useCallback } from "react";
 
 /**
  * Custom hook for managing header visibility with temporary show/hide behavior
@@ -15,7 +15,7 @@ export function useHeaderVisibility(
   showHeader: boolean,
   setShowHeader: Dispatch<SetStateAction<boolean>>,
   tempShowHeaderRef: MutableRefObject<boolean>,
-  headerTimerRef: MutableRefObject<NodeJS.Timeout | null>
+  headerTimerRef: MutableRefObject<NodeJS.Timeout | null>,
 ) {
   // Toggle header visibility
   const handleToggleHeader = useCallback(() => {

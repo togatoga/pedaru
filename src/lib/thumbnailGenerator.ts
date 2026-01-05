@@ -13,7 +13,7 @@ const THUMBNAIL_HEIGHT = 280; // Approximately 4:3 aspect ratio for PDF pages
  */
 export async function generateThumbnail(pdfData: Uint8Array): Promise<string> {
   // Dynamic import to avoid SSR issues with pdfjs-dist
-  const { pdfjs } = await import('react-pdf');
+  const { pdfjs } = await import("react-pdf");
 
   // Set up PDF.js worker from CDN
   pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -33,13 +33,13 @@ export async function generateThumbnail(pdfData: Uint8Array): Promise<string> {
   const scaledViewport = page.getViewport({ scale });
 
   // Create canvas for rendering
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = scaledViewport.width;
   canvas.height = scaledViewport.height;
 
-  const context = canvas.getContext('2d');
+  const context = canvas.getContext("2d");
   if (!context) {
-    throw new Error('Failed to get canvas context');
+    throw new Error("Failed to get canvas context");
   }
 
   // Render the page
@@ -49,10 +49,10 @@ export async function generateThumbnail(pdfData: Uint8Array): Promise<string> {
   }).promise;
 
   // Convert to base64 PNG
-  const dataUrl = canvas.toDataURL('image/png');
+  const dataUrl = canvas.toDataURL("image/png");
 
   // Remove the "data:image/png;base64," prefix
-  const base64Data = dataUrl.split(',')[1];
+  const base64Data = dataUrl.split(",")[1];
 
   // Cleanup
   pdf.destroy();
@@ -65,11 +65,13 @@ export async function generateThumbnail(pdfData: Uint8Array): Promise<string> {
  * @param filePath - Path to the PDF file
  * @returns Base64 encoded PNG image data (without data: prefix)
  */
-export async function generateThumbnailFromPath(filePath: string): Promise<string> {
-  const { invoke } = await import('@tauri-apps/api/core');
+export async function generateThumbnailFromPath(
+  filePath: string,
+): Promise<string> {
+  const { invoke } = await import("@tauri-apps/api/core");
 
   // Read the PDF file
-  const data = await invoke<number[]>('read_pdf_file', { path: filePath });
+  const data = await invoke<number[]>("read_pdf_file", { path: filePath });
   const pdfData = new Uint8Array(data);
 
   return generateThumbnail(pdfData);
@@ -91,7 +93,10 @@ export interface ThumbnailItem {
  */
 export async function generateThumbnailsInBackground(
   items: ThumbnailItem[],
-  onThumbnailGenerated: (item: ThumbnailItem, thumbnailData: string) => Promise<void>
+  onThumbnailGenerated: (
+    item: ThumbnailItem,
+    thumbnailData: string,
+  ) => Promise<void>,
 ): Promise<void> {
   // Process one item at a time with idle callback to not block UI
   const processNext = (index: number): Promise<void> => {
@@ -105,7 +110,12 @@ export async function generateThumbnailsInBackground(
         const item = items[index];
         generateThumbnailFromPath(item.localPath)
           .then((thumbnailData) => onThumbnailGenerated(item, thumbnailData))
-          .catch((err) => console.error(`Failed to generate thumbnail for ${item.localPath}:`, err))
+          .catch((err) =>
+            console.error(
+              `Failed to generate thumbnail for ${item.localPath}:`,
+              err,
+            ),
+          )
           .finally(() => {
             // Process next item after a small delay
             setTimeout(() => {
@@ -115,7 +125,7 @@ export async function generateThumbnailsInBackground(
       };
 
       // Use requestIdleCallback if available, otherwise use setTimeout
-      if (typeof requestIdleCallback !== 'undefined') {
+      if (typeof requestIdleCallback !== "undefined") {
         requestIdleCallback(scheduleNext, { timeout: 5000 });
       } else {
         setTimeout(scheduleNext, 200);

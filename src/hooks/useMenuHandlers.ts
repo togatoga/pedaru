@@ -1,10 +1,10 @@
-import { useCallback, Dispatch, SetStateAction, MutableRefObject } from 'react';
-import { confirm } from '@tauri-apps/plugin-dialog';
+import { confirm } from "@tauri-apps/plugin-dialog";
+import { Dispatch, MutableRefObject, SetStateAction, useCallback } from "react";
 import {
   useTauriEventListener,
   useTauriEventListeners,
-} from '@/lib/eventUtils';
-import type { ViewMode } from './types';
+} from "@/lib/eventUtils";
+import type { ViewMode } from "./types";
 
 interface MenuHandlersConfig {
   // State management
@@ -79,17 +79,17 @@ export function useMenuHandlers({
   const handleResetAllData = useCallback(async () => {
     // Show native confirmation dialog
     const confirmed = await confirm(
-      'This will delete:\n\n' +
-        '• All bookmarks\n' +
-        '• All session history\n' +
-        '• Last opened file info\n\n' +
-        'This action cannot be undone.',
+      "This will delete:\n\n" +
+        "• All bookmarks\n" +
+        "• All session history\n" +
+        "• Last opened file info\n\n" +
+        "This action cannot be undone.",
       {
-        title: 'Initialize App?',
-        kind: 'warning',
-        okLabel: 'Initialize',
-        cancelLabel: 'Cancel',
-      }
+        title: "Initialize App?",
+        kind: "warning",
+        okLabel: "Initialize",
+        cancelLabel: "Cancel",
+      },
     );
 
     if (confirmed) {
@@ -97,7 +97,7 @@ export function useMenuHandlers({
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith('pedaru_')) {
+        if (key && key.startsWith("pedaru_")) {
           keysToRemove.push(key);
         }
       }
@@ -113,20 +113,20 @@ export function useMenuHandlers({
     async (selectedFilePath: string) => {
       try {
         if (selectedFilePath === filePathRef.current) {
-          console.log('File already open, skipping reload');
+          console.log("File already open, skipping reload");
           return;
         }
         await loadPdfFromPath(selectedFilePath);
       } catch (error) {
-        console.error('Failed to open recent file:', error);
+        console.error("Failed to open recent file:", error);
       }
     },
-    [loadPdfFromPath, filePathRef]
+    [loadPdfFromPath, filePathRef],
   );
 
   // Toggle two-column mode
   const handleToggleTwoColumn = useCallback(() => {
-    setViewMode((prev) => (prev === 'two-column' ? 'single' : 'two-column'));
+    setViewMode((prev) => (prev === "two-column" ? "single" : "two-column"));
   }, [setViewMode]);
 
   // Go to first page
@@ -145,21 +145,20 @@ export function useMenuHandlers({
   }, [openStandaloneWindow, currentPage]);
 
   // Listen for reset all data request from app menu (main window only)
-  useTauriEventListener(
-    'reset-all-data-requested',
+  useTauriEventListener("reset-all-data-requested", handleResetAllData, [
+    isStandaloneMode,
     handleResetAllData,
-    [isStandaloneMode, handleResetAllData]
-  );
+  ]);
 
   // Listen for menu events from system menu bar (zoom, view mode, settings)
   useTauriEventListeners(
     [
-      { event: 'menu-zoom-in', handler: handleZoomIn },
-      { event: 'menu-zoom-out', handler: handleZoomOut },
-      { event: 'menu-zoom-reset', handler: handleZoomReset },
-      { event: 'menu-toggle-two-column', handler: handleToggleTwoColumn },
-      { event: 'menu-toggle-header', handler: handleToggleHeader },
-      { event: 'menu-open-settings', handler: handleOpenSettings },
+      { event: "menu-zoom-in", handler: handleZoomIn },
+      { event: "menu-zoom-out", handler: handleZoomOut },
+      { event: "menu-zoom-reset", handler: handleZoomReset },
+      { event: "menu-toggle-two-column", handler: handleToggleTwoColumn },
+      { event: "menu-toggle-header", handler: handleToggleHeader },
+      { event: "menu-open-settings", handler: handleOpenSettings },
     ],
     [
       handleZoomIn,
@@ -168,51 +167,56 @@ export function useMenuHandlers({
       handleToggleTwoColumn,
       handleToggleHeader,
       handleOpenSettings,
-    ]
+    ],
   );
 
   // Listen for Go menu events (navigation)
   useTauriEventListeners(
     [
-      { event: 'menu-go-first-page', handler: handleGoFirstPage },
-      { event: 'menu-go-last-page', handler: handleGoLastPage },
-      { event: 'menu-go-prev-page', handler: goToPrevPage },
-      { event: 'menu-go-next-page', handler: goToNextPage },
-      { event: 'menu-go-back', handler: goBack },
-      { event: 'menu-go-forward', handler: goForward },
+      { event: "menu-go-first-page", handler: handleGoFirstPage },
+      { event: "menu-go-last-page", handler: handleGoLastPage },
+      { event: "menu-go-prev-page", handler: goToPrevPage },
+      { event: "menu-go-next-page", handler: goToNextPage },
+      { event: "menu-go-back", handler: goBack },
+      { event: "menu-go-forward", handler: goForward },
     ],
-    [handleGoFirstPage, handleGoLastPage, goToPrevPage, goToNextPage, goBack, goForward]
+    [
+      handleGoFirstPage,
+      handleGoLastPage,
+      goToPrevPage,
+      goToNextPage,
+      goBack,
+      goForward,
+    ],
   );
 
   // Listen for Tabs menu events
   useTauriEventListeners(
     [
-      { event: 'menu-new-tab', handler: addTabFromCurrent },
-      { event: 'menu-close-tab', handler: closeCurrentTab },
-      { event: 'menu-prev-tab', handler: selectPrevTab },
-      { event: 'menu-next-tab', handler: selectNextTab },
+      { event: "menu-new-tab", handler: addTabFromCurrent },
+      { event: "menu-close-tab", handler: closeCurrentTab },
+      { event: "menu-prev-tab", handler: selectPrevTab },
+      { event: "menu-next-tab", handler: selectNextTab },
     ],
-    [addTabFromCurrent, closeCurrentTab, selectPrevTab, selectNextTab]
+    [addTabFromCurrent, closeCurrentTab, selectPrevTab, selectNextTab],
   );
 
   // Listen for Window menu events
-  useTauriEventListener('menu-new-window', handleNewWindow, [handleNewWindow]);
+  useTauriEventListener("menu-new-window", handleNewWindow, [handleNewWindow]);
 
   // Listen for Tools menu events
   useTauriEventListeners(
     [
-      { event: 'menu-search', handler: focusSearch },
-      { event: 'menu-toggle-bookmark', handler: toggleBookmark },
-      { event: 'menu-translate', handler: triggerTranslation },
-      { event: 'menu-translate-explain', handler: triggerExplanation },
+      { event: "menu-search", handler: focusSearch },
+      { event: "menu-toggle-bookmark", handler: toggleBookmark },
+      { event: "menu-translate", handler: triggerTranslation },
+      { event: "menu-translate-explain", handler: triggerExplanation },
     ],
-    [focusSearch, toggleBookmark, triggerTranslation, triggerExplanation]
+    [focusSearch, toggleBookmark, triggerTranslation, triggerExplanation],
   );
 
   // Listen for open recent file selection (needs payload access)
-  useTauriEventListener<string>(
-    'menu-open-recent-selected',
+  useTauriEventListener<string>("menu-open-recent-selected", handleOpenRecent, [
     handleOpenRecent,
-    [handleOpenRecent]
-  );
+  ]);
 }

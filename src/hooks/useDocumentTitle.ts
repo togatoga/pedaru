@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import type { PdfInfo } from './types';
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { useEffect } from "react";
+import type { PdfInfo } from "./types";
 
 /**
  * Custom hook for managing document and window title updates
@@ -19,7 +19,7 @@ export function useDocumentTitle(
   pdfInfo: PdfInfo | null,
   isStandaloneMode: boolean,
   currentPage: number,
-  getChapterForPage: (page: number) => string | undefined
+  getChapterForPage: (page: number) => string | undefined,
 ) {
   // Update document title for main window
   useEffect(() => {
@@ -31,7 +31,7 @@ export function useDocumentTitle(
     } else if (fileName) {
       document.title = `${fileName} - Pedaru`;
     } else {
-      document.title = 'Pedaru - PDF Viewer';
+      document.title = "Pedaru - PDF Viewer";
     }
   }, [pdfInfo, fileName, isStandaloneMode]);
 
@@ -49,7 +49,7 @@ export function useDocumentTitle(
         const win = getCurrentWebviewWindow();
         await win.setTitle(title);
       } catch (e) {
-        console.error('Failed to update window title:', e);
+        console.error("Failed to update window title:", e);
       }
     };
 

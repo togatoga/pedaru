@@ -1,17 +1,32 @@
-import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
-import { usePdfLoader } from './usePdfLoader';
-import type { PdfInfo, ViewMode, Bookmark, HistoryEntry, OpenWindow, Tab } from './types';
+import { renderHook, waitFor } from "@testing-library/react";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from "vitest";
+import type {
+  Bookmark,
+  HistoryEntry,
+  OpenWindow,
+  PdfInfo,
+  Tab,
+  ViewMode,
+} from "./types";
+import { usePdfLoader } from "./usePdfLoader";
 
 // Mock Tauri APIs
 const mockInvoke = vi.fn();
-vi.mock('@tauri-apps/api/core', () => ({
+vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: any[]) => mockInvoke(...args),
 }));
 
 const mockGetByLabel = vi.fn();
 const mockClose = vi.fn();
-vi.mock('@tauri-apps/api/webviewWindow', () => ({
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
   WebviewWindow: {
     getByLabel: (...args: any[]) => mockGetByLabel(...args),
   },
@@ -19,7 +34,7 @@ vi.mock('@tauri-apps/api/webviewWindow', () => ({
 
 // Mock database
 const mockLoadSessionState = vi.fn();
-vi.mock('@/lib/database', () => ({
+vi.mock("@/lib/database", () => ({
   loadSessionState: (...args: any[]) => mockLoadSessionState(...args),
   saveSessionState: vi.fn(),
   getLastOpenedPath: vi.fn(),
@@ -27,7 +42,7 @@ vi.mock('@/lib/database', () => ({
   deleteSession: vi.fn(),
 }));
 
-describe('usePdfLoader', () => {
+describe("usePdfLoader", () => {
   let mockSetters: {
     setFileData: Mock;
     setFileName: Mock;
@@ -55,9 +70,9 @@ describe('usePdfLoader', () => {
   const mockIsRestoringSessionRef = { current: false };
 
   const mockPdfInfo: PdfInfo = {
-    title: 'Test PDF',
-    author: 'Test Author',
-    subject: 'Test Subject',
+    title: "Test PDF",
+    author: "Test Author",
+    subject: "Test Subject",
     toc: [],
   };
 
@@ -91,8 +106,8 @@ describe('usePdfLoader', () => {
 
     // Setup default mock implementations
     mockInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'get_pdf_info') return Promise.resolve(mockPdfInfo);
-      if (cmd === 'read_pdf_file') return Promise.resolve(mockPdfData);
+      if (cmd === "get_pdf_info") return Promise.resolve(mockPdfInfo);
+      if (cmd === "read_pdf_file") return Promise.resolve(mockPdfData);
       return Promise.resolve(null);
     });
 
@@ -101,13 +116,13 @@ describe('usePdfLoader', () => {
     mockClose.mockResolvedValue(undefined);
 
     // Mock localStorage
-    vi.spyOn(Storage.prototype, 'setItem');
-    vi.spyOn(Storage.prototype, 'getItem');
+    vi.spyOn(Storage.prototype, "setItem");
+    vi.spyOn(Storage.prototype, "getItem");
 
     // Suppress console output in tests
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -115,102 +130,102 @@ describe('usePdfLoader', () => {
     vi.restoreAllMocks();
   });
 
-  describe('loadPdfInternal', () => {
-    it('should load PDF file and set all states', async () => {
+  describe("loadPdfInternal", () => {
+    it("should load PDF file and set all states", async () => {
       const { result } = renderHook(() =>
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
           isRestoringSessionRef: mockIsRestoringSessionRef,
-        })
+        }),
       );
 
-      await result.current.loadPdfInternal('/test/file.pdf', false);
+      await result.current.loadPdfInternal("/test/file.pdf", false);
 
       await waitFor(() => {
-        expect(mockInvoke).toHaveBeenCalledWith('get_pdf_info', {
-          path: '/test/file.pdf',
+        expect(mockInvoke).toHaveBeenCalledWith("get_pdf_info", {
+          path: "/test/file.pdf",
         });
-        expect(mockInvoke).toHaveBeenCalledWith('read_pdf_file', {
-          path: '/test/file.pdf',
+        expect(mockInvoke).toHaveBeenCalledWith("read_pdf_file", {
+          path: "/test/file.pdf",
         });
         expect(mockSetters.setPdfInfo).toHaveBeenCalledWith(mockPdfInfo);
         expect(mockSetters.setFileData).toHaveBeenCalledWith(
-          expect.any(Uint8Array)
+          expect.any(Uint8Array),
         );
-        expect(mockSetters.setFilePath).toHaveBeenCalledWith('/test/file.pdf');
-        expect(mockSetters.setFileName).toHaveBeenCalledWith('file.pdf');
+        expect(mockSetters.setFilePath).toHaveBeenCalledWith("/test/file.pdf");
+        expect(mockSetters.setFileName).toHaveBeenCalledWith("file.pdf");
         expect(mockSetters.setIsLoading).toHaveBeenCalledWith(false);
       });
     });
 
-    it('should handle loading errors gracefully', async () => {
-      mockInvoke.mockRejectedValueOnce(new Error('Failed to load PDF'));
+    it("should handle loading errors gracefully", async () => {
+      mockInvoke.mockRejectedValueOnce(new Error("Failed to load PDF"));
 
       const { result } = renderHook(() =>
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
           isRestoringSessionRef: mockIsRestoringSessionRef,
-        })
+        }),
       );
 
       const success = await result.current.loadPdfInternal(
-        '/test/file.pdf',
-        false
+        "/test/file.pdf",
+        false,
       );
 
       expect(success).toBe(false);
       expect(mockSetters.setIsLoading).toHaveBeenCalledWith(false);
     });
 
-    it('should extract filename correctly from different paths', async () => {
+    it("should extract filename correctly from different paths", async () => {
       const { result } = renderHook(() =>
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
           isRestoringSessionRef: mockIsRestoringSessionRef,
-        })
+        }),
       );
 
-      await result.current.loadPdfInternal('/path/to/document.pdf', false);
+      await result.current.loadPdfInternal("/path/to/document.pdf", false);
 
       await waitFor(() => {
-        expect(mockSetters.setFileName).toHaveBeenCalledWith('document.pdf');
+        expect(mockSetters.setFileName).toHaveBeenCalledWith("document.pdf");
       });
     });
   });
 
-  describe('loadPdfFromPath', () => {
-    it('should reset all state before loading new PDF', async () => {
+  describe("loadPdfFromPath", () => {
+    it("should reset all state before loading new PDF", async () => {
       const { result } = renderHook(() =>
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
           isRestoringSessionRef: mockIsRestoringSessionRef,
-        })
+        }),
       );
 
-      await result.current.loadPdfFromPath('/test/file.pdf');
+      await result.current.loadPdfFromPath("/test/file.pdf");
 
       await waitFor(() => {
         expect(mockSetters.setPdfInfo).toHaveBeenCalledWith(null);
         expect(mockSetters.setCurrentPage).toHaveBeenCalledWith(1);
         expect(mockSetters.setZoom).toHaveBeenCalledWith(1.0);
-        expect(mockSetters.setViewMode).toHaveBeenCalledWith('single');
+        expect(mockSetters.setViewMode).toHaveBeenCalledWith("single");
         expect(mockSetters.setBookmarks).toHaveBeenCalledWith([]);
         expect(mockSetters.setPageHistory).toHaveBeenCalledWith([]);
         expect(mockSetters.setHistoryIndex).toHaveBeenCalledWith(-1);
-        expect(mockSetters.setSearchQuery).toHaveBeenCalledWith('');
+        expect(mockSetters.setSearchQuery).toHaveBeenCalledWith("");
         expect(mockSetters.setSearchResults).toHaveBeenCalledWith([]);
         expect(mockSetters.setShowSearchResults).toHaveBeenCalledWith(false);
       });
     });
 
-    it('should close all open windows before loading new PDF', async () => {
+    it("should close all open windows before loading new PDF", async () => {
       const mockOpenWindowsWithData: OpenWindow[] = [
-        { label: 'window-1', page: 1, zoom: 1.0, viewMode: 'single' },
-        { label: 'window-2', page: 5, zoom: 1.5, viewMode: 'two-column' },
+        { label: "window-1", page: 1, zoom: 1.0, viewMode: "single" },
+        { label: "window-2", page: 5, zoom: 1.5, viewMode: "two-column" },
       ];
 
       const { result } = renderHook(() =>
@@ -218,14 +233,14 @@ describe('usePdfLoader', () => {
           ...mockSetters,
           openWindows: mockOpenWindowsWithData,
           isRestoringSessionRef: mockIsRestoringSessionRef,
-        })
+        }),
       );
 
-      await result.current.loadPdfFromPath('/test/file.pdf');
+      await result.current.loadPdfFromPath("/test/file.pdf");
 
       await waitFor(() => {
-        expect(mockGetByLabel).toHaveBeenCalledWith('window-1');
-        expect(mockGetByLabel).toHaveBeenCalledWith('window-2');
+        expect(mockGetByLabel).toHaveBeenCalledWith("window-1");
+        expect(mockGetByLabel).toHaveBeenCalledWith("window-2");
         expect(mockClose).toHaveBeenCalledTimes(2);
         expect(mockSetters.setOpenWindows).toHaveBeenCalledWith([]);
         expect(mockSetters.setTabs).toHaveBeenCalledWith([]);
@@ -233,27 +248,23 @@ describe('usePdfLoader', () => {
       });
     });
 
-    it('should restore session state when available', async () => {
+    it("should restore session state when available", async () => {
       const mockSession = {
         page: 5,
         zoom: 1.5,
-        viewMode: 'two-column' as ViewMode,
-        bookmarks: [
-          { page: 3, label: 'Page 3', createdAt: 1000 },
-        ],
+        viewMode: "two-column" as ViewMode,
+        bookmarks: [{ page: 3, label: "Page 3", createdAt: 1000 }],
         pageHistory: [
-          { page: 1, timestamp: '2024-01-01T00:00:00Z' },
-          { page: 5, timestamp: '2024-01-01T00:01:00Z' },
+          { page: 1, timestamp: "2024-01-01T00:00:00Z" },
+          { page: 5, timestamp: "2024-01-01T00:01:00Z" },
         ],
         historyIndex: 1,
         tabs: [
-          { page: 1, label: 'Page 1' },
-          { page: 5, label: 'Page 5' },
+          { page: 1, label: "Page 1" },
+          { page: 5, label: "Page 5" },
         ],
         activeTabIndex: 1,
-        windows: [
-          { page: 3, zoom: 1.0, viewMode: 'single' as ViewMode },
-        ],
+        windows: [{ page: 3, zoom: 1.0, viewMode: "single" as ViewMode }],
         lastOpened: Date.now(),
       };
 
@@ -264,34 +275,34 @@ describe('usePdfLoader', () => {
           ...mockSetters,
           openWindows: mockOpenWindows,
           isRestoringSessionRef: mockIsRestoringSessionRef,
-        })
+        }),
       );
 
-      await result.current.loadPdfFromPath('/test/file.pdf');
+      await result.current.loadPdfFromPath("/test/file.pdf");
 
       await waitFor(() => {
         // Check session restoration
         expect(mockSetters.setCurrentPage).toHaveBeenCalledWith(5);
         expect(mockSetters.setZoom).toHaveBeenCalledWith(1.5);
-        expect(mockSetters.setViewMode).toHaveBeenCalledWith('two-column');
+        expect(mockSetters.setViewMode).toHaveBeenCalledWith("two-column");
         expect(mockSetters.setBookmarks).toHaveBeenCalledWith(
-          mockSession.bookmarks
+          mockSession.bookmarks,
         );
         expect(mockSetters.setPageHistory).toHaveBeenCalledWith(
-          mockSession.pageHistory
+          mockSession.pageHistory,
         );
         expect(mockSetters.setHistoryIndex).toHaveBeenCalledWith(1);
         expect(mockSetters.setPendingTabsRestore).toHaveBeenCalledWith(
-          mockSession.tabs
+          mockSession.tabs,
         );
         expect(mockSetters.setPendingActiveTabIndex).toHaveBeenCalledWith(1);
         expect(mockSetters.setPendingWindowsRestore).toHaveBeenCalledWith(
-          mockSession.windows
+          mockSession.windows,
         );
       });
     });
 
-    it('should use defaults when no session is available', async () => {
+    it("should use defaults when no session is available", async () => {
       mockLoadSessionState.mockResolvedValueOnce(null);
 
       const { result } = renderHook(() =>
@@ -299,20 +310,20 @@ describe('usePdfLoader', () => {
           ...mockSetters,
           openWindows: mockOpenWindows,
           isRestoringSessionRef: mockIsRestoringSessionRef,
-        })
+        }),
       );
 
-      await result.current.loadPdfFromPath('/test/file.pdf');
+      await result.current.loadPdfFromPath("/test/file.pdf");
 
       await waitFor(() => {
         // Defaults are set during reset phase
         expect(mockSetters.setCurrentPage).toHaveBeenCalledWith(1);
         expect(mockSetters.setZoom).toHaveBeenCalledWith(1.0);
-        expect(mockSetters.setViewMode).toHaveBeenCalledWith('single');
+        expect(mockSetters.setViewMode).toHaveBeenCalledWith("single");
       });
     });
 
-    it('should handle partial session data', async () => {
+    it("should handle partial session data", async () => {
       const partialSession = {
         page: 3,
         zoom: 1.2,
@@ -327,38 +338,38 @@ describe('usePdfLoader', () => {
           ...mockSetters,
           openWindows: mockOpenWindows,
           isRestoringSessionRef: mockIsRestoringSessionRef,
-        })
+        }),
       );
 
-      await result.current.loadPdfFromPath('/test/file.pdf');
+      await result.current.loadPdfFromPath("/test/file.pdf");
 
       await waitFor(() => {
         expect(mockSetters.setCurrentPage).toHaveBeenCalledWith(3);
         expect(mockSetters.setZoom).toHaveBeenCalledWith(1.2);
-        expect(mockSetters.setViewMode).toHaveBeenCalledWith('single'); // default
+        expect(mockSetters.setViewMode).toHaveBeenCalledWith("single"); // default
       });
     });
   });
 
-  describe('Error handling', () => {
-    it('should continue even if window close fails', async () => {
+  describe("Error handling", () => {
+    it("should continue even if window close fails", async () => {
       const mockOpenWindowsWithData: OpenWindow[] = [
-        { label: 'window-1', page: 1, zoom: 1.0, viewMode: 'single' },
+        { label: "window-1", page: 1, zoom: 1.0, viewMode: "single" },
       ];
 
-      mockGetByLabel.mockRejectedValueOnce(new Error('Window not found'));
+      mockGetByLabel.mockRejectedValueOnce(new Error("Window not found"));
 
       const { result } = renderHook(() =>
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindowsWithData,
           isRestoringSessionRef: mockIsRestoringSessionRef,
-        })
+        }),
       );
 
       // Should not throw
       await expect(
-        result.current.loadPdfFromPath('/test/file.pdf')
+        result.current.loadPdfFromPath("/test/file.pdf"),
       ).resolves.not.toThrow();
 
       await waitFor(() => {
@@ -366,39 +377,39 @@ describe('usePdfLoader', () => {
       });
     });
 
-    it('should return false when PDF loading fails', async () => {
-      mockInvoke.mockRejectedValueOnce(new Error('Network error'));
+    it("should return false when PDF loading fails", async () => {
+      mockInvoke.mockRejectedValueOnce(new Error("Network error"));
 
       const { result } = renderHook(() =>
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
           isRestoringSessionRef: mockIsRestoringSessionRef,
-        })
+        }),
       );
 
       const success = await result.current.loadPdfInternal(
-        '/test/file.pdf',
-        false
+        "/test/file.pdf",
+        false,
       );
 
       expect(success).toBe(false);
     });
   });
 
-  describe('Loading states', () => {
-    it('should set isLoading to true when starting to load', async () => {
+  describe("Loading states", () => {
+    it("should set isLoading to true when starting to load", async () => {
       const { result } = renderHook(() =>
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
           isRestoringSessionRef: mockIsRestoringSessionRef,
-        })
+        }),
       );
 
       const loadPromise = result.current.loadPdfInternal(
-        '/test/file.pdf',
-        false
+        "/test/file.pdf",
+        false,
       );
 
       // Check that loading was set to true
@@ -407,34 +418,34 @@ describe('usePdfLoader', () => {
       await loadPromise;
     });
 
-    it('should set isLoading to false after successful load', async () => {
+    it("should set isLoading to false after successful load", async () => {
       const { result } = renderHook(() =>
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
           isRestoringSessionRef: mockIsRestoringSessionRef,
-        })
+        }),
       );
 
-      await result.current.loadPdfInternal('/test/file.pdf', false);
+      await result.current.loadPdfInternal("/test/file.pdf", false);
 
       await waitFor(() => {
         expect(mockSetters.setIsLoading).toHaveBeenCalledWith(false);
       });
     });
 
-    it('should set isLoading to false after failed load', async () => {
-      mockInvoke.mockRejectedValueOnce(new Error('Load failed'));
+    it("should set isLoading to false after failed load", async () => {
+      mockInvoke.mockRejectedValueOnce(new Error("Load failed"));
 
       const { result } = renderHook(() =>
         usePdfLoader({
           ...mockSetters,
           openWindows: mockOpenWindows,
           isRestoringSessionRef: mockIsRestoringSessionRef,
-        })
+        }),
       );
 
-      await result.current.loadPdfInternal('/test/file.pdf', false);
+      await result.current.loadPdfInternal("/test/file.pdf", false);
 
       expect(mockSetters.setIsLoading).toHaveBeenCalledWith(false);
     });

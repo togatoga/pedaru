@@ -1,9 +1,9 @@
-import { useCallback, useMemo, Dispatch, SetStateAction } from 'react';
-import { emit } from '@tauri-apps/api/event';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getChapterForPage as getChapter } from '@/lib/pdfUtils';
-import { getTabLabel, getWindowTitle } from '@/lib/formatUtils';
-import type { HistoryEntry, Tab, ViewMode, PdfInfo } from './types';
+import { emit } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { Dispatch, SetStateAction, useCallback, useMemo } from "react";
+import { getTabLabel, getWindowTitle } from "@/lib/formatUtils";
+import { getChapterForPage as getChapter } from "@/lib/pdfUtils";
+import type { HistoryEntry, PdfInfo, Tab, ViewMode } from "./types";
 
 /**
  * Custom hook for page navigation and history management
@@ -38,12 +38,12 @@ export function useNavigation(
   tabs: Tab[],
   setTabs: Dispatch<SetStateAction<Tab[]>>,
   activeTabId: number | null,
-  pdfInfo: PdfInfo | null
+  pdfInfo: PdfInfo | null,
 ) {
   // Helper to get chapter for a page
   const getChapterForPage = useCallback(
     (page: number) => getChapter(pdfInfo, page),
-    [pdfInfo]
+    [pdfInfo],
   );
 
   /**
@@ -59,10 +59,10 @@ export function useNavigation(
             return { ...tab, page, label };
           }
           return tab;
-        })
+        }),
       );
     },
-    [activeTabId, getChapterForPage, setTabs]
+    [activeTabId, getChapterForPage, setTabs],
   );
 
   /**
@@ -83,8 +83,13 @@ export function useNavigation(
         // Push into history when user-driven navigation occurs
         setPageHistory((prev) => {
           // Remove duplicate pages from history
-          const filtered = prev.slice(0, historyIndex + 1).filter((entry) => entry.page !== page);
-          filtered.push({ page, timestamp: Math.floor(Date.now() / 1000).toString() });
+          const filtered = prev
+            .slice(0, historyIndex + 1)
+            .filter((entry) => entry.page !== page);
+          filtered.push({
+            page,
+            timestamp: Math.floor(Date.now() / 1000).toString(),
+          });
           if (filtered.length > 100) {
             const overflow = filtered.length - 100;
             return filtered.slice(overflow);
@@ -93,7 +98,9 @@ export function useNavigation(
         });
         setHistoryIndex((prev) => {
           // Remove duplicate pages and add new one
-          const filtered = pageHistory.slice(0, prev + 1).filter((entry) => entry.page !== page);
+          const filtered = pageHistory
+            .slice(0, prev + 1)
+            .filter((entry) => entry.page !== page);
           return Math.min(filtered.length, 99);
         });
       }
@@ -106,7 +113,7 @@ export function useNavigation(
       setCurrentPage,
       setPageHistory,
       setHistoryIndex,
-    ]
+    ],
   );
 
   /**
@@ -129,7 +136,7 @@ export function useNavigation(
           document.title = title;
           win.setTitle(title).catch(console.warn);
 
-          emit('window-page-changed', {
+          emit("window-page-changed", {
             label: win.label,
             page,
           }).catch(console.warn);
@@ -145,7 +152,7 @@ export function useNavigation(
       getChapterForPage,
       updateActiveTabLabel,
       setCurrentPage,
-    ]
+    ],
   );
 
   /**
@@ -168,7 +175,7 @@ export function useNavigation(
           document.title = title;
           win.setTitle(title).catch(console.warn);
 
-          emit('window-page-changed', {
+          emit("window-page-changed", {
             label: win.label,
             page,
           }).catch(console.warn);
@@ -180,8 +187,13 @@ export function useNavigation(
         // Push into history when user-driven navigation occurs
         setPageHistory((prev) => {
           // Remove duplicate pages from history
-          const filtered = prev.slice(0, historyIndex + 1).filter((entry) => entry.page !== page);
-          filtered.push({ page, timestamp: Math.floor(Date.now() / 1000).toString() });
+          const filtered = prev
+            .slice(0, historyIndex + 1)
+            .filter((entry) => entry.page !== page);
+          filtered.push({
+            page,
+            timestamp: Math.floor(Date.now() / 1000).toString(),
+          });
           // Cap history to 100 entries
           if (filtered.length > 100) {
             const overflow = filtered.length - 100;
@@ -191,7 +203,9 @@ export function useNavigation(
         });
         setHistoryIndex((prev) => {
           // Remove duplicate pages and add new one
-          const filtered = pageHistory.slice(0, prev + 1).filter((entry) => entry.page !== page);
+          const filtered = pageHistory
+            .slice(0, prev + 1)
+            .filter((entry) => entry.page !== page);
           return Math.min(filtered.length, 99);
         });
       }
@@ -206,7 +220,7 @@ export function useNavigation(
       setCurrentPage,
       setPageHistory,
       setHistoryIndex,
-    ]
+    ],
   );
 
   /**
@@ -214,7 +228,7 @@ export function useNavigation(
    * Respects view mode (2 pages in two-column mode)
    */
   const goToPrevPage = useCallback(() => {
-    const step = viewMode === 'two-column' ? 2 : 1;
+    const step = viewMode === "two-column" ? 2 : 1;
     goToPage(currentPage - step);
   }, [currentPage, viewMode, goToPage]);
 
@@ -223,7 +237,7 @@ export function useNavigation(
    * Respects view mode (2 pages in two-column mode)
    */
   const goToNextPage = useCallback(() => {
-    const step = viewMode === 'two-column' ? 2 : 1;
+    const step = viewMode === "two-column" ? 2 : 1;
     goToPage(currentPage + step);
   }, [currentPage, viewMode, goToPage]);
 
@@ -231,7 +245,9 @@ export function useNavigation(
   // Ensure historyIndex is within bounds of pageHistory
   const effectiveHistoryIndex = Math.min(historyIndex, pageHistory.length - 1);
   const canGoBack = effectiveHistoryIndex > 0 && pageHistory.length > 0;
-  const canGoForward = effectiveHistoryIndex >= 0 && effectiveHistoryIndex < pageHistory.length - 1;
+  const canGoForward =
+    effectiveHistoryIndex >= 0 &&
+    effectiveHistoryIndex < pageHistory.length - 1;
 
   /**
    * Navigate back in history

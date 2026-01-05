@@ -1,8 +1,8 @@
-import { useCallback, useMemo, Dispatch, SetStateAction } from 'react';
-import { emit } from '@tauri-apps/api/event';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getTabLabel } from '@/lib/formatUtils';
-import type { Bookmark } from './types';
+import { emit } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { Dispatch, SetStateAction, useCallback, useMemo } from "react";
+import { getTabLabel } from "@/lib/formatUtils";
+import type { Bookmark } from "./types";
 
 /**
  * Custom hook for managing bookmarks
@@ -21,17 +21,19 @@ export function useBookmarks(
   setBookmarks: Dispatch<SetStateAction<Bookmark[]>>,
   currentPage: number,
   getChapterForPage: (page: number) => string | undefined,
-  isStandaloneMode: boolean
+  isStandaloneMode: boolean,
 ) {
   // Emit bookmark sync event to other windows
   const emitBookmarkSync = useCallback(
     (newBookmarks: Bookmark[]) => {
-      emit('bookmark-sync', {
+      emit("bookmark-sync", {
         bookmarks: newBookmarks,
-        sourceLabel: isStandaloneMode ? getCurrentWebviewWindow().label : 'main',
+        sourceLabel: isStandaloneMode
+          ? getCurrentWebviewWindow().label
+          : "main",
       }).catch(console.warn);
     },
-    [isStandaloneMode]
+    [isStandaloneMode],
   );
 
   // Toggle bookmark for current page
@@ -45,11 +47,20 @@ export function useBookmarks(
       // Add bookmark
       const chapter = getChapterForPage(currentPage);
       const label = getTabLabel(currentPage, chapter);
-      newBookmarks = [...bookmarks, { page: currentPage, label, createdAt: Date.now() }];
+      newBookmarks = [
+        ...bookmarks,
+        { page: currentPage, label, createdAt: Date.now() },
+      ];
     }
     setBookmarks(newBookmarks);
     emitBookmarkSync(newBookmarks);
-  }, [currentPage, bookmarks, getChapterForPage, emitBookmarkSync, setBookmarks]);
+  }, [
+    currentPage,
+    bookmarks,
+    getChapterForPage,
+    emitBookmarkSync,
+    setBookmarks,
+  ]);
 
   // Remove a specific bookmark
   const removeBookmark = useCallback(
@@ -58,7 +69,7 @@ export function useBookmarks(
       setBookmarks(newBookmarks);
       emitBookmarkSync(newBookmarks);
     },
-    [bookmarks, emitBookmarkSync, setBookmarks]
+    [bookmarks, emitBookmarkSync, setBookmarks],
   );
 
   // Clear all bookmarks
@@ -70,7 +81,7 @@ export function useBookmarks(
   // Check if current page is bookmarked
   const isCurrentPageBookmarked = useMemo(
     () => bookmarks.some((b) => b.page === currentPage),
-    [bookmarks, currentPage]
+    [bookmarks, currentPage],
   );
 
   return {

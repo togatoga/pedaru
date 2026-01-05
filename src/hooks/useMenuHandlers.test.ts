@@ -1,23 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useMenuHandlers } from './useMenuHandlers';
+import { act, renderHook } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   useTauriEventListener,
   useTauriEventListeners,
-} from '@/lib/eventUtils';
+} from "@/lib/eventUtils";
+import { useMenuHandlers } from "./useMenuHandlers";
 
 // Mock Tauri dialog APIs
-vi.mock('@tauri-apps/plugin-dialog', () => ({
+vi.mock("@tauri-apps/plugin-dialog", () => ({
   confirm: vi.fn().mockResolvedValue(true),
 }));
 
 // Mock event utilities - skip event listeners in tests
-vi.mock('@/lib/eventUtils', () => ({
+vi.mock("@/lib/eventUtils", () => ({
   useTauriEventListener: vi.fn(),
   useTauriEventListeners: vi.fn(),
 }));
 
-describe('useMenuHandlers', () => {
+describe("useMenuHandlers", () => {
   const mockResetAllState = vi.fn();
   const mockLoadPdfFromPath = vi.fn().mockResolvedValue(undefined);
   const mockFilePathRef = { current: null as string | null };
@@ -83,19 +83,19 @@ describe('useMenuHandlers', () => {
       key: vi.fn(),
       length: 0,
     };
-    Object.defineProperty(window, 'localStorage', {
+    Object.defineProperty(window, "localStorage", {
       value: localStorageMock,
       writable: true,
     });
   });
 
-  it('should initialize without errors', () => {
+  it("should initialize without errors", () => {
     expect(() => {
       renderHook(() => useMenuHandlers(getDefaultConfig()));
     }).not.toThrow();
   });
 
-  it('should register event listeners on mount', () => {
+  it("should register event listeners on mount", () => {
     const mockedListener = useTauriEventListener as ReturnType<typeof vi.fn>;
     const mockedListeners = useTauriEventListeners as ReturnType<typeof vi.fn>;
 
@@ -106,7 +106,7 @@ describe('useMenuHandlers', () => {
     expect(mockedListeners).toHaveBeenCalled();
   });
 
-  it('should handle setViewMode toggle correctly', () => {
+  it("should handle setViewMode toggle correctly", () => {
     const mockedListeners = useTauriEventListeners as ReturnType<typeof vi.fn>;
 
     renderHook(() => useMenuHandlers(getDefaultConfig()));
@@ -114,7 +114,7 @@ describe('useMenuHandlers', () => {
     // Get the registered handler from useTauriEventListeners mock
     const handlers = mockedListeners.mock.calls[0][0];
     const toggleHandler = handlers.find(
-      (h: { event: string }) => h.event === 'menu-toggle-two-column'
+      (h: { event: string }) => h.event === "menu-toggle-two-column",
     );
 
     act(() => {
@@ -124,12 +124,12 @@ describe('useMenuHandlers', () => {
     expect(mockSetViewMode).toHaveBeenCalled();
     // Verify the callback function behavior
     const callback = mockSetViewMode.mock.calls[0][0];
-    expect(callback('single')).toBe('two-column');
-    expect(callback('two-column')).toBe('single');
+    expect(callback("single")).toBe("two-column");
+    expect(callback("two-column")).toBe("single");
   });
 
-  it('should not load PDF if already open', async () => {
-    mockFilePathRef.current = '/test.pdf';
+  it("should not load PDF if already open", async () => {
+    mockFilePathRef.current = "/test.pdf";
     const mockedListener = useTauriEventListener as ReturnType<typeof vi.fn>;
 
     renderHook(() => useMenuHandlers(getDefaultConfig()));
@@ -138,55 +138,61 @@ describe('useMenuHandlers', () => {
     // Find the open-recent handler (last call)
     const calls = mockedListener.mock.calls;
     const openRecentCall = calls.find(
-      (call: unknown[]) => call[0] === 'menu-open-recent-selected'
+      (call: unknown[]) => call[0] === "menu-open-recent-selected",
     );
-    if (!openRecentCall) throw new Error('Handler not found');
-    const openRecentHandler = openRecentCall[1] as (path: string) => Promise<void>;
+    if (!openRecentCall) throw new Error("Handler not found");
+    const openRecentHandler = openRecentCall[1] as (
+      path: string,
+    ) => Promise<void>;
 
     await act(async () => {
-      await openRecentHandler('/test.pdf');
+      await openRecentHandler("/test.pdf");
     });
 
     expect(mockLoadPdfFromPath).not.toHaveBeenCalled();
   });
 
-  it('should load PDF if different from current', async () => {
-    mockFilePathRef.current = '/current.pdf';
+  it("should load PDF if different from current", async () => {
+    mockFilePathRef.current = "/current.pdf";
     const mockedListener = useTauriEventListener as ReturnType<typeof vi.fn>;
 
     renderHook(() => useMenuHandlers(getDefaultConfig()));
 
     const calls = mockedListener.mock.calls;
     const openRecentCall = calls.find(
-      (call: unknown[]) => call[0] === 'menu-open-recent-selected'
+      (call: unknown[]) => call[0] === "menu-open-recent-selected",
     );
-    if (!openRecentCall) throw new Error('Handler not found');
-    const openRecentHandler = openRecentCall[1] as (path: string) => Promise<void>;
+    if (!openRecentCall) throw new Error("Handler not found");
+    const openRecentHandler = openRecentCall[1] as (
+      path: string,
+    ) => Promise<void>;
 
     await act(async () => {
-      await openRecentHandler('/different.pdf');
+      await openRecentHandler("/different.pdf");
     });
 
-    expect(mockLoadPdfFromPath).toHaveBeenCalledWith('/different.pdf');
+    expect(mockLoadPdfFromPath).toHaveBeenCalledWith("/different.pdf");
   });
 
-  it('should register Go menu event listeners', () => {
+  it("should register Go menu event listeners", () => {
     const mockedListeners = useTauriEventListeners as ReturnType<typeof vi.fn>;
 
     renderHook(() => useMenuHandlers(getDefaultConfig()));
 
     // Find the Go menu event listeners
-    const goMenuCall = mockedListeners.mock.calls.find(
-      (call: unknown[]) => {
-        const handlers = call[0] as { event: string }[];
-        return handlers.some(h => h.event === 'menu-go-first-page');
-      }
-    );
+    const goMenuCall = mockedListeners.mock.calls.find((call: unknown[]) => {
+      const handlers = call[0] as { event: string }[];
+      return handlers.some((h) => h.event === "menu-go-first-page");
+    });
     expect(goMenuCall).toBeDefined();
 
     const handlers = goMenuCall![0] as { event: string; handler: () => void }[];
-    const prevPageHandler = handlers.find(h => h.event === 'menu-go-prev-page');
-    const nextPageHandler = handlers.find(h => h.event === 'menu-go-next-page');
+    const prevPageHandler = handlers.find(
+      (h) => h.event === "menu-go-prev-page",
+    );
+    const nextPageHandler = handlers.find(
+      (h) => h.event === "menu-go-next-page",
+    );
 
     act(() => {
       prevPageHandler!.handler();
@@ -197,23 +203,24 @@ describe('useMenuHandlers', () => {
     expect(mockGoToNextPage).toHaveBeenCalled();
   });
 
-  it('should register Tabs menu event listeners', () => {
+  it("should register Tabs menu event listeners", () => {
     const mockedListeners = useTauriEventListeners as ReturnType<typeof vi.fn>;
 
     renderHook(() => useMenuHandlers(getDefaultConfig()));
 
     // Find the Tabs menu event listeners
-    const tabsMenuCall = mockedListeners.mock.calls.find(
-      (call: unknown[]) => {
-        const handlers = call[0] as { event: string }[];
-        return handlers.some(h => h.event === 'menu-new-tab');
-      }
-    );
+    const tabsMenuCall = mockedListeners.mock.calls.find((call: unknown[]) => {
+      const handlers = call[0] as { event: string }[];
+      return handlers.some((h) => h.event === "menu-new-tab");
+    });
     expect(tabsMenuCall).toBeDefined();
 
-    const handlers = tabsMenuCall![0] as { event: string; handler: () => void }[];
-    const newTabHandler = handlers.find(h => h.event === 'menu-new-tab');
-    const closeTabHandler = handlers.find(h => h.event === 'menu-close-tab');
+    const handlers = tabsMenuCall![0] as {
+      event: string;
+      handler: () => void;
+    }[];
+    const newTabHandler = handlers.find((h) => h.event === "menu-new-tab");
+    const closeTabHandler = handlers.find((h) => h.event === "menu-close-tab");
 
     act(() => {
       newTabHandler!.handler();
@@ -224,24 +231,27 @@ describe('useMenuHandlers', () => {
     expect(mockCloseCurrentTab).toHaveBeenCalled();
   });
 
-  it('should register Tools menu event listeners', () => {
+  it("should register Tools menu event listeners", () => {
     const mockedListeners = useTauriEventListeners as ReturnType<typeof vi.fn>;
 
     renderHook(() => useMenuHandlers(getDefaultConfig()));
 
     // Find the Tools menu event listeners
-    const toolsMenuCall = mockedListeners.mock.calls.find(
-      (call: unknown[]) => {
-        const handlers = call[0] as { event: string }[];
-        return handlers.some(h => h.event === 'menu-search');
-      }
-    );
+    const toolsMenuCall = mockedListeners.mock.calls.find((call: unknown[]) => {
+      const handlers = call[0] as { event: string }[];
+      return handlers.some((h) => h.event === "menu-search");
+    });
     expect(toolsMenuCall).toBeDefined();
 
-    const handlers = toolsMenuCall![0] as { event: string; handler: () => void }[];
-    const searchHandler = handlers.find(h => h.event === 'menu-search');
-    const bookmarkHandler = handlers.find(h => h.event === 'menu-toggle-bookmark');
-    const translateHandler = handlers.find(h => h.event === 'menu-translate');
+    const handlers = toolsMenuCall![0] as {
+      event: string;
+      handler: () => void;
+    }[];
+    const searchHandler = handlers.find((h) => h.event === "menu-search");
+    const bookmarkHandler = handlers.find(
+      (h) => h.event === "menu-toggle-bookmark",
+    );
+    const translateHandler = handlers.find((h) => h.event === "menu-translate");
 
     act(() => {
       searchHandler!.handler();

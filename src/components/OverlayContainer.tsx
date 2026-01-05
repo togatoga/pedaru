@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import type { ViewMode, TextSelection } from '@/types';
-import TranslationPopup from './TranslationPopup';
-import ContextMenu from './ContextMenu';
-import Settings from './Settings';
+import type { TextSelection, ViewMode } from "@/types";
+import ContextMenu from "./ContextMenu";
+import Settings from "./Settings";
+import TranslationPopup from "./TranslationPopup";
 
 export interface OverlayContainerProps {
   // Translation popup

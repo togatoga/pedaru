@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { TocEntry } from '@/types/pdf';
-import { ChevronRight, FileText } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import type { TocSidebarProps, TocItemProps } from '@/types/components';
+import { ChevronRight, FileText } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import type { TocItemProps, TocSidebarProps } from "@/types/components";
+import { TocEntry } from "@/types/pdf";
 
 // Helper: check if a TocEntry tree contains a specific page
 function containsPage(entry: TocEntry, page: number): boolean {
@@ -16,7 +16,10 @@ function containsPage(entry: TocEntry, page: number): boolean {
 
 function TocItem({ entry, depth, currentPage, onPageSelect }: TocItemProps) {
   // Default collapsed, but auto-expand the branch that contains the current page
-  const isCurrentBranch = useMemo(() => containsPage(entry, currentPage), [entry, currentPage]);
+  const isCurrentBranch = useMemo(
+    () => containsPage(entry, currentPage),
+    [entry, currentPage],
+  );
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   useEffect(() => {
     setIsExpanded(isCurrentBranch);
@@ -36,7 +39,7 @@ function TocItem({ entry, depth, currentPage, onPageSelect }: TocItemProps) {
       <div
         className={`
           toc-item flex items-center gap-2 py-2 px-3 cursor-pointer rounded-lg mx-2 my-0.5
-          ${isActive ? 'bg-accent text-white' : isNearby ? 'text-text-primary' : 'text-text-secondary'}
+          ${isActive ? "bg-accent text-white" : isNearby ? "text-text-primary" : "text-text-secondary"}
           hover:bg-bg-tertiary
         `}
         style={{ paddingLeft: `${depth * 16 + 12}px` }}
@@ -49,7 +52,7 @@ function TocItem({ entry, depth, currentPage, onPageSelect }: TocItemProps) {
               setIsExpanded(!isExpanded);
             }}
             className="p-0.5 hover:bg-bg-hover rounded transition-transform"
-            style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+            style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -59,7 +62,9 @@ function TocItem({ entry, depth, currentPage, onPageSelect }: TocItemProps) {
         <span className="flex-1 truncate text-sm">{entry.title}</span>
 
         {entry.page && (
-          <span className={`text-xs ${isActive ? 'text-white/80' : 'text-text-secondary'}`}>
+          <span
+            className={`text-xs ${isActive ? "text-white/80" : "text-text-secondary"}`}
+          >
             {entry.page}
           </span>
         )}
@@ -82,13 +87,20 @@ function TocItem({ entry, depth, currentPage, onPageSelect }: TocItemProps) {
   );
 }
 
-export default function TocSidebar({ toc, currentPage, isOpen, onPageSelect }: TocSidebarProps) {
+export default function TocSidebar({
+  toc,
+  currentPage,
+  isOpen,
+  onPageSelect,
+}: TocSidebarProps) {
   if (!isOpen) return null;
 
   return (
     <aside className="w-80 bg-bg-secondary border-r border-bg-tertiary flex flex-col flex-shrink-0 overflow-hidden">
       <div className="p-4 border-b border-bg-tertiary">
-        <h2 className="text-lg font-semibold text-text-primary">Table of Contents</h2>
+        <h2 className="text-lg font-semibold text-text-primary">
+          Table of Contents
+        </h2>
       </div>
 
       <div className="flex-1 overflow-y-auto py-2">

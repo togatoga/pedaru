@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from "react";
 
 /**
  * Custom hook for managing context menu state and handlers
@@ -12,7 +12,7 @@ import { useState, useCallback } from 'react';
  */
 export function useContextMenu(
   triggerTranslation: (autoExplain?: boolean) => void,
-  triggerExplanation: () => void
+  triggerExplanation: () => void,
 ) {
   const [contextMenuPosition, setContextMenuPosition] = useState<{
     x: number;
@@ -35,7 +35,7 @@ export function useContextMenu(
     // Check if selection is within the PDF viewer
     const range = windowSelection.getRangeAt(0);
     const container = range.commonAncestorContainer;
-    const pdfViewer = document.getElementById('pdf-viewer-container');
+    const pdfViewer = document.getElementById("pdf-viewer-container");
     if (!pdfViewer || !pdfViewer.contains(container as Node)) {
       return;
     }
