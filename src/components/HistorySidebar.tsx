@@ -2,6 +2,7 @@
 
 import type { HistoryEntry } from '@/types';
 import { useAutoScroll } from '@/hooks/useAutoScroll';
+import { formatDateTime } from '@/lib/formatUtils';
 import type { HistorySidebarProps } from '@/types/components';
 
 export default function HistorySidebar({ history, index, currentPage, onSelect, onClear }: HistorySidebarProps) {
@@ -32,7 +33,7 @@ export default function HistorySidebar({ history, index, currentPage, onSelect, 
             >
               <div className="flex justify-between items-center">
                 <span>Page {entry.page}</span>
-                <span className="text-[11px] text-text-tertiary ml-2">{new Date(entry.timestamp).toLocaleString()}</span>
+                <span className="text-[11px] text-text-tertiary ml-2">{formatDateTime(parseInt(entry.timestamp, 10) * 1000)}</span>
               </div>
             </button>
             </li>
