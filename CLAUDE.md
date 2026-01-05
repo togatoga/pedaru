@@ -98,10 +98,6 @@ npm run tauri build
 # 3. Or double-click a PDF after setting Pedaru as default PDF app
 ```
 
-**Test Documentation:**
-- See [TESTING.md](./TESTING.md) for comprehensive testing guide
-- See [TESTING_TABS.md](./TESTING_TABS.md) for manual tab testing checklist
-
 **Test Framework:**
 - Frontend tests use Vitest with jsdom environment
 - Test files are colocated next to source files: `src/lib/*.test.ts` and `src/hooks/*.test.ts`
@@ -210,7 +206,7 @@ Session saves are debounced (500ms) to avoid excessive database writes. The sess
 - `types.ts` - Shared TypeScript types for hooks
 
 **Utility Libraries** - `src/lib/`:
-- `database.ts` - SQLite-based session persistence using tauri-plugin-sql
+- `database.ts` - SQLite-based session persistence (wrapper for Rust backend via Tauri commands)
 - `pdfUtils.ts` - PDF-specific utilities (chapter extraction, etc.)
 - `formatUtils.ts` - Label and title formatting utilities
 - `tabManager.ts` - Tab state management utilities
@@ -333,7 +329,7 @@ All shortcuts are handled in `page.tsx` via `useEffect` listeners. macOS uses Cm
 
 **View:**
 - `Cmd/Ctrl+\` - Toggle two-column mode (main window only)
-- `Cmd/Ctrl+H` - Toggle header visibility (main window only)
+- `Cmd/Ctrl+Shift+H` - Toggle header visibility (main window only)
 
 **Tools:**
 - `Cmd/Ctrl+F` - Focus search
@@ -427,7 +423,7 @@ When adding new stateful features:
 1. Add state to `page.tsx`
 2. Create or update a custom hook in `src/hooks/` for business logic
 3. Pass as props to presentational components
-4. Add to session storage schema in `src/lib/sessionStorage.ts`
+4. Add to session persistence in `src/lib/database.ts`
 5. Include in debounced save logic in `page.tsx`
 
 ## Platform-Specific Considerations
