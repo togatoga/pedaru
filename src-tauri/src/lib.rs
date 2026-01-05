@@ -120,11 +120,16 @@ fn was_opened_via_event() -> bool {
 
 /// Internal implementation of refresh_recent_menu with typed errors
 fn refresh_recent_menu_impl(app: &tauri::AppHandle) -> error::Result<()> {
-    eprintln!("[Pedaru] Refreshing recent files menu");
-    let menu = build_app_menu(app)?;
-    app.set_menu(menu)
-        .map_err(|e| MenuError::SetMenuFailed(e.to_string()))?;
-    eprintln!("[Pedaru] Recent files menu refreshed successfully");
+    // Only refresh native menu on macOS
+    // Windows and Linux use custom TitleBar component
+    #[cfg(target_os = "macos")]
+    {
+        eprintln!("[Pedaru] Refreshing recent files menu");
+        let menu = build_app_menu(app)?;
+        app.set_menu(menu)
+            .map_err(|e| MenuError::SetMenuFailed(e.to_string()))?;
+        eprintln!("[Pedaru] Recent files menu refreshed successfully");
+    }
     Ok(())
 }
 
