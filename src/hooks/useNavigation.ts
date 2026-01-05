@@ -84,7 +84,7 @@ export function useNavigation(
         setPageHistory((prev) => {
           // Remove duplicate pages from history
           const filtered = prev.slice(0, historyIndex + 1).filter((entry) => entry.page !== page);
-          filtered.push({ page, timestamp: new Date().toISOString() });
+          filtered.push({ page, timestamp: Math.floor(Date.now() / 1000).toString() });
           if (filtered.length > 100) {
             const overflow = filtered.length - 100;
             return filtered.slice(overflow);
@@ -181,7 +181,7 @@ export function useNavigation(
         setPageHistory((prev) => {
           // Remove duplicate pages from history
           const filtered = prev.slice(0, historyIndex + 1).filter((entry) => entry.page !== page);
-          filtered.push({ page, timestamp: new Date().toISOString() });
+          filtered.push({ page, timestamp: Math.floor(Date.now() / 1000).toString() });
           // Cap history to 100 entries
           if (filtered.length > 100) {
             const overflow = filtered.length - 100;
