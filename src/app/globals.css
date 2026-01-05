@@ -8,6 +8,32 @@
   --bg-tertiary: #262626;
 }
 
+/* ============================================================================
+   Platform-specific styles (controlled via data-platform attribute from Rust)
+   ============================================================================ */
+
+/* macOS traffic light spacer - hidden by default, shown only on macOS */
+.macos-spacer {
+  display: none;
+  width: 3.5rem;
+  /* w-14 = 56px */
+  flex-shrink: 0;
+}
+
+html[data-platform="macos"] .macos-spacer {
+  display: block;
+}
+
+/* Windows/Linux custom titlebar - hidden by default, shown on those platforms */
+.windows-linux-titlebar {
+  display: none;
+}
+
+html[data-platform="windows"] .windows-linux-titlebar,
+html[data-platform="linux"] .windows-linux-titlebar {
+  display: flex;
+}
+
 * {
   box-sizing: border-box;
   padding: 0;
@@ -66,6 +92,7 @@ button:focus-visible {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -127,7 +154,7 @@ button:focus-visible {
   -webkit-user-select: text !important;
 }
 
-.custom-text-layer > span {
+.custom-text-layer>span {
   pointer-events: auto !important;
   user-select: text !important;
   -webkit-user-select: text !important;

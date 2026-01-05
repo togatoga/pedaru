@@ -855,6 +855,23 @@ pub fn run() {
             get_recent_files
         ])
         .setup(|app| {
+            // Inject platform attribute on HTML element for CSS-based styling
+            // This runs before React hydrates, avoiding hydration mismatches
+            if let Some(window) = app.get_webview_window("main") {
+                #[cfg(target_os = "macos")]
+                {
+                    let _ = window.eval("document.documentElement.setAttribute('data-platform', 'macos')");
+                }
+                #[cfg(target_os = "windows")]
+                {
+                    let _ = window.eval("document.documentElement.setAttribute('data-platform', 'windows')");
+                }
+                #[cfg(target_os = "linux")]
+                {
+                    let _ = window.eval("document.documentElement.setAttribute('data-platform', 'linux')");
+                }
+            }
+
             // Build and set the native menu only on macOS
             // Windows and Linux use custom TitleBar component with integrated menu
             #[cfg(target_os = "macos")]

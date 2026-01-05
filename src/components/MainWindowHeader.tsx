@@ -1,6 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { ViewMode, Tab } from '@/types';
-import { usePlatform } from '@/contexts/PlatformContext';
 import Header from './Header';
 import { TabBar } from './TabBar';
 import TitleBar from './TitleBar';
@@ -138,15 +137,14 @@ export default function MainWindowHeader({
   setTabs,
   setActiveTabId,
 }: MainWindowHeaderProps) {
-  const { isWindows, isLinux } = usePlatform();
-
   if (!showHeader) {
     return null;
   }
 
   return (
     <>
-      {(isWindows || isLinux) && (
+      {/* TitleBar for Windows/Linux - visibility controlled by CSS */}
+      <div className="windows-linux-titlebar">
         <TitleBar
           onOpenFile={onOpenFile}
           onZoomIn={onZoomIn}
@@ -168,7 +166,7 @@ export default function MainWindowHeader({
           onSearch={onFocusSearch}
           onToggleBookmark={onToggleCurrentBookmark}
         />
-      )}
+      </div>
       <Header
         fileName={fileName}
         pdfTitle={pdfTitle}

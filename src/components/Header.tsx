@@ -18,7 +18,6 @@ import {
   Bookmark,
   Library,
 } from 'lucide-react';
-import { usePlatform } from '@/contexts/PlatformContext';
 import type { HeaderProps } from '@/types/components';
 
 export default function Header({
@@ -56,15 +55,14 @@ export default function Header({
   onSearchNext,
   onCloseAllWindows,
 }: HeaderProps) {
-  const { isMacOS } = usePlatform();
   const isPdfLoaded = totalPages > 0;
 
   return (
     <header className="flex items-center justify-between h-14 px-4 bg-bg-secondary border-b border-bg-tertiary flex-shrink-0 titlebar" data-tauri-drag-region>
       {/* Left section */}
       <div className="flex items-center gap-3">
-        {/* Space for traffic light buttons on macOS */}
-        {isMacOS && <div className="w-14" />}
+        {/* Space for traffic light buttons on macOS - visibility controlled by CSS */}
+        <div className="macos-spacer" />
         <button
           onClick={onOpenFile}
           disabled={isLoading}

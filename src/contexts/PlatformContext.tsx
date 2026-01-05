@@ -16,9 +16,9 @@ interface PlatformContextValue {
 const PlatformContext = createContext<PlatformContextValue | null>(null);
 
 /**
- * Sync detection from userAgent for immediate render (avoids layout shift)
+ * Sync detection from userAgent (client-side only)
  */
-function getInitialPlatform(): PlatformName {
+function detectPlatformFromUserAgent(): PlatformName {
     if (typeof navigator === 'undefined') return '';
     const ua = navigator.userAgent.toLowerCase();
     if (ua.includes('mac')) return 'macos';
@@ -28,26 +28,37 @@ function getInitialPlatform(): PlatformName {
 }
 
 /**
- * Provider component that wraps the application with platform detection
- * Uses sync userAgent detection first, then verifies with Tauri's platform() API
+ * Provider component that wraps the application with platform detection.
+ * 
+ * To avoid SSR hydration mismatch:
+ * - Initial render uses empty platform (same on server and client)
+ * - After mount, detect platform via userAgent (sync) then verify with Tauri API (async)
  */
 export function PlatformProvider({ children }: { children: ReactNode }) {
-    const [platformName, setPlatformName] = useState<PlatformName>(getInitialPlatform);
+    // Start with empty to match SSR
+    const [platformName, setPlatformName] = useState<PlatformName>('');
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        async function detectPlatform() {
+        // First: sync detection from userAgent for immediate update
+        const detected = detectPlatformFromUserAgent();
+        if (detected) {
+            setPlatformName(detected);
+        }
+
+        // Then: verify with Tauri's platform() API (more accurate)
+        async function verifyWithTauri() {
             try {
                 const p = await platform();
                 setPlatformName(p as PlatformName);
             } catch (e) {
-                console.error('Failed to get platform:', e);
+                console.error('Failed to get platform from Tauri:', e);
                 // Keep the userAgent-based detection as fallback
             } finally {
                 setIsLoading(false);
             }
         }
-        detectPlatform();
+        verifyWithTauri();
     }, []);
 
     const value: PlatformContextValue = {
