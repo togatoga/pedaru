@@ -119,14 +119,14 @@ fn was_opened_via_event() -> bool {
 }
 
 /// Internal implementation of refresh_recent_menu with typed errors
-fn refresh_recent_menu_impl(app: &tauri::AppHandle) -> error::Result<()> {
+fn refresh_recent_menu_impl(_app: &tauri::AppHandle) -> error::Result<()> {
     // Only refresh native menu on macOS
     // Windows and Linux use custom TitleBar component
     #[cfg(target_os = "macos")]
     {
         eprintln!("[Pedaru] Refreshing recent files menu");
-        let menu = build_app_menu(app)?;
-        app.set_menu(menu)
+        let menu = build_app_menu(_app)?;
+        _app.set_menu(menu)
             .map_err(|e| MenuError::SetMenuFailed(e.to_string()))?;
         eprintln!("[Pedaru] Recent files menu refreshed successfully");
     }
@@ -860,15 +860,18 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = window.eval("document.documentElement.setAttribute('data-platform', 'macos')");
+                    let _ = window
+                        .eval("document.documentElement.setAttribute('data-platform', 'macos')");
                 }
                 #[cfg(target_os = "windows")]
                 {
-                    let _ = window.eval("document.documentElement.setAttribute('data-platform', 'windows')");
+                    let _ = window
+                        .eval("document.documentElement.setAttribute('data-platform', 'windows')");
                 }
                 #[cfg(target_os = "linux")]
                 {
-                    let _ = window.eval("document.documentElement.setAttribute('data-platform', 'linux')");
+                    let _ = window
+                        .eval("document.documentElement.setAttribute('data-platform', 'linux')");
                 }
             }
 
