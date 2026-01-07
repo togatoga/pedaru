@@ -1,9 +1,8 @@
-'use client';
-
 import type { Dispatch, SetStateAction } from 'react';
 import type { ViewMode, Tab } from '@/types';
 import Header from './Header';
 import { TabBar } from './TabBar';
+import TitleBar from './TitleBar';
 
 export interface MainWindowHeaderProps {
   // Visibility
@@ -43,6 +42,19 @@ export interface MainWindowHeaderProps {
   onSearchPrev: () => void;
   onSearchNext: () => void;
   onCloseAllWindows: () => void;
+  // New handlers for TitleBar
+  onZoomReset: () => void;
+  onFirstPage: () => void;
+  onLastPage: () => void;
+  onToggleTwoColumn: () => void;
+  onToggleHeader: () => void;
+  onNewTab: () => void;
+  onNextTab: () => void;
+  onPrevTab: () => void;
+  onNewWindow: () => void;
+  onOpenSettings: () => void;
+  onFocusSearch: () => void;
+  onToggleCurrentBookmark: () => void;
   // TabBar props
   tabs: Tab[];
   activeTabId: number | null;
@@ -99,6 +111,18 @@ export default function MainWindowHeader({
   onSearchPrev,
   onSearchNext,
   onCloseAllWindows,
+  onZoomReset,
+  onFirstPage,
+  onLastPage,
+  onToggleTwoColumn,
+  onToggleHeader,
+  onNewTab,
+  onNextTab,
+  onPrevTab,
+  onNewWindow,
+  onOpenSettings,
+  onFocusSearch,
+  onToggleCurrentBookmark,
   // TabBar props
   tabs,
   activeTabId,
@@ -119,6 +143,30 @@ export default function MainWindowHeader({
 
   return (
     <>
+      {/* TitleBar for Windows/Linux - visibility controlled by CSS */}
+      <div className="windows-linux-titlebar">
+        <TitleBar
+          onOpenFile={onOpenFile}
+          onZoomIn={onZoomIn}
+          onZoomOut={onZoomOut}
+          onZoomReset={onZoomReset}
+          onPrevPage={onPrevPage}
+          onNextPage={onNextPage}
+          onFirstPage={onFirstPage}
+          onLastPage={onLastPage}
+          onCloseAllWindows={onCloseAllWindows}
+          onToggleTwoColumn={onToggleTwoColumn}
+          onToggleHeader={onToggleHeader}
+          onNewTab={onNewTab}
+          onCloseTab={closeTab}
+          onNextTab={onNextTab}
+          onPrevTab={onPrevTab}
+          onNewWindow={onNewWindow}
+          onOpenSettings={onOpenSettings}
+          onSearch={onFocusSearch}
+          onToggleBookmark={onToggleCurrentBookmark}
+        />
+      </div>
       <Header
         fileName={fileName}
         pdfTitle={pdfTitle}

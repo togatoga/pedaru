@@ -58,9 +58,11 @@ export default function Header({
   const isPdfLoaded = totalPages > 0;
 
   return (
-    <header className="flex items-center justify-between h-14 px-4 bg-bg-secondary border-b border-bg-tertiary flex-shrink-0">
+    <header className="flex items-center justify-between h-14 px-4 bg-bg-secondary border-b border-bg-tertiary flex-shrink-0 titlebar" data-tauri-drag-region>
       {/* Left section */}
       <div className="flex items-center gap-3">
+        {/* Space for traffic light buttons on macOS - visibility controlled by CSS */}
+        <div className="macos-spacer" />
         <button
           onClick={onOpenFile}
           disabled={isLoading}
@@ -268,11 +270,10 @@ export default function Header({
           <button
             onClick={() => onViewModeChange('single')}
             disabled={!isPdfLoaded}
-            className={`p-2 rounded transition-colors disabled:opacity-40 ${
-              viewMode === 'single'
-                ? 'bg-accent text-white'
-                : 'text-text-secondary hover:text-text-primary'
-            }`}
+            className={`p-2 rounded transition-colors disabled:opacity-40 ${viewMode === 'single'
+              ? 'bg-accent text-white'
+              : 'text-text-secondary hover:text-text-primary'
+              }`}
             title="Single Page"
           >
             <Monitor className="w-4 h-4" />
@@ -280,11 +281,10 @@ export default function Header({
           <button
             onClick={() => onViewModeChange('two-column')}
             disabled={!isPdfLoaded}
-            className={`p-2 rounded transition-colors disabled:opacity-40 ${
-              viewMode === 'two-column'
-                ? 'bg-accent text-white'
-                : 'text-text-secondary hover:text-primary'
-            }`}
+            className={`p-2 rounded transition-colors disabled:opacity-40 ${viewMode === 'two-column'
+              ? 'bg-accent text-white'
+              : 'text-text-secondary hover:text-primary'
+              }`}
             title="Two Column"
           >
             <Columns className="w-4 h-4" />

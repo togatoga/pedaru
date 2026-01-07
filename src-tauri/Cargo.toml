@@ -41,6 +41,7 @@ rand = "0.8"
 tiny_http = "0.12"
 futures-util = "0.3"
 
+
 # Linux-specific: use kernel keyring instead of Secret Service
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3", features = ["linux-native"] }

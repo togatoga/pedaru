@@ -18,7 +18,13 @@
         "width": 1200,
         "height": 800,
         "minWidth": 800,
-        "minHeight": 600
+        "minHeight": 600,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 18,
+          "y": 26
+        }
       }
     ],
     "security": {
@@ -27,7 +33,9 @@
   },
   "plugins": {
     "sql": {
-      "preload": ["sqlite:pedaru.db"]
+      "preload": [
+        "sqlite:pedaru.db"
+      ]
     }
   },
   "bundle": {
@@ -42,7 +50,9 @@
     ],
     "fileAssociations": [
       {
-        "ext": ["pdf"],
+        "ext": [
+          "pdf"
+        ],
         "mimeType": "application/pdf",
         "description": "PDF Document",
         "role": "Viewer"

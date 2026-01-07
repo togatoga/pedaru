@@ -119,12 +119,17 @@ fn was_opened_via_event() -> bool {
 }
 
 /// Internal implementation of refresh_recent_menu with typed errors
-fn refresh_recent_menu_impl(app: &tauri::AppHandle) -> error::Result<()> {
-    eprintln!("[Pedaru] Refreshing recent files menu");
-    let menu = build_app_menu(app)?;
-    app.set_menu(menu)
-        .map_err(|e| MenuError::SetMenuFailed(e.to_string()))?;
-    eprintln!("[Pedaru] Recent files menu refreshed successfully");
+fn refresh_recent_menu_impl(_app: &tauri::AppHandle) -> error::Result<()> {
+    // Only refresh native menu on macOS
+    // Windows and Linux use custom TitleBar component
+    #[cfg(target_os = "macos")]
+    {
+        eprintln!("[Pedaru] Refreshing recent files menu");
+        let menu = build_app_menu(_app)?;
+        _app.set_menu(menu)
+            .map_err(|e| MenuError::SetMenuFailed(e.to_string()))?;
+        eprintln!("[Pedaru] Recent files menu refreshed successfully");
+    }
     Ok(())
 }
 
@@ -796,6 +801,7 @@ pub fn run() {
     let migrations = db_schema::get_migrations();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -849,9 +855,49 @@ pub fn run() {
             get_recent_files
         ])
         .setup(|app| {
-            // Build and set the initial menu
-            let menu = build_app_menu(app.handle()).map_err(|e| e.into_tauri_error())?;
-            app.set_menu(menu)?;
+            // Inject platform attribute on HTML element for CSS-based styling
+            // This runs before React hydrates, avoiding hydration mismatches
+            if let Some(window) = app.get_webview_window("main") {
+                #[cfg(target_os = "macos")]
+                {
+                    let _ = window
+                        .eval("document.documentElement.setAttribute('data-platform', 'macos')");
+                }
+                #[cfg(target_os = "windows")]
+                {
+                    let _ = window
+                        .eval("document.documentElement.setAttribute('data-platform', 'windows')");
+                }
+                #[cfg(target_os = "linux")]
+                {
+                    let _ = window
+                        .eval("document.documentElement.setAttribute('data-platform', 'linux')");
+                }
+            }
+
+            // Build and set the native menu only on macOS
+            // Windows and Linux use custom TitleBar component with integrated menu
+            #[cfg(target_os = "macos")]
+            {
+                let menu = build_app_menu(app.handle()).map_err(|e| e.into_tauri_error())?;
+                app.set_menu(menu)?;
+            }
+
+            #[cfg(target_os = "windows")]
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_decorations(false);
+                    let _ = window.set_shadow(true);
+                }
+            }
+
+            #[cfg(target_os = "linux")]
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_decorations(false);
+                    let _ = window.set_shadow(true);
+                }
+            }
 
             // Reset any stale "downloading" statuses from previous sessions
             if let Err(e) = bookshelf::reset_stale_downloads(app.handle()) {

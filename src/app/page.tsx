@@ -37,7 +37,7 @@ export default function Home() {
   console.log('=== Home component mounting ===');
   console.log('window.location.href:', typeof window !== 'undefined' ? window.location.href : 'SSR');
   console.log('window.location.search:', typeof window !== 'undefined' ? window.location.search : 'SSR');
-  
+
   // All state managed via usePdfViewerState hook
   const {
     // State groups
@@ -580,6 +580,18 @@ export default function Home() {
           onSearchPrev={handleSearchPrev}
           onSearchNext={handleSearchNext}
           onCloseAllWindows={closeAllWindows}
+          onZoomReset={handleZoomReset}
+          onFirstPage={() => goToPage(1)}
+          onLastPage={() => goToPage(totalPages)}
+          onToggleTwoColumn={() => setViewMode((prev) => (prev === 'two-column' ? 'single' : 'two-column'))}
+          onToggleHeader={handleToggleHeader}
+          onNewTab={addTabFromCurrent}
+          onNextTab={selectNextTab}
+          onPrevTab={selectPrevTab}
+          onNewWindow={() => openStandaloneWindow(currentPage)}
+          onOpenSettings={handleOpenSettings}
+          onFocusSearch={focusSearch}
+          onToggleCurrentBookmark={toggleBookmark}
           tabs={tabs}
           activeTabId={activeTabId}
           openWindowsCount={openWindows.length}
