@@ -40,7 +40,7 @@ sha2 = "0.10"
 rand = "0.8"
 tiny_http = "0.12"
 futures-util = "0.3"
-tauri-plugin-os = "2"
+
 
 # Linux-specific: use kernel keyring instead of Secret Service
 [target.'cfg(target_os = "linux")'.dependencies]

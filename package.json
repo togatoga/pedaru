@@ -17,7 +17,6 @@
     "@tauri-apps/plugin-dialog": "^2",
     "@tauri-apps/plugin-fs": "^2",
     "@tauri-apps/plugin-opener": "^2",
-    "@tauri-apps/plugin-os": "^2.3.2",
     "@tauri-apps/plugin-shell": "^2.3.3",
     "lucide-react": "^0.561.0",
     "next": "^15.5.2",
