@@ -175,3 +175,7 @@ Build outputs:
 - **Desktop**: Tauri 2.x (Rust)
 - **PDF Rendering**: react-pdf (PDF.js)
 - **Database**: SQLite (via rusqlite)
+
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
