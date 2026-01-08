@@ -183,6 +183,7 @@ Session saves are debounced (500ms) to avoid excessive database writes. The sess
 
 **UI Components** - `src/components/`:
 - `Header.tsx` - Navigation bar with all controls
+- `FooterSlider.tsx` - Page navigation slider with TOC breadcrumb
 - `PdfViewer.tsx` - PDF rendering using react-pdf
 - `TocSidebar.tsx` - Table of contents navigation
 - `HistorySidebar.tsx` - Page history list

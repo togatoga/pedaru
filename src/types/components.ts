@@ -238,3 +238,25 @@ export interface BookshelfMainViewProps {
   currentFilePath?: string | null;
   onClose?: () => void;
 }
+
+// ============================================
+// Footer Slider Component
+// ============================================
+
+export interface FooterSliderProps {
+  currentPage: number;
+  totalPages: number;
+  tocBreadcrumb: string[];
+  canGoBack: boolean;
+  canGoForward: boolean;
+  onPageChange: (page: number) => void;
+  onPagePreview: (page: number) => void;
+  onSlideStart?: () => void;
+  onSlideEnd?: () => void;
+  onFirstPage: () => void;
+  onPrevPage: () => void;
+  onNextPage: () => void;
+  onLastPage: () => void;
+  onGoBack: () => void;
+  onGoForward: () => void;
+}

@@ -73,3 +73,60 @@ export function formatTabLabel(page: number, chapter?: string): string {
   if (chapter.length <= 20) return `${chapter} (P${page})`;
   return `${chapter.substring(0, 20)}... (P${page})`;
 }
+
+/**
+ * Gets the hierarchical TOC breadcrumb path for a given page number
+ * Returns an array of chapter/section titles from root to the current section
+ * Works correctly with any depth of hierarchy (4, 5, or more levels)
+ *
+ * @param pdfInfo - PDF metadata including table of contents
+ * @param pageNum - Page number to find breadcrumb for
+ * @returns Array of breadcrumb titles (e.g., ["Chapter 1", "Section 2", "Subsection 3"])
+ */
+export function getTocBreadcrumb(
+  pdfInfo: PdfInfo | null,
+  pageNum: number,
+): string[] {
+  if (!pdfInfo?.toc || pdfInfo.toc.length === 0) return [];
+
+  interface BreadcrumbResult {
+    path: string[];
+    page: number;
+  }
+
+  // Recursively find the best matching breadcrumb path
+  const findBreadcrumb = (
+    entries: TocEntry[],
+    currentPath: string[],
+  ): BreadcrumbResult | null => {
+    let best: BreadcrumbResult | null = null;
+
+    for (const entry of entries) {
+      // Build path including this entry
+      const pathWithEntry = [...currentPath, entry.title];
+
+      // If this entry has a valid page that's <= our target page
+      if (entry.page !== null && entry.page <= pageNum) {
+        // This is a candidate
+        if (best === null || entry.page > best.page) {
+          best = { path: pathWithEntry, page: entry.page };
+        }
+      }
+
+      // Recursively check children
+      if (entry.children && entry.children.length > 0) {
+        const childResult = findBreadcrumb(entry.children, pathWithEntry);
+        if (childResult !== null) {
+          if (best === null || childResult.page > best.page) {
+            best = childResult;
+          }
+        }
+      }
+    }
+
+    return best;
+  };
+
+  const result = findBreadcrumb(pdfInfo.toc, []);
+  return result?.path || [];
+}
