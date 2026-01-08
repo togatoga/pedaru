@@ -4,6 +4,10 @@
 //! using the PKCE (Proof Key for Code Exchange) extension.
 //!
 //! All OAuth credentials and tokens are stored in Stronghold (encrypted).
+//!
+//! **Security Note**: Sensitive data (tokens, secrets) are wrapped in `SecureString`
+//! to prevent accidental logging. The Debug output will show `SecureString(****)`
+//! instead of actual values.
 
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use rand::Rng;
@@ -16,6 +20,7 @@ use tiny_http::{Response, Server};
 
 use crate::error::{OAuthError, PedaruError};
 use crate::secrets;
+use crate::secure_string::SecureString;
 
 /// Google OAuth endpoints
 const GOOGLE_AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -25,29 +30,32 @@ const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const SCOPES: &str = "https://www.googleapis.com/auth/drive.readonly";
 
 /// OAuth credentials stored in database
+/// SecureString fields will show as "SecureString(****)" in Debug output
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OAuthCredentials {
     pub client_id: String,
-    pub client_secret: String,
+    pub client_secret: SecureString,
 }
 
-/// OAuth tokens from Google
+/// OAuth tokens from Google (internal use only)
+/// SecureString fields will show as "SecureString(****)" in Debug output
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenResponse {
-    pub access_token: String,
-    pub refresh_token: Option<String>,
+    pub access_token: SecureString,
+    pub refresh_token: Option<SecureString>,
     pub expires_in: Option<i64>,
     pub token_type: String,
     pub scope: Option<String>,
 }
 
-/// Complete authentication state
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Complete authentication state (internal use only)
+/// SecureString fields will show as "SecureString(****)" in Debug output
+#[derive(Debug, Clone)]
 pub struct AuthState {
     pub client_id: String,
-    pub client_secret: String,
-    pub access_token: Option<String>,
-    pub refresh_token: Option<String>,
+    pub client_secret: SecureString,
+    pub access_token: Option<SecureString>,
+    pub refresh_token: Option<SecureString>,
     pub token_expiry: Option<i64>,
 }
 
@@ -99,7 +107,7 @@ pub fn save_credentials(
     secrets::store_secret(
         app,
         secrets::keys::GOOGLE_CLIENT_SECRET,
-        &credentials.client_secret,
+        credentials.client_secret.expose(),
     )?;
     eprintln!("[Pedaru] Saved OAuth credentials to Stronghold");
     Ok(())
@@ -112,7 +120,8 @@ pub fn load_credentials(app: &AppHandle) -> Result<Option<OAuthCredentials>, Ped
 
     match (client_id, client_secret) {
         (Some(id), Some(secret)) => Ok(Some(OAuthCredentials {
-            client_id: id,
+            // client_id is not sensitive, expose it
+            client_id: id.expose().to_string(),
             client_secret: secret,
         })),
         _ => Ok(None),
@@ -129,10 +138,11 @@ pub fn load_auth_state(app: &AppHandle) -> Result<Option<AuthState>, PedaruError
             let access_token = secrets::get_secret(app, secrets::keys::GOOGLE_ACCESS_TOKEN)?;
             let refresh_token = secrets::get_secret(app, secrets::keys::GOOGLE_REFRESH_TOKEN)?;
             let token_expiry = secrets::get_secret(app, secrets::keys::GOOGLE_TOKEN_EXPIRY)?
-                .and_then(|s| s.parse::<i64>().ok());
+                .and_then(|s| s.expose().parse::<i64>().ok());
 
             Ok(Some(AuthState {
-                client_id: id,
+                // client_id is not sensitive, expose it
+                client_id: id.expose().to_string(),
                 client_secret: secret,
                 access_token,
                 refresh_token,
@@ -342,7 +352,7 @@ fn exchange_code_for_tokens(app: &AppHandle, code: &str) -> Result<(), PedaruErr
         .post(GOOGLE_TOKEN_URL)
         .form(&[
             ("client_id", credentials.client_id.as_str()),
-            ("client_secret", credentials.client_secret.as_str()),
+            ("client_secret", credentials.client_secret.expose()),
             ("code", code),
             ("code_verifier", code_verifier.as_str()),
             ("grant_type", "authorization_code"),
@@ -364,8 +374,8 @@ fn exchange_code_for_tokens(app: &AppHandle, code: &str) -> Result<(), PedaruErr
 
     save_tokens(
         app,
-        &token_response.access_token,
-        token_response.refresh_token.as_deref(),
+        token_response.access_token.expose(),
+        token_response.refresh_token.as_ref().map(|t| t.expose()),
         token_response.expires_in,
     )?;
 
@@ -379,6 +389,8 @@ fn exchange_code_for_tokens(app: &AppHandle, code: &str) -> Result<(), PedaruErr
 }
 
 /// Refresh access token using refresh token (async version)
+///
+/// Returns the new access token as a plain String for use in API calls.
 pub async fn refresh_access_token(app: &AppHandle) -> Result<String, PedaruError> {
     let auth_state = load_auth_state(app)?.ok_or(PedaruError::OAuth(OAuthError::NotConfigured))?;
 
@@ -394,8 +406,8 @@ pub async fn refresh_access_token(app: &AppHandle) -> Result<String, PedaruError
         .post(GOOGLE_TOKEN_URL)
         .form(&[
             ("client_id", auth_state.client_id.as_str()),
-            ("client_secret", auth_state.client_secret.as_str()),
-            ("refresh_token", refresh_token.as_str()),
+            ("client_secret", auth_state.client_secret.expose()),
+            ("refresh_token", refresh_token.expose()),
             ("grant_type", "refresh_token"),
         ])
         .send()
@@ -414,17 +426,22 @@ pub async fn refresh_access_token(app: &AppHandle) -> Result<String, PedaruError
         .await
         .map_err(|e| PedaruError::OAuth(OAuthError::InvalidResponse(e.to_string())))?;
 
+    // Get the access token value before saving
+    let access_token_value = token_response.access_token.expose().to_string();
+
     save_tokens(
         app,
-        &token_response.access_token,
-        token_response.refresh_token.as_deref(),
+        token_response.access_token.expose(),
+        token_response.refresh_token.as_ref().map(|t| t.expose()),
         token_response.expires_in,
     )?;
 
-    Ok(token_response.access_token)
+    Ok(access_token_value)
 }
 
 /// Get valid access token (refreshing if necessary) - async version
+///
+/// Returns the access token as a plain String for use in API calls.
 pub async fn get_valid_access_token(app: &AppHandle) -> Result<String, PedaruError> {
     let auth_state = load_auth_state(app)?.ok_or(PedaruError::OAuth(OAuthError::NotConfigured))?;
 
@@ -445,7 +462,8 @@ pub async fn get_valid_access_token(app: &AppHandle) -> Result<String, PedaruErr
         return refresh_access_token(app).await;
     }
 
-    Ok(access_token)
+    // Return the exposed access token for API use
+    Ok(access_token.expose().to_string())
 }
 
 /// Get current authentication status

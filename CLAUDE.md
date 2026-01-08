@@ -459,3 +459,29 @@ Both must pass before merge. Build artifacts are created locally via `npm run ta
 - **Tauri Permissions:** File system access and window creation require capabilities in `src-tauri/capabilities/default.json`
 - **Japanese Character Support:** The PDF metadata decoder handles multiple Japanese encodings specifically
 - **Session Restore Timing:** Session restoration uses `restoreInProgressRef` to avoid race conditions with multiple async loads
+
+## Development Guidelines
+
+### Dependency Versions
+
+When adding or updating dependencies, always use the latest stable version:
+
+- **Check latest versions** before adding new dependencies (crates.io for Rust, npmjs.com for Node.js)
+- **Specify minor version** at minimum (e.g., `"1.8"` not `"1"`) to ensure reproducible builds
+- **Avoid outdated versions** - if a major version exists (e.g., v2.x), don't use v1.x unless there's a specific reason
+
+### Secure String Handling
+
+Sensitive data (API keys, tokens, secrets) must use `SecureString` type (`src-tauri/src/secure_string.rs`):
+
+- `SecureString` hides values in `Debug`/`Display` output (shows `SecureString(****)`)
+- Use `.expose()` only when the actual value is needed (e.g., sending to an API)
+- Memory is zeroed on drop via `zeroize` crate
+
+```rust
+// Good: Value hidden in logs
+eprintln!("{:?}", settings);  // GeminiSettings { api_key: SecureString(****), ... }
+
+// When you need the actual value
+let key = settings.api_key.expose();
+```
