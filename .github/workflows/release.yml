@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
 
 env:
@@ -18,21 +18,21 @@ jobs:
       matrix:
         include:
           # macOS Apple Silicon
-          - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
-            rust_target: 'aarch64-apple-darwin'
+          - platform: "macos-latest"
+            args: "--target aarch64-apple-darwin"
+            rust_target: "aarch64-apple-darwin"
           # macOS Intel
-          - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
-            rust_target: 'x86_64-apple-darwin'
+          - platform: "macos-latest"
+            args: "--target x86_64-apple-darwin"
+            rust_target: "x86_64-apple-darwin"
           # Linux
-          - platform: 'ubuntu-22.04'
-            args: ''
-            rust_target: ''
+          - platform: "ubuntu-22.04"
+            args: ""
+            rust_target: ""
           # Windows
-          - platform: 'windows-latest'
-            args: ''
-            rust_target: ''
+          - platform: "windows-latest"
+            args: ""
+            rust_target: ""
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -41,8 +41,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -74,8 +74,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
-          releaseName: 'Pedaru v__VERSION__'
-          releaseBody: 'See the assets to download and install Pedaru for your platform.'
+          releaseName: "Pedaru v__VERSION__"
+          releaseBody: "See the assets to download and install Pedaru for your platform."
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
