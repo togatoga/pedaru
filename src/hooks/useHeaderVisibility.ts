@@ -1,4 +1,9 @@
-import { Dispatch, MutableRefObject, SetStateAction, useCallback } from "react";
+import {
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+  useCallback,
+} from "react";
 
 /**
  * Custom hook for managing header visibility with temporary show/hide behavior

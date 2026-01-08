@@ -90,6 +90,7 @@ function PageWithCustomTextLayer({
       {/* Bookmark button */}
       {onToggleBookmark && (
         <button
+          type="button"
           onClick={() => onToggleBookmark(pageNumber)}
           className={`absolute top-2 right-2 p-1 rounded transition-opacity ${
             bookmarkedPages.includes(pageNumber)
@@ -153,19 +154,20 @@ export default function PdfViewer({
   const scale = Math.max(zoom, 0.1);
 
   // Store PDF document reference for named destination resolution
-  // Using 'any' because we need access to internal _transport property
-  const [pdfDocument, setPdfDocument] = useState<any>(null);
+  const [pdfDocument, setPdfDocument] = useState<pdfjs.PDFDocumentProxy | null>(
+    null,
+  );
 
   // Reset document state when file data changes
   useEffect(() => {
     // When fileData changes, the old document will be destroyed by react-pdf
     // Reset our reference to prevent accessing destroyed document
     setPdfDocument(null);
-  }, [fileData]);
+  }, []);
 
   // Handle internal PDF link clicks (called by react-pdf when internal link is clicked)
   const handleInternalLinkClick = useCallback(
-    (item: { dest?: any; pageIndex: number; pageNumber: number }) => {
+    (item: { dest?: unknown; pageIndex: number; pageNumber: number }) => {
       console.log("Internal link clicked:", item);
       if (onNavigatePage && item.pageNumber) {
         onNavigatePage(item.pageNumber);
@@ -261,11 +263,11 @@ export default function PdfViewer({
 
             // Find the annotation with matching id
             const annotation = annotations.find(
-              (a: any) => a.id === annotationId,
+              (a: { id: string; dest?: unknown }) => a.id === annotationId,
             );
             console.log("Found annotation:", annotation);
 
-            if (annotation && annotation.dest) {
+            if (annotation?.dest) {
               console.log("Annotation dest:", annotation.dest);
 
               // dest can be a string (named destination) or an array (explicit destination)
@@ -374,7 +376,7 @@ export default function PdfViewer({
         if (pageMatch) {
           const pageNum = parseInt(pageMatch[1], 10);
           console.log("Matched page= format:", pageNum);
-          if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+          if (!Number.isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
             onNavigatePage(pageNum);
             return;
           }
@@ -385,7 +387,7 @@ export default function PdfViewer({
         if (directPageMatch) {
           const pageNum = parseInt(directPageMatch[1], 10);
           console.log("Matched direct page number:", pageNum);
-          if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+          if (!Number.isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
             onNavigatePage(pageNum);
             return;
           }

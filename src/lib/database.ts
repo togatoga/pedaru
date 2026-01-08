@@ -4,7 +4,6 @@ import type {
   HistoryEntry,
   PdfSessionState,
   TabState,
-  ViewMode,
   WindowState,
 } from "@/types";
 

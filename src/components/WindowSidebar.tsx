@@ -1,7 +1,6 @@
 "use client";
 
 import { useAutoScroll } from "@/hooks/useAutoScroll";
-import type { OpenWindow } from "@/types";
 import type { WindowSidebarProps } from "@/types/components";
 
 export default function WindowSidebar({
@@ -41,6 +40,16 @@ export default function WindowSidebar({
                 console.warn("Failed to focus window", w.label, e);
               }
             }}
+            onKeyDown={async (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                try {
+                  await onFocus(w.label);
+                } catch (err) {
+                  console.warn("Failed to focus window", w.label, err);
+                }
+              }
+            }}
           >
             <div className="flex items-center justify-between">
               <span
@@ -50,6 +59,7 @@ export default function WindowSidebar({
               </span>
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   className="text-[11px] text-text-secondary hover:text-text-primary px-2 py-1 rounded bg-bg-tertiary"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -61,6 +71,7 @@ export default function WindowSidebar({
                   Tab
                 </button>
                 <button
+                  type="button"
                   className="text-xs text-red-500 hover:text-red-600"
                   onClick={(e) => {
                     e.stopPropagation();

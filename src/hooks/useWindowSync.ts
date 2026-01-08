@@ -4,9 +4,9 @@ import {
   WebviewWindow,
 } from "@tauri-apps/api/webviewWindow";
 import {
-  Dispatch,
-  MutableRefObject,
-  SetStateAction,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
   useCallback,
   useEffect,
 } from "react";

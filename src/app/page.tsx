@@ -8,7 +8,6 @@ import MainWindowHeader from "@/components/MainWindowHeader";
 import OverlayContainer from "@/components/OverlayContainer";
 import { StandaloneWindowControls } from "@/components/StandaloneWindowControls";
 import ViewerContent from "@/components/ViewerContent";
-import type { HistoryEntry, OpenWindow, Tab } from "@/hooks/types";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useContextMenu } from "@/hooks/useContextMenu";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
@@ -29,7 +28,7 @@ import { useTauriEventListener } from "@/lib/eventUtils";
 import { getTabLabel } from "@/lib/formatUtils";
 import { getChapterForPage as getChapter } from "@/lib/pdfUtils";
 import { resetZoom, zoomIn, zoomOut } from "@/lib/zoomConfig";
-import type { Bookmark, TabState, ViewMode, WindowState } from "@/types";
+import type { TabState, WindowState } from "@/types";
 
 export default function Home() {
   // Debug: Log immediately on component mount
@@ -240,7 +239,6 @@ export default function Home() {
   );
 
   const {
-    performSearch,
     handleSearchChange,
     handleSearchNext,
     handleSearchPrev,
@@ -297,7 +295,6 @@ export default function Home() {
 
   const {
     addTabFromCurrent,
-    addTabForPage,
     selectTab,
     selectPrevTab,
     selectNextTab,
@@ -323,7 +320,6 @@ export default function Home() {
 
   const {
     focusWindow,
-    openStandaloneWindowWithState,
     openStandaloneWindow,
     closeWindow,
     closeAllWindows,
@@ -374,15 +370,15 @@ export default function Home() {
   // Zoom handlers using centralized config (consistent across keyboard and menu)
   const handleZoomIn = useCallback(() => {
     setZoom(zoomIn);
-  }, []);
+  }, [setZoom]);
 
   const handleZoomOut = useCallback(() => {
     setZoom(zoomOut);
-  }, []);
+  }, [setZoom]);
 
   const handleZoomReset = useCallback(() => {
     setZoom(resetZoom());
-  }, []);
+  }, [setZoom]);
 
   // Header visibility (extracted to hook)
   const { handleToggleHeader, showHeaderTemporarily } = useHeaderVisibility(
@@ -466,7 +462,17 @@ export default function Home() {
         setShowSearchResults(true);
       }
     }
-  }, [isStandaloneMode, showHeader, searchQuery, searchResults.length]);
+  }, [
+    isStandaloneMode,
+    showHeader,
+    searchQuery,
+    searchResults.length,
+    headerWasHiddenBeforeSearchRef,
+    setShowHeader,
+    setShowSearchResults,
+    setShowStandaloneSearch,
+    standaloneSearchInputRef.current?.focus,
+  ]);
 
   // Menu event handlers (extracted to hook)
   useMenuHandlers({
@@ -534,14 +540,19 @@ export default function Home() {
       setPendingTabsRestore(null);
       setPendingActiveTabIndex(null);
     }
-  }, [pendingTabsRestore, pendingActiveTabIndex]);
+  }, [
+    pendingTabsRestore,
+    pendingActiveTabIndex,
+    setPendingActiveTabIndex,
+    setPendingTabsRestore,
+  ]);
 
   useEffect(() => {
     if (pendingWindowsRestore) {
       pendingWindowsRestoreRef.current = pendingWindowsRestore;
       setPendingWindowsRestore(null);
     }
-  }, [pendingWindowsRestore]);
+  }, [pendingWindowsRestore, setPendingWindowsRestore]);
 
   const handleOpenFile = useCallback(async () => {
     try {
@@ -557,16 +568,19 @@ export default function Home() {
       console.error("Error opening file:", error);
       setIsLoading(false);
     }
-  }, [loadPdfFromPath]);
+  }, [loadPdfFromPath, setIsLoading]);
 
   // Listen for open file menu event (must be after handleOpenFile is defined)
   useTauriEventListener("menu-open-file-requested", handleOpenFile, [
     handleOpenFile,
   ]);
 
-  const handleLoadSuccess = useCallback((numPages: number) => {
-    setTotalPages(numPages);
-  }, []);
+  const handleLoadSuccess = useCallback(
+    (numPages: number) => {
+      setTotalPages(numPages);
+    },
+    [setTotalPages],
+  );
 
   // Note: Navigation, bookmarks, search, tabs, and window management functions
   // are now provided by custom hooks above
@@ -637,7 +651,6 @@ export default function Home() {
           searchResultCount={searchResults.length}
           currentSearchIndex={currentSearchIndex}
           windowCount={openWindows.length}
-          tabCount={tabs.length}
           bookmarkCount={bookmarks.length}
           onOpenFile={handleOpenFile}
           onPrevPage={goToPrevPage}

@@ -79,21 +79,25 @@ export function TabBar({
 
   return (
     <div
+      role="tablist"
       className="flex items-center gap-2 px-4 py-2 bg-bg-secondary border-b border-bg-tertiary min-h-[44px] overflow-x-auto scrollbar-thin scrollbar-thumb-bg-tertiary scrollbar-track-transparent"
       onDragOver={handleWindowDragOver}
       onDrop={handleWindowDrop}
     >
       {tabs.length === 0 && openWindowsCount > 0 && (
-        <span
+        <output
           className="text-text-secondary text-sm flex-1 py-2"
           onDragOver={handleWindowDragOver}
           onDrop={handleWindowDrop}
         >
           Drag windows here to create tabs
-        </span>
+        </output>
       )}
       {tabs.map((tab) => (
         <div
+          role="tab"
+          tabIndex={0}
+          aria-selected={activeTabId === tab.id}
           key={tab.id}
           draggable
           onDragStart={(e) => {
@@ -127,6 +131,12 @@ export function TabBar({
           }}
           onDragEnd={(e) => handleTabDragEnd(e, tab)}
           onClick={() => selectTab(tab.id)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              selectTab(tab.id);
+            }
+          }}
           className={`group/tab flex items-center gap-1 pl-3 pr-1.5 py-1.5 rounded-lg text-sm transition-colors cursor-grab active:cursor-grabbing max-w-[220px] shrink-0 ${
             activeTabId === tab.id
               ? "bg-accent text-white"
@@ -136,6 +146,7 @@ export function TabBar({
         >
           <span className="truncate">{tab.label}</span>
           <button
+            type="button"
             onClick={(e) => handleTabClose(e, tab)}
             className={`p-0.5 rounded opacity-0 group-hover/tab:opacity-100 transition-opacity ${
               activeTabId === tab.id
@@ -143,12 +154,14 @@ export function TabBar({
                 : "hover:bg-bg-tertiary"
             }`}
             title="Close tab"
+            aria-label="Close tab"
           >
             <svg
               className="w-3.5 h-3.5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"

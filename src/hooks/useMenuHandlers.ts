@@ -1,5 +1,10 @@
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { Dispatch, MutableRefObject, SetStateAction, useCallback } from "react";
+import {
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+  useCallback,
+} from "react";
 import {
   useTauriEventListener,
   useTauriEventListeners,
@@ -97,11 +102,13 @@ export function useMenuHandlers({
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith("pedaru_")) {
+        if (key?.startsWith("pedaru_")) {
           keysToRemove.push(key);
         }
       }
-      keysToRemove.forEach((key) => localStorage.removeItem(key));
+      for (const key of keysToRemove) {
+        localStorage.removeItem(key);
+      }
 
       // Reset current state (including viewMode for full reset)
       resetAllState({ resetViewMode: true });

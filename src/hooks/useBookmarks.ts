@@ -1,6 +1,11 @@
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { Dispatch, SetStateAction, useCallback, useMemo } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useMemo,
+} from "react";
 import { getTabLabel } from "@/lib/formatUtils";
 import type { Bookmark } from "./types";
 

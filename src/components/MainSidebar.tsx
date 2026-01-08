@@ -91,8 +91,15 @@ export default function MainSidebar({
       className="flex flex-col overflow-hidden shrink-0 border-r border-bg-tertiary bg-bg-secondary relative"
       style={{ width: sidebarWidth, minWidth: 220, maxWidth: 600 }}
     >
-      {/* Resize handle */}
+      {/* Resize handle - uses div with role="separator" because hr is horizontal and this is a vertical interactive resizer */}
+      {/* biome-ignore lint/a11y/useSemanticElements: vertical interactive separator requires div with role, not hr element */}
       <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-valuenow={sidebarWidth}
+        aria-valuemin={220}
+        aria-valuemax={600}
+        tabIndex={0}
         className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/50 active:bg-accent z-10"
         onMouseDown={handleMouseDown}
       />

@@ -1,5 +1,9 @@
 "use client";
 
+import type {
+  PDFDocumentProxy,
+  TextItem,
+} from "pdfjs-dist/types/src/display/api";
 import { useCallback, useRef, useState } from "react";
 import type { TextSelection } from "@/types";
 
@@ -14,7 +18,7 @@ import type { TextSelection } from "@/types";
  * @returns Selection data, clear function, and trigger function
  */
 export function useTextSelection(
-  pdfDocRef: React.MutableRefObject<any>,
+  pdfDocRef: React.MutableRefObject<PDFDocumentProxy | null>,
   currentPage: number,
   totalPages: number,
 ) {
@@ -50,8 +54,8 @@ export function useTextSelection(
         const page = await pdfDocument.getPage(pageNum);
         const textContent = await page.getTextContent();
         const text = textContent.items
-          .filter((item: any) => "str" in item)
-          .map((item: any) => item.str)
+          .filter((item): item is TextItem => "str" in item)
+          .map((item) => item.str)
           .join(" ");
 
         // Cache the result
@@ -233,8 +237,8 @@ export function useTextSelection(
         // If still not found, return current page text split in half as fallback
         const halfLength = Math.min(contextLength, currentPageText.length / 2);
         return {
-          contextBefore: "..." + currentPageText.slice(0, halfLength),
-          contextAfter: currentPageText.slice(-halfLength) + "...",
+          contextBefore: `...${currentPageText.slice(0, halfLength)}`,
+          contextAfter: `${currentPageText.slice(-halfLength)}...`,
         };
       }
 
@@ -242,7 +246,7 @@ export function useTextSelection(
       const beforeStartIndex = Math.max(0, selectionIndex - contextLength);
       let contextBefore = fullText.slice(beforeStartIndex, selectionIndex);
       if (beforeStartIndex > 0) {
-        contextBefore = "..." + contextBefore;
+        contextBefore = `...${contextBefore}`;
       }
 
       // Extract context after the selection
@@ -255,7 +259,7 @@ export function useTextSelection(
         afterEndIndex,
       );
       if (afterEndIndex < fullText.length) {
-        contextAfter = contextAfter + "...";
+        contextAfter = `${contextAfter}...`;
       }
 
       return { contextBefore, contextAfter };

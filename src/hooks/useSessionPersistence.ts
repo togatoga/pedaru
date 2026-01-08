@@ -1,4 +1,4 @@
-import { MutableRefObject, useCallback, useEffect } from "react";
+import { type MutableRefObject, useCallback, useEffect } from "react";
 import { saveSessionState } from "@/lib/database";
 import type {
   Bookmark,
@@ -107,18 +107,5 @@ export function useSessionPersistence(
     if (!isStandaloneMode && filePath) {
       saveCurrentSession();
     }
-  }, [
-    currentPage,
-    zoom,
-    viewMode,
-    tabs,
-    activeTabId,
-    openWindows,
-    bookmarks,
-    pageHistory,
-    historyIndex,
-    filePath,
-    isStandaloneMode,
-    saveCurrentSession,
-  ]);
+  }, [filePath, isStandaloneMode, saveCurrentSession]);
 }

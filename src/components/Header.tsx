@@ -36,7 +36,6 @@ export default function Header({
   searchResultCount,
   currentSearchIndex,
   windowCount,
-  tabCount,
   bookmarkCount,
   onOpenFile,
   onPrevPage,
@@ -62,6 +61,7 @@ export default function Header({
       {/* Left section */}
       <div className="flex items-center gap-3">
         <button
+          type="button"
           onClick={onOpenFile}
           disabled={isLoading}
           className="flex items-center justify-center p-2 bg-accent hover:bg-accent-hover text-white rounded-lg transition-colors disabled:opacity-50"
@@ -73,6 +73,7 @@ export default function Header({
           )}
         </button>
         <button
+          type="button"
           onClick={onToggleBookshelf}
           className={`flex items-center justify-center p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary transition-colors ${showBookshelf ? "border border-accent text-accent" : "border border-transparent"}`}
           title={showBookshelf ? "Hide Bookshelf" : "Show Bookshelf"}
@@ -107,6 +108,7 @@ export default function Header({
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => onSearchChange("")}
                 className="absolute right-2 p-0.5 rounded hover:bg-bg-hover text-text-secondary"
               >
@@ -120,6 +122,7 @@ export default function Header({
                 {currentSearchIndex + 1}/{searchResultCount}
               </span>
               <button
+                type="button"
                 onClick={onSearchPrev}
                 disabled={searchResultCount === 0}
                 className="p-1 rounded hover:bg-bg-tertiary text-text-primary disabled:opacity-40"
@@ -128,6 +131,7 @@ export default function Header({
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
+                type="button"
                 onClick={onSearchNext}
                 disabled={searchResultCount === 0}
                 className="p-1 rounded hover:bg-bg-tertiary text-text-primary disabled:opacity-40"
@@ -146,6 +150,7 @@ export default function Header({
       {/* Center section - Page navigation */}
       <div className="flex items-center gap-2">
         <button
+          type="button"
           onClick={onPrevPage}
           disabled={!isPdfLoaded || currentPage <= 1}
           className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -157,7 +162,7 @@ export default function Header({
           <input
             type="number"
             value={currentPage}
-            onChange={(e) => onPageChange(parseInt(e.target.value) || 1)}
+            onChange={(e) => onPageChange(parseInt(e.target.value, 10) || 1)}
             disabled={!isPdfLoaded}
             min={1}
             max={totalPages}
@@ -168,6 +173,7 @@ export default function Header({
         </div>
 
         <button
+          type="button"
           onClick={onNextPage}
           disabled={!isPdfLoaded || currentPage >= totalPages}
           className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -179,6 +185,7 @@ export default function Header({
       {/* Right section - Zoom and TOC */}
       <div className="flex items-center gap-2">
         <button
+          type="button"
           onClick={onZoomOut}
           disabled={!isPdfLoaded}
           className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 transition-colors"
@@ -192,6 +199,7 @@ export default function Header({
         </span>
 
         <button
+          type="button"
           onClick={onZoomIn}
           disabled={!isPdfLoaded}
           className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 transition-colors"
@@ -203,6 +211,7 @@ export default function Header({
         <div className="w-px h-6 bg-bg-tertiary mx-2" />
 
         <button
+          type="button"
           onClick={onToggleToc}
           disabled={!isPdfLoaded}
           className="flex items-center justify-center p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 transition-colors"
@@ -214,6 +223,7 @@ export default function Header({
         <div className="w-px h-6 bg-bg-tertiary mx-2" />
 
         <button
+          type="button"
           onClick={onToggleHistory}
           disabled={!isPdfLoaded}
           className={`flex items-center justify-center p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 transition-colors ${showHistory ? "border border-accent text-accent" : "border border-transparent"}`}
@@ -224,6 +234,7 @@ export default function Header({
         </button>
 
         <button
+          type="button"
           onClick={onToggleBookmarks}
           disabled={!isPdfLoaded}
           className={`relative flex items-center justify-center p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 transition-colors ${showBookmarks ? "border border-accent text-accent" : "border border-transparent"}`}
@@ -240,6 +251,7 @@ export default function Header({
 
         {/* Windows toggle button - always shown like bookmarks */}
         <button
+          type="button"
           onClick={onToggleWindows}
           disabled={!isPdfLoaded}
           className={`relative flex items-center justify-center p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 transition-colors ${showWindows ? "border border-accent text-accent" : "border border-transparent"}`}
@@ -255,6 +267,7 @@ export default function Header({
         </button>
         {windowCount > 0 && (
           <button
+            type="button"
             onClick={onCloseAllWindows}
             className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-red-400 hover:text-red-500 transition-colors"
             title="Close all windows"
@@ -269,6 +282,7 @@ export default function Header({
         {/* View Mode Toggle */}
         <div className="flex items-center gap-1 bg-bg-tertiary rounded-lg p-1">
           <button
+            type="button"
             onClick={() => onViewModeChange("single")}
             disabled={!isPdfLoaded}
             className={`p-2 rounded transition-colors disabled:opacity-40 ${
@@ -281,6 +295,7 @@ export default function Header({
             <Monitor className="w-4 h-4" />
           </button>
           <button
+            type="button"
             onClick={() => onViewModeChange("two-column")}
             disabled={!isPdfLoaded}
             className={`p-2 rounded transition-colors disabled:opacity-40 ${

@@ -1,6 +1,13 @@
 "use client";
 
-import { Dispatch, SetStateAction, useCallback, useRef, useState } from "react";
+import type { PDFDocumentProxy } from "pdfjs-dist";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useRef,
+  useState,
+} from "react";
 import type {
   Bookmark,
   HistoryEntry,
@@ -169,7 +176,7 @@ export interface AppRefs {
   tempShowHeaderRef: React.MutableRefObject<boolean>;
   headerTimerRef: React.MutableRefObject<NodeJS.Timeout | null>;
   standaloneSearchInputRef: React.RefObject<HTMLInputElement | null>;
-  pdfDocRef: React.MutableRefObject<any>;
+  pdfDocRef: React.MutableRefObject<PDFDocumentProxy | null>;
   saveTimeoutRef: React.MutableRefObject<NodeJS.Timeout | null>;
   isRestoringSessionRef: React.MutableRefObject<boolean>;
 }
@@ -298,7 +305,7 @@ export function usePdfViewerState(): PdfViewerState {
   const tempShowHeaderRef = useRef<boolean>(false);
   const headerTimerRef = useRef<NodeJS.Timeout | null>(null);
   const standaloneSearchInputRef = useRef<HTMLInputElement | null>(null);
-  const pdfDocRef = useRef<any>(null);
+  const pdfDocRef = useRef<PDFDocumentProxy | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isRestoringSessionRef = useRef<boolean>(false);
 

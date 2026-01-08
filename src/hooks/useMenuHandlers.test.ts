@@ -186,7 +186,10 @@ describe("useMenuHandlers", () => {
     });
     expect(goMenuCall).toBeDefined();
 
-    const handlers = goMenuCall![0] as { event: string; handler: () => void }[];
+    const handlers = goMenuCall?.[0] as {
+      event: string;
+      handler: () => void;
+    }[];
     const prevPageHandler = handlers.find(
       (h) => h.event === "menu-go-prev-page",
     );
@@ -195,8 +198,8 @@ describe("useMenuHandlers", () => {
     );
 
     act(() => {
-      prevPageHandler!.handler();
-      nextPageHandler!.handler();
+      prevPageHandler?.handler();
+      nextPageHandler?.handler();
     });
 
     expect(mockGoToPrevPage).toHaveBeenCalled();
@@ -215,7 +218,7 @@ describe("useMenuHandlers", () => {
     });
     expect(tabsMenuCall).toBeDefined();
 
-    const handlers = tabsMenuCall![0] as {
+    const handlers = tabsMenuCall?.[0] as {
       event: string;
       handler: () => void;
     }[];
@@ -223,8 +226,8 @@ describe("useMenuHandlers", () => {
     const closeTabHandler = handlers.find((h) => h.event === "menu-close-tab");
 
     act(() => {
-      newTabHandler!.handler();
-      closeTabHandler!.handler();
+      newTabHandler?.handler();
+      closeTabHandler?.handler();
     });
 
     expect(mockAddTabFromCurrent).toHaveBeenCalled();
@@ -243,7 +246,7 @@ describe("useMenuHandlers", () => {
     });
     expect(toolsMenuCall).toBeDefined();
 
-    const handlers = toolsMenuCall![0] as {
+    const handlers = toolsMenuCall?.[0] as {
       event: string;
       handler: () => void;
     }[];
@@ -254,9 +257,9 @@ describe("useMenuHandlers", () => {
     const translateHandler = handlers.find((h) => h.event === "menu-translate");
 
     act(() => {
-      searchHandler!.handler();
-      bookmarkHandler!.handler();
-      translateHandler!.handler();
+      searchHandler?.handler();
+      bookmarkHandler?.handler();
+      translateHandler?.handler();
     });
 
     expect(mockFocusSearch).toHaveBeenCalled();

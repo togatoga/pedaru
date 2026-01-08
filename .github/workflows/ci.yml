@@ -68,11 +68,14 @@ jobs:
       - name: Check formatting (Biome + Prettier)
         run: npm run format:check
 
+      - name: Run Biome linter
+        run: npm run lint
+
       - name: Run frontend unit tests
         run: npm test
 
       - name: Check TypeScript types
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Build frontend
         run: npm run build

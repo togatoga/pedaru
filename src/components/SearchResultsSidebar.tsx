@@ -17,7 +17,7 @@ export default function SearchResultsSidebar({
   onOpenInWindow,
   onClose,
 }: SearchResultsSidebarProps) {
-  const activeItemRef = useAutoScroll<HTMLDivElement>([currentIndex]);
+  const activeItemRef = useAutoScroll<HTMLButtonElement>([currentIndex]);
 
   if (!query) {
     return null;
@@ -44,6 +44,7 @@ export default function SearchResultsSidebar({
           )}
         </div>
         <button
+          type="button"
           onClick={onClose}
           className="p-1 rounded hover:bg-bg-tertiary text-text-secondary hover:text-text-primary transition-colors"
           title="Close search results"
@@ -65,10 +66,11 @@ export default function SearchResultsSidebar({
           </div>
         ) : (
           results.map((result, index) => (
-            <div
+            <button
+              type="button"
               key={`${result.page}-${result.matchIndex}`}
               ref={index === currentIndex ? activeItemRef : null}
-              className={`px-4 py-3 border-b border-bg-tertiary cursor-pointer transition-colors hover:bg-bg-tertiary ${
+              className={`w-full text-left px-4 py-3 border-b border-bg-tertiary cursor-pointer transition-colors hover:bg-bg-tertiary ${
                 index === currentIndex
                   ? "bg-accent/20 border-l-2 border-l-accent"
                   : ""
@@ -80,6 +82,7 @@ export default function SearchResultsSidebar({
                   Page {result.page}
                 </span>
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     onOpenInWindow(result.page);
@@ -99,7 +102,7 @@ export default function SearchResultsSidebar({
                 {result.contextAfter}
                 <span className="text-text-tertiary">...</span>
               </p>
-            </div>
+            </button>
           ))
         )}
       </div>

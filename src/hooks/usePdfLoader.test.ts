@@ -8,34 +8,27 @@ import {
   type Mock,
   vi,
 } from "vitest";
-import type {
-  Bookmark,
-  HistoryEntry,
-  OpenWindow,
-  PdfInfo,
-  Tab,
-  ViewMode,
-} from "./types";
+import type { OpenWindow, PdfInfo, ViewMode } from "./types";
 import { usePdfLoader } from "./usePdfLoader";
 
 // Mock Tauri APIs
 const mockInvoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: (...args: any[]) => mockInvoke(...args),
+  invoke: (...args: unknown[]) => mockInvoke(...args),
 }));
 
 const mockGetByLabel = vi.fn();
 const mockClose = vi.fn();
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
   WebviewWindow: {
-    getByLabel: (...args: any[]) => mockGetByLabel(...args),
+    getByLabel: (...args: unknown[]) => mockGetByLabel(...args),
   },
 }));
 
 // Mock database
 const mockLoadSessionState = vi.fn();
 vi.mock("@/lib/database", () => ({
-  loadSessionState: (...args: any[]) => mockLoadSessionState(...args),
+  loadSessionState: (...args: unknown[]) => mockLoadSessionState(...args),
   saveSessionState: vi.fn(),
   getLastOpenedPath: vi.fn(),
   createDefaultState: vi.fn(),

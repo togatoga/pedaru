@@ -62,6 +62,7 @@ function CollapsibleSection({
   return (
     <div className="border border-bg-tertiary rounded-lg overflow-hidden mb-2">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-3 py-2 flex items-center justify-between bg-bg-tertiary/50 hover:bg-bg-tertiary transition-colors"
       >
@@ -147,20 +148,6 @@ function TranslationContent() {
     };
   }, [windowLabel]);
 
-  // Auto-trigger explanation when autoExplain is true
-  useEffect(() => {
-    if (
-      data?.autoExplain &&
-      data.translationResponse &&
-      !explanationPoints &&
-      !isExplaining &&
-      geminiSettings
-    ) {
-      handleExplain();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, geminiSettings]);
-
   // Handle "解説" button click
   const handleExplain = useCallback(() => {
     if (!data?.translationResponse || isExplaining || !geminiSettings) return;
@@ -185,6 +172,20 @@ function TranslationContent() {
       }
     }, 0);
   }, [data, isExplaining, geminiSettings]);
+
+  // Auto-trigger explanation when autoExplain is true
+  // biome-ignore lint/correctness/useExhaustiveDependencies: handleExplain is stable via useCallback
+  useEffect(() => {
+    if (
+      data?.autoExplain &&
+      data.translationResponse &&
+      !explanationPoints &&
+      !isExplaining &&
+      geminiSettings
+    ) {
+      handleExplain();
+    }
+  }, [data, geminiSettings, explanationPoints, isExplaining]);
 
   if (!data) {
     return (
@@ -216,6 +217,7 @@ function TranslationContent() {
         {/* Context (collapsible, for debugging) */}
         <div className="mb-4 border-b border-bg-tertiary pb-2">
           <button
+            type="button"
             onClick={() => setShowContext(!showContext)}
             className="w-full px-3 py-1.5 flex items-center justify-between text-xs text-text-tertiary hover:text-text-secondary transition-colors"
           >
@@ -281,7 +283,7 @@ function TranslationContent() {
             data.translationResponse.points.length > 0 ? (
               <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
                 {data.translationResponse.points.map((point, index) => (
-                  <li key={index}>
+                  <li key={`point-${index}-${point.slice(0, 20)}`}>
                     <ReactMarkdown components={markdownComponents}>
                       {point}
                     </ReactMarkdown>
@@ -312,7 +314,7 @@ function TranslationContent() {
                 {explanationPoints && explanationPoints.length > 0 && (
                   <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
                     {explanationPoints.map((point, index) => (
-                      <li key={index}>
+                      <li key={`explanation-${index}-${point.slice(0, 20)}`}>
                         <ReactMarkdown components={markdownComponents}>
                           {point}
                         </ReactMarkdown>
@@ -355,6 +357,7 @@ function TranslationContent() {
           {/* Action buttons */}
           {!explanationPoints && (
             <button
+              type="button"
               onClick={handleExplain}
               disabled={isExplaining}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition-colors ${

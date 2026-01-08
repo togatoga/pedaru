@@ -125,7 +125,9 @@ export default function CustomTextLayer({
     if (newScaleXValues.size > 0) {
       setScaleXValues((prev) => {
         const merged = new Map(prev);
-        newScaleXValues.forEach((value, key) => merged.set(key, value));
+        for (const [key, value] of newScaleXValues) {
+          merged.set(key, value);
+        }
         return merged;
       });
     }
@@ -139,7 +141,7 @@ export default function CustomTextLayer({
     const timeoutId = setTimeout(calculateScaleX, 0);
 
     // Recalculate after fonts are loaded
-    if (document.fonts && document.fonts.ready) {
+    if (document.fonts?.ready) {
       document.fonts.ready.then(() => {
         setTimeout(calculateScaleX, 0);
       });
@@ -265,7 +267,7 @@ export default function CustomTextLayer({
 
           return (
             <span
-              key={index}
+              key={`text-${index}-${item.str.slice(0, 10)}`}
               ref={(el) => setSpanRef(index, el)}
               style={style}
               data-target-width={targetWidth}

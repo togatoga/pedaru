@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { SearchResult } from "@/hooks/types";
-import type { Bookmark, ViewMode } from "@/types";
+import type { ViewMode } from "@/types";
 import BookshelfMainView from "./BookshelfMainView";
 import SearchResultsSidebar from "./SearchResultsSidebar";
 
@@ -90,7 +90,7 @@ export default function ViewerContent({
   return (
     <>
       {/* Main viewer or Bookshelf */}
-      <div
+      <main
         className="flex-1 min-w-0 relative flex flex-col"
         onContextMenu={onContextMenu}
       >
@@ -118,7 +118,7 @@ export default function ViewerContent({
             onNavigatePage={onNavigatePage}
           />
         )}
-      </div>
+      </main>
 
       {/* Search results sidebar on the right */}
       {showSearchResults && (

@@ -11,6 +11,9 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "generate:icons": "bash scripts/generate-icons.sh",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
     "format": "biome check --write --formatter-enabled=true --linter-enabled=false . && prettier --write \".github/**/*.yml\"",
     "format:check": "biome check --formatter-enabled=true --linter-enabled=false . && prettier --check \".github/**/*.yml\""
   },

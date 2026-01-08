@@ -48,16 +48,19 @@ export function StandaloneWindowControls({
     <div className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-bg-secondary/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg border border-bg-tertiary transition-opacity duration-150 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto">
       {/* History back/forward */}
       <button
+        type="button"
         onClick={goBack}
         disabled={!canGoBack}
         className="p-1.5 rounded hover:bg-bg-tertiary text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         title="Back"
+        aria-label="Back"
       >
         <svg
           className="w-5 h-5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
@@ -68,16 +71,19 @@ export function StandaloneWindowControls({
         </svg>
       </button>
       <button
+        type="button"
         onClick={goForward}
         disabled={!canGoForward}
         className="p-1.5 rounded hover:bg-bg-tertiary text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         title="Forward"
+        aria-label="Forward"
       >
         <svg
           className="w-5 h-5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
@@ -88,16 +94,19 @@ export function StandaloneWindowControls({
         </svg>
       </button>
       <button
+        type="button"
         onClick={goToPrevPage}
         disabled={currentPage <= 1}
         className="p-1.5 rounded hover:bg-bg-tertiary text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         title="Previous Page (←)"
+        aria-label="Previous Page"
       >
         <svg
           className="w-5 h-5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
@@ -113,16 +122,19 @@ export function StandaloneWindowControls({
       </span>
 
       <button
+        type="button"
         onClick={goToNextPage}
         disabled={currentPage >= totalPages}
         className="p-1.5 rounded hover:bg-bg-tertiary text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         title="Next Page (→)"
+        aria-label="Next Page"
       >
         <svg
           className="w-5 h-5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
@@ -135,6 +147,7 @@ export function StandaloneWindowControls({
 
       {/* ToC toggle */}
       <button
+        type="button"
         onClick={() => setIsTocOpen((prev) => !prev)}
         className={`ml-2 p-1.5 rounded hover:bg-bg-tertiary text-text-primary transition-colors ${isTocOpen ? "text-accent" : ""}`}
         title={isTocOpen ? "Hide Table of Contents" : "Show Table of Contents"}
@@ -147,6 +160,7 @@ export function StandaloneWindowControls({
 
       {/* View mode toggle */}
       <button
+        type="button"
         onClick={() =>
           setViewMode((prev) =>
             prev === "two-column" ? "single" : "two-column",
@@ -166,6 +180,7 @@ export function StandaloneWindowControls({
 
       {/* History toggle */}
       <button
+        type="button"
         onClick={() => setShowHistory((prev) => !prev)}
         className={`p-1.5 rounded hover:bg-bg-tertiary text-text-primary transition-colors ${showHistory ? "text-accent" : ""}`}
         title={showHistory ? "Hide History" : "Show History"}
@@ -176,6 +191,7 @@ export function StandaloneWindowControls({
 
       {/* Bookmark toggle */}
       <button
+        type="button"
         onClick={toggleBookmark}
         className={`relative p-1.5 rounded hover:bg-bg-tertiary transition-colors ${isCurrentPageBookmarked ? "text-yellow-500" : "text-text-primary"}`}
         title={isCurrentPageBookmarked ? "Remove Bookmark" : "Add Bookmark"}
@@ -196,15 +212,18 @@ export function StandaloneWindowControls({
       {/* Zoom controls */}
       <div className="ml-2 flex items-center gap-2">
         <button
+          type="button"
           onClick={handleZoomOut}
           className="p-1.5 rounded hover:bg-bg-tertiary text-text-primary transition-colors"
           title="Zoom Out"
+          aria-label="Zoom Out"
         >
           <svg
             className="w-5 h-5"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -218,15 +237,18 @@ export function StandaloneWindowControls({
           {Math.round(zoom * 100)}%
         </span>
         <button
+          type="button"
           onClick={handleZoomIn}
           className="p-1.5 rounded hover:bg-bg-tertiary text-text-primary transition-colors"
           title="Zoom In"
+          aria-label="Zoom In"
         >
           <svg
             className="w-5 h-5"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -256,9 +278,9 @@ export function StandaloneWindowControls({
               }}
               placeholder="Search in page..."
               className="w-32 bg-transparent text-sm text-text-primary placeholder-text-secondary outline-none"
-              autoFocus
             />
             <button
+              type="button"
               onClick={() => {
                 setShowStandaloneSearch(false);
                 setSearchQuery("");
@@ -271,6 +293,7 @@ export function StandaloneWindowControls({
           </div>
         ) : (
           <button
+            type="button"
             onClick={() => {
               setShowStandaloneSearch(true);
               setTimeout(() => standaloneSearchInputRef.current?.focus(), 0);
@@ -285,6 +308,7 @@ export function StandaloneWindowControls({
 
       {/* Move to Tab button */}
       <button
+        type="button"
         onClick={async () => {
           const win = getCurrentWebviewWindow();
           await emit("move-window-to-tab", {

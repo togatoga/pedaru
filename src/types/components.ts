@@ -3,7 +3,7 @@
  * Centralized Props interfaces for all components
  */
 
-import type { PDFPageProxy } from "pdfjs-dist";
+import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
 import type {
   Bookmark,
@@ -36,7 +36,6 @@ export interface HeaderProps {
   searchResultCount: number;
   currentSearchIndex: number;
   windowCount: number;
-  tabCount: number;
   bookmarkCount: number;
   onOpenFile: () => void;
   onPrevPage: () => void;
@@ -65,7 +64,7 @@ export interface PageWithCustomTextLayerProps {
   scale: number;
   searchQuery?: string;
   focusedMatchIndex?: number;
-  pdfDocument: any; // pdfjs.PDFDocumentProxy
+  pdfDocument: PDFDocumentProxy | null;
   bookmarkedPages: number[];
   onToggleBookmark?: (page: number) => void;
 }
@@ -84,7 +83,7 @@ export interface PdfViewerProps {
   bookmarkedPages?: number[];
   onToggleBookmark?: (page: number) => void;
   onLoadSuccess: (numPages: number) => void;
-  onDocumentLoad?: (pdf: any) => void;
+  onDocumentLoad?: (pdf: PDFDocumentProxy) => void;
   onNavigatePage?: (pageNumber: number) => void;
 }
 

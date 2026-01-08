@@ -2,7 +2,6 @@
 
 import { useAutoScroll } from "@/hooks/useAutoScroll";
 import { formatDateTime } from "@/lib/formatUtils";
-import type { HistoryEntry } from "@/types";
 import type { HistorySidebarProps } from "@/types/components";
 
 export default function HistorySidebar({
@@ -23,6 +22,7 @@ export default function HistorySidebar({
         <span className="text-sm font-medium text-text-primary">History</span>
         {onClear && (
           <button
+            type="button"
             onClick={onClear}
             className="text-xs text-text-secondary hover:text-text-primary"
           >
@@ -39,6 +39,7 @@ export default function HistorySidebar({
               ref={entry.page === currentPage ? activeItemRef : null}
             >
               <button
+                type="button"
                 className={`w-full text-left px-2 py-1 rounded transition-colors ${
                   entry.page === currentPage
                     ? "bg-bg-tertiary text-text-primary"
