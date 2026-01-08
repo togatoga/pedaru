@@ -11,14 +11,8 @@ pub fn get_migrations() -> Vec<Migration> {
         },
         Migration {
             version: 2,
-            description: "download_queue",
+            description: "download_queue_and_simplify_bookshelf",
             sql: include_str!("migrations/002_download_queue.sql"),
-            kind: MigrationKind::Up,
-        },
-        Migration {
-            version: 3,
-            description: "simplify_bookshelf",
-            sql: include_str!("migrations/003_simplify_bookshelf.sql"),
             kind: MigrationKind::Up,
         },
     ]
