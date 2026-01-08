@@ -17,6 +17,18 @@ Download pre-built binaries from [Releases page](https://github.com/togatoga/ped
 - **Linux**: Download `.deb` or `.AppImage` file
 - **Windows**: Download `.msi` file
 
+#### macOS: Opening unsigned apps
+
+Pedaru is not signed with an Apple Developer certificate. When you try to open the app, macOS may show an error saying the app is "damaged" or "can't be opened".
+
+To fix this, run the following command in Terminal before opening the `.dmg` file:
+
+```bash
+xattr -r -d com.apple.quarantine Pedaru_x.x.x_aarch64.dmg
+```
+
+This is a temporary measure until the app is properly signed.
+
 ### Build from source
 
 **Prerequisites:**
