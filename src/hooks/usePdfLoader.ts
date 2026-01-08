@@ -1,17 +1,17 @@
-import { useCallback, Dispatch, SetStateAction, MutableRefObject } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { loadSessionState } from '@/lib/database';
+import { invoke } from "@tauri-apps/api/core";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { Dispatch, MutableRefObject, SetStateAction, useCallback } from "react";
+import { loadSessionState } from "@/lib/database";
 import type {
-  PdfInfo,
-  OpenWindow,
-  Tab,
   Bookmark,
   HistoryEntry,
-  ViewMode,
+  OpenWindow,
+  PdfInfo,
+  Tab,
   TabState,
+  ViewMode,
   WindowState,
-} from './types';
+} from "./types";
 
 /**
  * Custom hook for loading PDF files and managing their state
@@ -84,36 +84,36 @@ export function usePdfLoader({
   const loadPdfInternal = useCallback(
     async (path: string, isStandalone: boolean = false) => {
       try {
-        console.log('=== loadPdfInternal called ===');
-        console.log('Path:', path);
-        console.log('isStandalone:', isStandalone);
+        console.log("=== loadPdfInternal called ===");
+        console.log("Path:", path);
+        console.log("isStandalone:", isStandalone);
         setIsLoading(true);
 
         // Get PDF info from Rust backend first
-        const info = await invoke<PdfInfo>('get_pdf_info', { path });
-        console.log('PDF info received:', info);
+        const info = await invoke<PdfInfo>("get_pdf_info", { path });
+        console.log("PDF info received:", info);
         setPdfInfo(info);
 
         // Read PDF file (automatically decrypted if encrypted)
-        const data = await invoke<number[]>('read_pdf_file', { path });
-        console.log('File read successfully, size:', data.length);
+        const data = await invoke<number[]>("read_pdf_file", { path });
+        console.log("File read successfully, size:", data.length);
         setFileData(new Uint8Array(data));
         setFilePath(path); // Keep original path for display
 
         // Get file name from original path
-        const name = path.split('/').pop() || path;
+        const name = path.split("/").pop() || path;
         setFileName(name);
 
         setIsLoading(false);
-        console.log('PDF loaded successfully');
+        console.log("PDF loaded successfully");
         return true;
       } catch (error) {
-        console.error('Error loading PDF:', error);
+        console.error("Error loading PDF:", error);
         setIsLoading(false);
         return false;
       }
     },
-    [setIsLoading, setPdfInfo, setFileData, setFilePath, setFileName]
+    [setIsLoading, setPdfInfo, setFileData, setFilePath, setFileName],
   );
 
   /**
@@ -122,8 +122,8 @@ export function usePdfLoader({
    */
   const loadPdfFromPath = useCallback(
     async (path: string) => {
-      console.log('=== loadPdfFromPath called ===');
-      console.log('Path argument:', path);
+      console.log("=== loadPdfFromPath called ===");
+      console.log("Path argument:", path);
 
       // Prevent saving during session restoration
       isRestoringSessionRef.current = true;
@@ -133,11 +133,11 @@ export function usePdfLoader({
         setPdfInfo(null); // Clear old PDF info (including ToC)
         setCurrentPage(1);
         setZoom(1.0);
-        setViewMode('single');
+        setViewMode("single");
         setBookmarks([]);
         setPageHistory([]);
         setHistoryIndex(-1);
-        setSearchQuery('');
+        setSearchQuery("");
         setSearchResults([]);
         setShowSearchResults(false);
 
@@ -147,7 +147,7 @@ export function usePdfLoader({
             const win = await WebviewWindow.getByLabel(w.label);
             if (win) await win.close();
           } catch (e) {
-            console.warn('Failed to close window', w.label, e);
+            console.warn("Failed to close window", w.label, e);
           }
         }
         setOpenWindows([]);
@@ -163,7 +163,7 @@ export function usePdfLoader({
             // Restore session state
             setCurrentPage(session.page || 1);
             setZoom(session.zoom || 1.0);
-            setViewMode(session.viewMode || 'single');
+            setViewMode(session.viewMode || "single");
 
             // Restore bookmarks
             if (session.bookmarks && session.bookmarks.length > 0) {
@@ -175,7 +175,9 @@ export function usePdfLoader({
             // Restore page history
             if (session.pageHistory && session.pageHistory.length > 0) {
               setPageHistory(session.pageHistory);
-              setHistoryIndex(session.historyIndex ?? session.pageHistory.length - 1);
+              setHistoryIndex(
+                session.historyIndex ?? session.pageHistory.length - 1,
+              );
             }
 
             // Set pending states for tabs and windows restoration
@@ -192,9 +194,9 @@ export function usePdfLoader({
 
           // Refresh the Open Recents menu after loading a new PDF
           try {
-            await invoke('refresh_recent_menu');
+            await invoke("refresh_recent_menu");
           } catch (error) {
-            console.error('Failed to refresh recent menu:', error);
+            console.error("Failed to refresh recent menu:", error);
           }
         }
       } finally {
@@ -221,7 +223,7 @@ export function usePdfLoader({
       setPendingTabsRestore,
       setPendingActiveTabIndex,
       setPendingWindowsRestore,
-    ]
+    ],
   );
 
   return {

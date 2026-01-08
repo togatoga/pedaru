@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import dynamic from 'next/dynamic';
-import { Loader2 } from 'lucide-react';
-import type { ViewMode, Bookmark } from '@/types';
-import type { PDFDocumentProxy } from 'pdfjs-dist';
-import type { SearchResult } from '@/hooks/types';
-import BookshelfMainView from './BookshelfMainView';
-import SearchResultsSidebar from './SearchResultsSidebar';
+import { Loader2 } from "lucide-react";
+import dynamic from "next/dynamic";
+import type { PDFDocumentProxy } from "pdfjs-dist";
+import type { SearchResult } from "@/hooks/types";
+import type { Bookmark, ViewMode } from "@/types";
+import BookshelfMainView from "./BookshelfMainView";
+import SearchResultsSidebar from "./SearchResultsSidebar";
 
 // Dynamic import for PdfViewer to avoid SSR issues with pdfjs-dist
-const PdfViewer = dynamic(() => import('./PdfViewer'), {
+const PdfViewer = dynamic(() => import("./PdfViewer"), {
   ssr: false,
   loading: () => (
     <div className="flex-1 flex items-center justify-center bg-bg-primary">
@@ -90,7 +90,10 @@ export default function ViewerContent({
   return (
     <>
       {/* Main viewer or Bookshelf */}
-      <div className="flex-1 min-w-0 relative flex flex-col" onContextMenu={onContextMenu}>
+      <div
+        className="flex-1 min-w-0 relative flex flex-col"
+        onContextMenu={onContextMenu}
+      >
         {showBookshelf && !isStandaloneMode ? (
           <BookshelfMainView
             onOpenPdf={onOpenPdf}

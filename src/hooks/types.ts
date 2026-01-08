@@ -5,16 +5,16 @@
 
 // Re-export all commonly used types from the centralized types module
 export type {
-  ViewMode,
   Bookmark,
-  SearchResult,
-  TabState,
-  WindowState,
-  PdfSessionState,
-  Tab,
+  BookmarkState,
   HistoryEntry,
   OpenWindow,
-  BookmarkState,
   PdfInfo,
+  PdfSessionState,
+  SearchResult,
+  Tab,
+  TabState,
   TocEntry,
-} from '@/types';
+  ViewMode,
+  WindowState,
+} from "@/types";

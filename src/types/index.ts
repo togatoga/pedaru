@@ -4,7 +4,7 @@
  */
 
 // Re-export PDF-related types
-export type { PdfInfo, TocEntry } from './pdf';
+export type { PdfInfo, TocEntry } from "./pdf";
 
 // ============================================
 // View Mode
@@ -13,7 +13,7 @@ export type { PdfInfo, TocEntry } from './pdf';
 /**
  * PDF display mode
  */
-export type ViewMode = 'single' | 'two-column';
+export type ViewMode = "single" | "two-column";
 
 // ============================================
 // Bookmark Types
@@ -187,13 +187,13 @@ export interface SyncResult {
 /**
  * Download status of a bookshelf item
  */
-export type DownloadStatus = 'pending' | 'downloading' | 'completed' | 'error';
+export type DownloadStatus = "pending" | "downloading" | "completed" | "error";
 
 /**
  * Source type for bookshelf items
  * @deprecated Use CloudItem or LocalItem instead
  */
-export type SourceType = 'google_drive' | 'local';
+export type SourceType = "google_drive" | "local";
 
 /**
  * Cloud bookshelf item (from Google Drive)
@@ -280,13 +280,13 @@ export interface DownloadProgress {
  * Available Gemini models
  */
 export type GeminiModel =
-  | 'gemini-2.0-flash'
-  | 'gemini-2.0-flash-lite'
-  | 'gemini-2.5-flash'
-  | 'gemini-2.5-flash-lite'
-  | 'gemini-2.5-pro'
-  | 'gemini-3-flash-preview'
-  | 'gemini-3-pro-preview';
+  | "gemini-2.0-flash"
+  | "gemini-2.0-flash-lite"
+  | "gemini-2.5-flash"
+  | "gemini-2.5-flash-lite"
+  | "gemini-2.5-pro"
+  | "gemini-3-flash-preview"
+  | "gemini-3-pro-preview";
 
 /**
  * Gemini model option for UI

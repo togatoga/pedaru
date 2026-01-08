@@ -3,8 +3,8 @@
  * Pure functions for PDF-related operations
  */
 
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import type { PdfInfo, TocEntry } from '@/types/pdf';
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import type { PdfInfo, TocEntry } from "@/types/pdf";
 
 /**
  * Finds the chapter/section title for a given page number from the PDF's table of contents
@@ -15,7 +15,7 @@ import type { PdfInfo, TocEntry } from '@/types/pdf';
  */
 export function getChapterForPage(
   pdfInfo: PdfInfo | null,
-  pageNum: number
+  pageNum: number,
 ): string | undefined {
   if (!pdfInfo?.toc || pdfInfo.toc.length === 0) return undefined;
 
@@ -46,7 +46,7 @@ export async function updateWindowTitle(page: number): Promise<void> {
     const win = getCurrentWebviewWindow();
     await win.setTitle(`Page ${page}`);
   } catch (e) {
-    console.warn('Failed to update window title:', e);
+    console.warn("Failed to update window title:", e);
   }
 }
 

@@ -1,5 +1,5 @@
-import { useCallback, useRef, Dispatch, SetStateAction } from 'react';
-import type { SearchResult, ViewMode } from './types';
+import { Dispatch, SetStateAction, useCallback, useRef } from "react";
+import type { SearchResult, ViewMode } from "./types";
 
 /**
  * Custom hook for PDF full-text search functionality
@@ -40,9 +40,8 @@ export function useSearch(
   goToPage: (page: number) => void,
   goToPageWithoutHistory: (page: number) => void,
   isStandaloneMode: boolean,
-  setViewMode: Dispatch<SetStateAction<ViewMode>>
+  setViewMode: Dispatch<SetStateAction<ViewMode>>,
 ) {
-
   // Ref to track current search ID for cancellation
   const searchIdRef = useRef<number>(0);
 
@@ -81,7 +80,9 @@ export function useSearch(
 
           const page = await doc.getPage(pageNum);
           const textContent = await page.getTextContent();
-          const fullText = textContent.items.map((item: any) => item.str).join(' ');
+          const fullText = textContent.items
+            .map((item: any) => item.str)
+            .join(" ");
           const lowerText = fullText.toLowerCase();
 
           let startIndex = 0;
@@ -90,11 +91,20 @@ export function useSearch(
 
           while (foundIndex !== -1) {
             const contextStart = Math.max(0, foundIndex - contextLength);
-            const contextEnd = Math.min(fullText.length, foundIndex + query.length + contextLength);
+            const contextEnd = Math.min(
+              fullText.length,
+              foundIndex + query.length + contextLength,
+            );
 
             const contextBefore = fullText.slice(contextStart, foundIndex);
-            const matchText = fullText.slice(foundIndex, foundIndex + query.length);
-            const contextAfter = fullText.slice(foundIndex + query.length, contextEnd);
+            const matchText = fullText.slice(
+              foundIndex,
+              foundIndex + query.length,
+            );
+            const contextAfter = fullText.slice(
+              foundIndex + query.length,
+              contextEnd,
+            );
 
             results.push({
               page: pageNum,
@@ -120,7 +130,7 @@ export function useSearch(
           }
         }
       } catch (e) {
-        console.error('Search error:', e);
+        console.error("Search error:", e);
       }
 
       // Final update if search wasn't cancelled
@@ -130,7 +140,13 @@ export function useSearch(
         setIsSearching(false);
       }
     },
-    [totalPages, setSearchResults, setCurrentSearchIndex, setShowSearchResults, setIsSearching]
+    [
+      totalPages,
+      setSearchResults,
+      setCurrentSearchIndex,
+      setShowSearchResults,
+      setIsSearching,
+    ],
   );
 
   /**
@@ -145,7 +161,7 @@ export function useSearch(
       }, 300);
       return () => clearTimeout(timeoutId);
     },
-    [performSearch, setSearchQuery]
+    [performSearch, setSearchQuery],
   );
 
   /**
@@ -158,7 +174,7 @@ export function useSearch(
     setCurrentSearchIndex(nextIndex);
     // Switch to single page mode only in standalone window
     if (isStandaloneMode) {
-      setViewMode('single');
+      setViewMode("single");
     }
     goToPage(searchResults[nextIndex].page);
   }, [
@@ -176,11 +192,12 @@ export function useSearch(
    */
   const handleSearchPrev = useCallback(() => {
     if (searchResults.length === 0) return;
-    const prevIndex = (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
+    const prevIndex =
+      (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
     setCurrentSearchIndex(prevIndex);
     // Switch to single page mode only in standalone window
     if (isStandaloneMode) {
-      setViewMode('single');
+      setViewMode("single");
     }
     goToPage(searchResults[prevIndex].page);
   }, [
@@ -202,7 +219,7 @@ export function useSearch(
     setCurrentSearchIndex(nextIndex);
     // Switch to single page mode only in standalone window
     if (isStandaloneMode) {
-      setViewMode('single');
+      setViewMode("single");
     }
     goToPageWithoutHistory(searchResults[nextIndex].page);
   }, [
@@ -220,11 +237,12 @@ export function useSearch(
    */
   const handleSearchPrevPreview = useCallback(() => {
     if (searchResults.length === 0) return;
-    const prevIndex = (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
+    const prevIndex =
+      (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
     setCurrentSearchIndex(prevIndex);
     // Switch to single page mode only in standalone window
     if (isStandaloneMode) {
-      setViewMode('single');
+      setViewMode("single");
     }
     goToPageWithoutHistory(searchResults[prevIndex].page);
   }, [

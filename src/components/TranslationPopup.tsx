@@ -1,31 +1,52 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Loader2, Languages, AlertCircle, Settings, GripHorizontal, ChevronDown, ChevronUp, Sparkles, BookOpen, MessageSquare, Cpu, ExternalLink } from 'lucide-react';
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { emitTo, listen } from '@tauri-apps/api/event';
-import ReactMarkdown from 'react-markdown';
-import type { TextSelection, GeminiSettings, TranslationResponse, ViewMode } from '@/types';
-import { translateWithGemini, explainDirectly, isGeminiConfigured, getGeminiSettings, GEMINI_MODELS } from '@/lib/settings';
-import type { TranslationPopupProps } from '@/types/components';
+import { emitTo, listen } from "@tauri-apps/api/event";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import {
+  AlertCircle,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  Cpu,
+  ExternalLink,
+  GripHorizontal,
+  Languages,
+  Loader2,
+  MessageSquare,
+  Settings,
+  Sparkles,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import {
+  explainDirectly,
+  GEMINI_MODELS,
+  getGeminiSettings,
+  isGeminiConfigured,
+  translateWithGemini,
+} from "@/lib/settings";
+import type {
+  GeminiSettings,
+  TextSelection,
+  TranslationResponse,
+  ViewMode,
+} from "@/types";
+import type { TranslationPopupProps } from "@/types/components";
 
 // Custom components for ReactMarkdown to render ***text*** with yellow highlight
 const markdownComponents = {
   // ***text*** renders as <strong><em>text</em></strong>
   // We style strong > em with yellow highlight
   strong: ({ children }: { children?: React.ReactNode }) => (
-    <strong className="font-bold">
-      {children}
-    </strong>
+    <strong className="font-bold">{children}</strong>
   ),
   em: ({ children }: { children?: React.ReactNode }) => (
     <mark className="bg-yellow-500/30 text-yellow-200 font-bold px-0.5 rounded not-italic">
       {children}
     </mark>
   ),
-  p: ({ children }: { children?: React.ReactNode }) => (
-    <span>{children}</span>
-  ),
+  p: ({ children }: { children?: React.ReactNode }) => <span>{children}</span>,
 };
 
 // Collapsible section component
@@ -58,11 +79,7 @@ function CollapsibleSection({
           <ChevronDown className="w-4 h-4 text-text-tertiary" />
         )}
       </button>
-      {isOpen && (
-        <div className="px-3 py-2 bg-bg-primary/30">
-          {children}
-        </div>
-      )}
+      {isOpen && <div className="px-3 py-2 bg-bg-primary/30">{children}</div>}
     </div>
   );
 }
@@ -72,21 +89,32 @@ export default function TranslationPopup({
   autoExplain = false,
   onClose,
   onOpenSettings,
-  viewMode = 'single',
+  viewMode = "single",
   currentPage = 1,
 }: TranslationPopupProps) {
-  const [translationResponse, setTranslationResponse] = useState<TranslationResponse | null>(null);
-  const [explanationSummary, setExplanationSummary] = useState<string | null>(null);
-  const [explanationPoints, setExplanationPoints] = useState<string[] | null>(null);
+  const [translationResponse, setTranslationResponse] =
+    useState<TranslationResponse | null>(null);
+  const [explanationSummary, setExplanationSummary] = useState<string | null>(
+    null,
+  );
+  const [explanationPoints, setExplanationPoints] = useState<string[] | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [isExplaining, setIsExplaining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [showContext, setShowContext] = useState(false);
-  const [geminiSettings, setGeminiSettingsState] = useState<GeminiSettings | null>(null);
+  const [geminiSettings, setGeminiSettingsState] =
+    useState<GeminiSettings | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
-  const dragStartRef = useRef<{ mouseX: number; mouseY: number; popupX: number; popupY: number } | null>(null);
+  const dragStartRef = useRef<{
+    mouseX: number;
+    mouseY: number;
+    popupX: number;
+    popupY: number;
+  } | null>(null);
   const initializedRef = useRef(false);
 
   // Calculate initial popup position (only used on first render)
@@ -99,7 +127,7 @@ export default function TranslationPopup({
 
     let left: number;
 
-    if (viewMode === 'two-column') {
+    if (viewMode === "two-column") {
       // In two-column mode, determine if selection is on left or right page
       const selectionPage = selection.pageNumber ?? currentPage;
       // Left page (currentPage) -> show on right side
@@ -135,7 +163,9 @@ export default function TranslationPopup({
   }, [selection.position, selection.pageNumber, viewMode, currentPage]);
 
   // Position state - initialized once, updated only by dragging
-  const [position, setPosition] = useState<{ left: number; top: number }>(() => calculateInitialPosition());
+  const [position, setPosition] = useState<{ left: number; top: number }>(() =>
+    calculateInitialPosition(),
+  );
 
   // Only update position on first mount, not on subsequent selection changes
   useEffect(() => {
@@ -145,24 +175,29 @@ export default function TranslationPopup({
     // Don't update position when selection changes - keep the popup in place
   }, [selection]);
 
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    // Allow dragging from anywhere except interactive elements
-    const target = e.target as HTMLElement;
-    const isInteractive = target.closest('button, a, input, textarea, [role="button"], .overflow-y-auto');
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      // Allow dragging from anywhere except interactive elements
+      const target = e.target as HTMLElement;
+      const isInteractive = target.closest(
+        'button, a, input, textarea, [role="button"], .overflow-y-auto',
+      );
 
-    if (!isInteractive) {
-      e.preventDefault();
-      // Capture pointer to continue receiving events outside the window
-      target.setPointerCapture(e.pointerId);
-      dragStartRef.current = {
-        mouseX: e.clientX,
-        mouseY: e.clientY,
-        popupX: position.left,
-        popupY: position.top,
-      };
-      setIsDragging(true);
-    }
-  }, [position]);
+      if (!isInteractive) {
+        e.preventDefault();
+        // Capture pointer to continue receiving events outside the window
+        target.setPointerCapture(e.pointerId);
+        dragStartRef.current = {
+          mouseX: e.clientX,
+          mouseY: e.clientY,
+          popupX: position.left,
+          popupY: position.top,
+        };
+        setIsDragging(true);
+      }
+    },
+    [position],
+  );
 
   useEffect(() => {
     if (!isDragging) return;
@@ -190,12 +225,12 @@ export default function TranslationPopup({
       dragStartRef.current = null;
     };
 
-    document.addEventListener('pointermove', handlePointerMove);
-    document.addEventListener('pointerup', handlePointerUp);
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerUp);
 
     return () => {
-      document.removeEventListener('pointermove', handlePointerMove);
-      document.removeEventListener('pointerup', handlePointerUp);
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
     };
   }, [isDragging]);
 
@@ -233,16 +268,16 @@ export default function TranslationPopup({
             selection.selectedText,
             selection.contextBefore,
             selection.contextAfter,
-            settings.explanationModel
+            settings.explanationModel,
           );
 
           if (!cancelled) {
-            console.log('Explanation result:', JSON.stringify(result, null, 2));
+            console.log("Explanation result:", JSON.stringify(result, null, 2));
             // Store summary and points from ExplanationResponse
             setExplanationSummary(result.summary);
             setExplanationPoints(result.points);
             // Set a minimal translationResponse to trigger UI rendering
-            setTranslationResponse({ translation: '', points: [] });
+            setTranslationResponse({ translation: "", points: [] });
           }
         } else {
           // Translation mode
@@ -250,11 +285,11 @@ export default function TranslationPopup({
             selection.selectedText,
             selection.contextBefore,
             selection.contextAfter,
-            settings.model
+            settings.model,
           );
 
           if (!cancelled) {
-            console.log('Translation result:', JSON.stringify(result, null, 2));
+            console.log("Translation result:", JSON.stringify(result, null, 2));
             setTranslationResponse(result);
           }
         }
@@ -290,7 +325,7 @@ export default function TranslationPopup({
           selection.selectedText,
           selection.contextBefore,
           selection.contextAfter,
-          geminiSettings.explanationModel
+          geminiSettings.explanationModel,
         );
 
         // Update the explanation summary and points, keep the original translation
@@ -302,20 +337,27 @@ export default function TranslationPopup({
         setIsExplaining(false);
       }
     }, 0);
-  }, [translationResponse, isExplaining, geminiSettings, selection.selectedText, selection.contextBefore, selection.contextAfter]);
+  }, [
+    translationResponse,
+    isExplaining,
+    geminiSettings,
+    selection.selectedText,
+    selection.contextBefore,
+    selection.contextAfter,
+  ]);
 
   // Note: Auto-trigger explanation is no longer needed
   // In autoExplain mode, we call explainDirectly in the initial useEffect
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         onClose();
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
   // Open translation in a new window
@@ -328,43 +370,53 @@ export default function TranslationPopup({
 
     try {
       // Listen for ready signal from the new window before sending data
-      const unlisten = await listen<{ windowLabel: string }>('translation-ready', async (event) => {
-        if (event.payload.windowLabel === windowLabel) {
-          unlisten();
-          await emitTo(windowLabel, 'translation-data', {
-            selectedText: selection.selectedText,
-            contextBefore: selection.contextBefore,
-            contextAfter: selection.contextAfter,
-            translationResponse,
-            autoExplain,
-          });
-          // Close the popup
-          onClose();
-        }
-      });
+      const unlisten = await listen<{ windowLabel: string }>(
+        "translation-ready",
+        async (event) => {
+          if (event.payload.windowLabel === windowLabel) {
+            unlisten();
+            await emitTo(windowLabel, "translation-data", {
+              selectedText: selection.selectedText,
+              contextBefore: selection.contextBefore,
+              contextAfter: selection.contextAfter,
+              translationResponse,
+              autoExplain,
+            });
+            // Close the popup
+            onClose();
+          }
+        },
+      );
 
       const webview = new WebviewWindow(windowLabel, {
         url,
-        title: 'Translation',
+        title: "Translation",
         width: 600,
         height: 700,
         resizable: true,
         center: true,
       });
 
-      webview.once('tauri://error', (e) => {
-        console.error('Failed to create translation window:', e);
+      webview.once("tauri://error", (e) => {
+        console.error("Failed to create translation window:", e);
         unlisten();
       });
     } catch (e) {
-      console.error('Failed to open translation window:', e);
+      console.error("Failed to open translation window:", e);
     }
-  }, [translationResponse, selection.selectedText, selection.contextBefore, selection.contextAfter, autoExplain, onClose]);
+  }, [
+    translationResponse,
+    selection.selectedText,
+    selection.contextBefore,
+    selection.contextAfter,
+    autoExplain,
+    onClose,
+  ]);
 
   return (
     <div
       ref={popupRef}
-      className={`fixed z-50 bg-bg-secondary rounded-lg shadow-2xl border border-bg-tertiary w-[600px] max-h-[700px] overflow-hidden flex flex-col ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      className={`fixed z-50 bg-bg-secondary rounded-lg shadow-2xl border border-bg-tertiary w-[600px] max-h-[700px] overflow-hidden flex flex-col ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
       style={{
         left: position.left,
         top: position.top,
@@ -372,13 +424,17 @@ export default function TranslationPopup({
       onPointerDown={handlePointerDown}
     >
       {/* Header */}
-      <div
-        className="flex items-center justify-between px-3 py-2 border-b border-bg-tertiary bg-bg-tertiary/50"
-      >
+      <div className="flex items-center justify-between px-3 py-2 border-b border-bg-tertiary bg-bg-tertiary/50">
         <div className="flex items-center gap-2" data-drag-handle>
-          <GripHorizontal className="w-4 h-4 text-text-tertiary" data-drag-handle />
+          <GripHorizontal
+            className="w-4 h-4 text-text-tertiary"
+            data-drag-handle
+          />
           <Languages className="w-4 h-4 text-accent" data-drag-handle />
-          <span className="text-xs font-medium text-text-primary select-none" data-drag-handle>
+          <span
+            className="text-xs font-medium text-text-primary select-none"
+            data-drag-handle
+          >
             Translation
           </span>
         </div>
@@ -408,20 +464,24 @@ export default function TranslationPopup({
           className="w-full px-3 py-1.5 flex items-center justify-between text-xs text-text-tertiary hover:text-text-secondary transition-colors"
         >
           <span>Context (debug)</span>
-          {showContext ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          {showContext ? (
+            <ChevronUp className="w-3 h-3" />
+          ) : (
+            <ChevronDown className="w-3 h-3" />
+          )}
         </button>
         {showContext && (
           <div className="px-3 pb-2 space-y-2">
             <div>
               <span className="text-xs text-text-tertiary">Before:</span>
               <p className="text-xs text-text-tertiary font-mono whitespace-pre-wrap max-h-[75px] overflow-y-auto bg-bg-primary p-2 rounded">
-                {selection.contextBefore || '(no context)'}
+                {selection.contextBefore || "(no context)"}
               </p>
             </div>
             <div>
               <span className="text-xs text-text-tertiary">After:</span>
               <p className="text-xs text-text-tertiary font-mono whitespace-pre-wrap max-h-[75px] overflow-y-auto bg-bg-primary p-2 rounded">
-                {selection.contextAfter || '(no context)'}
+                {selection.contextAfter || "(no context)"}
               </p>
             </div>
           </div>
@@ -433,7 +493,9 @@ export default function TranslationPopup({
         {!isConfigured && (
           <div className="flex flex-col items-center justify-center py-4 text-center">
             <AlertCircle className="w-8 h-8 text-yellow-500 mb-2" />
-            <p className="text-sm text-text-primary mb-2">API Key Not Configured</p>
+            <p className="text-sm text-text-primary mb-2">
+              API Key Not Configured
+            </p>
             <p className="text-xs text-text-tertiary mb-3">
               Please set your Gemini API key in Settings to use translation.
             </p>
@@ -455,7 +517,9 @@ export default function TranslationPopup({
         {isConfigured && isLoading && (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="w-6 h-6 animate-spin text-accent" />
-            <span className="ml-2 text-sm text-text-secondary">Translating...</span>
+            <span className="ml-2 text-sm text-text-secondary">
+              Translating...
+            </span>
           </div>
         )}
 
@@ -480,7 +544,9 @@ export default function TranslationPopup({
             </CollapsibleSection>
 
             {/* In autoExplain mode with explanation loaded: show only explanation */}
-            {autoExplain && (explanationSummary || (explanationPoints && explanationPoints.length > 0)) ? (
+            {autoExplain &&
+            (explanationSummary ||
+              (explanationPoints && explanationPoints.length > 0)) ? (
               <CollapsibleSection
                 title="解説"
                 icon={Sparkles}
@@ -490,7 +556,9 @@ export default function TranslationPopup({
                   {/* Summary */}
                   {explanationSummary && (
                     <div className="text-text-primary text-sm font-medium bg-accent/10 p-2 rounded border-l-2 border-accent">
-                      <ReactMarkdown components={markdownComponents}>{explanationSummary}</ReactMarkdown>
+                      <ReactMarkdown components={markdownComponents}>
+                        {explanationSummary}
+                      </ReactMarkdown>
                     </div>
                   )}
                   {/* Points */}
@@ -498,7 +566,9 @@ export default function TranslationPopup({
                     <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
                       {explanationPoints.map((point, index) => (
                         <li key={index}>
-                          <ReactMarkdown components={markdownComponents}>{point}</ReactMarkdown>
+                          <ReactMarkdown components={markdownComponents}>
+                            {point}
+                          </ReactMarkdown>
                         </li>
                       ))}
                     </ul>
@@ -514,7 +584,8 @@ export default function TranslationPopup({
                   defaultOpen={true}
                 >
                   <p className="text-text-primary text-sm leading-relaxed">
-                    {translationResponse.translation || '(翻訳結果がありません)'}
+                    {translationResponse.translation ||
+                      "(翻訳結果がありません)"}
                   </p>
                 </CollapsibleSection>
 
@@ -524,21 +595,27 @@ export default function TranslationPopup({
                   icon={BookOpen}
                   defaultOpen={true}
                 >
-                  {translationResponse.points && translationResponse.points.length > 0 ? (
+                  {translationResponse.points &&
+                  translationResponse.points.length > 0 ? (
                     <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
                       {translationResponse.points.map((point, index) => (
                         <li key={index}>
-                          <ReactMarkdown components={markdownComponents}>{point}</ReactMarkdown>
+                          <ReactMarkdown components={markdownComponents}>
+                            {point}
+                          </ReactMarkdown>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-text-tertiary text-sm">(ポイントがありません)</p>
+                    <p className="text-text-tertiary text-sm">
+                      (ポイントがありません)
+                    </p>
                   )}
                 </CollapsibleSection>
 
                 {/* Explanation Section (shown after clicking 解説 button in translation mode) */}
-                {(explanationSummary || (explanationPoints && explanationPoints.length > 0)) && (
+                {(explanationSummary ||
+                  (explanationPoints && explanationPoints.length > 0)) && (
                   <CollapsibleSection
                     title="解説"
                     icon={Sparkles}
@@ -548,7 +625,9 @@ export default function TranslationPopup({
                       {/* Summary */}
                       {explanationSummary && (
                         <div className="text-text-primary text-sm font-medium bg-accent/10 p-2 rounded border-l-2 border-accent">
-                          <ReactMarkdown components={markdownComponents}>{explanationSummary}</ReactMarkdown>
+                          <ReactMarkdown components={markdownComponents}>
+                            {explanationSummary}
+                          </ReactMarkdown>
                         </div>
                       )}
                       {/* Points */}
@@ -556,7 +635,9 @@ export default function TranslationPopup({
                         <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
                           {explanationPoints.map((point, index) => (
                             <li key={index}>
-                              <ReactMarkdown components={markdownComponents}>{point}</ReactMarkdown>
+                              <ReactMarkdown components={markdownComponents}>
+                                {point}
+                              </ReactMarkdown>
                             </li>
                           ))}
                         </ul>
@@ -579,14 +660,23 @@ export default function TranslationPopup({
             {!autoExplain && geminiSettings && (
               <div className="flex items-center gap-1.5">
                 <Cpu className="w-3 h-3" />
-                <span>翻訳: {GEMINI_MODELS.find(m => m.id === geminiSettings.model)?.name || geminiSettings.model}</span>
+                <span>
+                  翻訳:{" "}
+                  {GEMINI_MODELS.find((m) => m.id === geminiSettings.model)
+                    ?.name || geminiSettings.model}
+                </span>
               </div>
             )}
             {/* Show explanation model when explanation is loaded or in autoExplain mode */}
             {(explanationPoints || autoExplain) && geminiSettings && (
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-3 h-3" />
-                <span>解説: {GEMINI_MODELS.find(m => m.id === geminiSettings.explanationModel)?.name || geminiSettings.explanationModel}</span>
+                <span>
+                  解説:{" "}
+                  {GEMINI_MODELS.find(
+                    (m) => m.id === geminiSettings.explanationModel,
+                  )?.name || geminiSettings.explanationModel}
+                </span>
               </div>
             )}
           </div>
@@ -598,8 +688,8 @@ export default function TranslationPopup({
               disabled={isExplaining}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition-colors ${
                 isExplaining
-                  ? 'bg-accent/40 text-accent cursor-wait'
-                  : 'bg-accent/20 text-accent hover:bg-accent/30'
+                  ? "bg-accent/40 text-accent cursor-wait"
+                  : "bg-accent/20 text-accent hover:bg-accent/30"
               }`}
             >
               {isExplaining ? (

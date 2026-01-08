@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, DependencyList } from 'react';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import { DependencyList, useEffect, useRef } from "react";
 
 /**
  * Hook for listening to a single Tauri event with proper lifecycle management.
@@ -14,7 +14,7 @@ import { listen, UnlistenFn } from '@tauri-apps/api/event';
 export function useTauriEventListener<T = unknown>(
   eventName: string,
   handler: (payload: T) => void | Promise<void>,
-  deps: DependencyList = []
+  deps: DependencyList = [],
 ): void {
   // Use ref to always have access to latest handler without re-subscribing
   const handlerRef = useRef(handler);
@@ -76,7 +76,7 @@ export interface EventHandler<T = unknown> {
  */
 export function useTauriEventListeners(
   handlers: EventHandler[],
-  deps: DependencyList = []
+  deps: DependencyList = [],
 ): void {
   // Use ref to always have access to latest handlers without re-subscribing
   const handlersRef = useRef(handlers);
@@ -93,7 +93,7 @@ export function useTauriEventListeners(
 
         // Find the current handler for this event
         const currentHandler = handlersRef.current.find(
-          (h) => h.event === eventName
+          (h) => h.event === eventName,
         );
         if (!currentHandler) return;
 

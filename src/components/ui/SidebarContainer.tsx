@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import type { SidebarContainerProps } from '@/types/components';
+import type { SidebarContainerProps } from "@/types/components";
 
 /**
  * Reusable sidebar container component with consistent styling.
@@ -9,8 +9,8 @@ import type { SidebarContainerProps } from '@/types/components';
 export function SidebarContainer({
   header,
   children,
-  className = '',
-  width = 'w-64',
+  className = "",
+  width = "w-64",
 }: SidebarContainerProps) {
   return (
     <aside
@@ -19,9 +19,7 @@ export function SidebarContainer({
       <div className="px-3 py-2 border-b border-bg-tertiary shrink-0">
         {header}
       </div>
-      <div className="flex-1 overflow-y-auto">
-        {children}
-      </div>
+      <div className="flex-1 overflow-y-auto">{children}</div>
     </aside>
   );
 }

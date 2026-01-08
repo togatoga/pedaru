@@ -1,10 +1,17 @@
-import { useCallback, useEffect, useRef, Dispatch, SetStateAction, MutableRefObject } from 'react';
 import {
-  WebviewWindow,
   getAllWebviewWindows,
-} from '@tauri-apps/api/webviewWindow';
-import { getTabLabel, getWindowTitle } from '@/lib/formatUtils';
-import type { OpenWindow, PdfInfo, ViewMode, Tab, WindowState } from './types';
+  WebviewWindow,
+} from "@tauri-apps/api/webviewWindow";
+import {
+  Dispatch,
+  MutableRefObject,
+  SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
+import { getTabLabel, getWindowTitle } from "@/lib/formatUtils";
+import type { OpenWindow, PdfInfo, Tab, ViewMode, WindowState } from "./types";
 
 /**
  * Custom hook for managing standalone windows
@@ -41,7 +48,7 @@ export function useWindowManagement(
   setActiveTabId: Dispatch<SetStateAction<number | null>>,
   tabIdRef: MutableRefObject<number>,
   pendingWindowsRestore: WindowState[] | null,
-  setPendingWindowsRestore: Dispatch<SetStateAction<WindowState[] | null>>
+  setPendingWindowsRestore: Dispatch<SetStateAction<WindowState[] | null>>,
 ) {
   // Ref to track pending window restoration (avoids circular dependencies)
   const pendingWindowsRestoreRef = useRef<WindowState[] | null>(null);
@@ -65,7 +72,7 @@ export function useWindowManagement(
       const win = allWindows.find((w) => w.label === label);
 
       if (!win) {
-        console.warn('No window found for label', label);
+        console.warn("No window found for label", label);
         return;
       }
 
@@ -74,7 +81,7 @@ export function useWindowManagement(
       await win.show();
       await win.setFocus();
     } catch (e) {
-      console.error('Failed to focus window', label, e);
+      console.error("Failed to focus window", label, e);
     }
   }, []);
 
@@ -85,16 +92,16 @@ export function useWindowManagement(
     async (
       pageNumber: number,
       windowZoom: number = 1.0,
-      windowViewMode: ViewMode = 'single',
-      label?: string
+      windowViewMode: ViewMode = "single",
+      label?: string,
     ) => {
       if (!filePath) {
-        console.warn('Cannot open standalone window without file path');
+        console.warn("Cannot open standalone window without file path");
         return;
       }
       const origin = window.location.origin;
       const url = `${origin}/?page=${pageNumber}&file=${encodeURIComponent(
-        filePath
+        filePath,
       )}&standalone=true&zoom=${windowZoom}&viewMode=${windowViewMode}`;
       const windowLabel = label || `page-${Date.now()}-${pageNumber}`;
       const chapter = getChapterForPage(pageNumber);
@@ -109,7 +116,7 @@ export function useWindowManagement(
         });
 
         // Wait for window to be created before adding to openWindows
-        webview.once('tauri://created', () => {
+        webview.once("tauri://created", () => {
           setOpenWindows((prev) => {
             if (prev.some((w) => w.label === windowLabel)) return prev;
             return [
@@ -126,18 +133,18 @@ export function useWindowManagement(
         });
 
         // Listen for window destroyed (after close)
-        webview.once('tauri://destroyed', () => {
+        webview.once("tauri://destroyed", () => {
           setOpenWindows((prev) => prev.filter((w) => w.label !== windowLabel));
         });
 
-        webview.once('tauri://error', (e) => {
-          console.error('Failed to create window:', e);
+        webview.once("tauri://error", (e) => {
+          console.error("Failed to create window:", e);
         });
       } catch (e) {
-        console.error('Failed to open standalone window:', e);
+        console.error("Failed to open standalone window:", e);
       }
     },
-    [filePath, getChapterForPage, setOpenWindows]
+    [filePath, getChapterForPage, setOpenWindows],
   );
 
   /**
@@ -146,16 +153,21 @@ export function useWindowManagement(
    */
   const openStandaloneWindow = useCallback(
     async (pageNumber: number, label?: string) => {
-      await openStandaloneWindowWithState(pageNumber, zoom, 'single', label);
+      await openStandaloneWindowWithState(pageNumber, zoom, "single", label);
     },
-    [openStandaloneWindowWithState, zoom]
+    [openStandaloneWindowWithState, zoom],
   );
 
   /**
    * Restore windows from session after PDF info is available
    */
   useEffect(() => {
-    if (pendingWindowsRestoreRef.current && pdfInfo && filePath && !isStandaloneMode) {
+    if (
+      pendingWindowsRestoreRef.current &&
+      pdfInfo &&
+      filePath &&
+      !isStandaloneMode
+    ) {
       const windowsToRestore = pendingWindowsRestoreRef.current;
       pendingWindowsRestoreRef.current = null;
       setPendingWindowsRestore(null);
@@ -163,7 +175,13 @@ export function useWindowManagement(
         openStandaloneWindowWithState(win.page, win.zoom, win.viewMode);
       });
     }
-  }, [pdfInfo, filePath, isStandaloneMode, openStandaloneWindowWithState, setPendingWindowsRestore]);
+  }, [
+    pdfInfo,
+    filePath,
+    isStandaloneMode,
+    openStandaloneWindowWithState,
+    setPendingWindowsRestore,
+  ]);
 
   /**
    * Close a specific standalone window by label
@@ -175,7 +193,7 @@ export function useWindowManagement(
         await win.close();
       }
     } catch (e) {
-      console.warn('Failed to close window', label, e);
+      console.warn("Failed to close window", label, e);
     }
   }, []);
 
@@ -190,7 +208,7 @@ export function useWindowManagement(
           await win.close();
         }
       } catch (e) {
-        console.warn('Failed to close window', w.label, e);
+        console.warn("Failed to close window", w.label, e);
       }
     }
     setOpenWindows([]);
@@ -214,7 +232,14 @@ export function useWindowManagement(
       closeWindow(label);
       setOpenWindows((prev) => prev.filter((w) => w.label !== label));
     },
-    [closeWindow, getChapterForPage, setTabs, setActiveTabId, setOpenWindows, tabIdRef]
+    [
+      closeWindow,
+      getChapterForPage,
+      setTabs,
+      setActiveTabId,
+      setOpenWindows,
+      tabIdRef,
+    ],
   );
 
   return {

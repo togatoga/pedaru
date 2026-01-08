@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
-import type { CustomTextLayerProps } from '@/types/components';
+import * as pdfjsLib from "pdfjs-dist";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { CustomTextLayerProps } from "@/types/components";
 
 // TextItem type definition (not exported from pdfjs-dist main module)
 interface TextItem {
@@ -22,12 +22,20 @@ interface ProcessedTextItem extends TextItem {
   targetWidth: number;
 }
 
-export default function CustomTextLayer({ page, scale, pageNumber, searchQuery, focusedMatchIndex }: CustomTextLayerProps) {
+export default function CustomTextLayer({
+  page,
+  scale,
+  pageNumber,
+  searchQuery,
+  focusedMatchIndex,
+}: CustomTextLayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textSpanRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
   const [processedItems, setProcessedItems] = useState<ProcessedTextItem[]>([]);
   const [viewport, setViewport] = useState<pdfjsLib.PageViewport | null>(null);
-  const [scaleXValues, setScaleXValues] = useState<Map<number, number>>(new Map());
+  const [scaleXValues, setScaleXValues] = useState<Map<number, number>>(
+    new Map(),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -47,7 +55,7 @@ export default function CustomTextLayer({ page, scale, pageNumber, searchQuery, 
         if (cancelled) return;
 
         const items = textContent.items.filter(
-          (item): item is TextItem => 'str' in item && !!(item as TextItem).str
+          (item): item is TextItem => "str" in item && !!(item as TextItem).str,
         ) as TextItem[];
 
         // Pre-process items with transform calculations
@@ -72,7 +80,7 @@ export default function CustomTextLayer({ page, scale, pageNumber, searchQuery, 
       } catch (error) {
         // Ignore errors if component was unmounted or page was destroyed
         if (!cancelled) {
-          console.warn('Failed to load text content:', error);
+          console.warn("Failed to load text content:", error);
         }
       }
     };
@@ -104,7 +112,10 @@ export default function CustomTextLayer({ page, scale, pageNumber, searchQuery, 
           const scaleX = item.targetWidth / unscaledWidth;
           // Only update if significantly different (avoid infinite loops)
           const currentValue = scaleXValues.get(index);
-          if (currentValue === undefined || Math.abs(scaleX - currentValue) > 0.001) {
+          if (
+            currentValue === undefined ||
+            Math.abs(scaleX - currentValue) > 0.001
+          ) {
             newScaleXValues.set(index, scaleX);
           }
         }
@@ -137,13 +148,16 @@ export default function CustomTextLayer({ page, scale, pageNumber, searchQuery, 
     return () => clearTimeout(timeoutId);
   }, [processedItems, calculateScaleX]);
 
-  const setSpanRef = useCallback((index: number, el: HTMLSpanElement | null) => {
-    if (el) {
-      textSpanRefs.current.set(index, el);
-    } else {
-      textSpanRefs.current.delete(index);
-    }
-  }, []);
+  const setSpanRef = useCallback(
+    (index: number, el: HTMLSpanElement | null) => {
+      if (el) {
+        textSpanRefs.current.set(index, el);
+      } else {
+        textSpanRefs.current.delete(index);
+      }
+    },
+    [],
+  );
 
   if (!viewport) return null;
 
@@ -153,14 +167,14 @@ export default function CustomTextLayer({ page, scale, pageNumber, searchQuery, 
       className="custom-text-layer"
       data-page-number={pageNumber}
       style={{
-        position: 'absolute',
+        position: "absolute",
         left: 0,
         top: 0,
         width: `${viewport.width}px`,
         height: `${viewport.height}px`,
-        overflow: 'hidden',
+        overflow: "hidden",
         lineHeight: 1.0,
-        pointerEvents: 'auto',
+        pointerEvents: "auto",
       }}
     >
       {(() => {
@@ -185,56 +199,69 @@ export default function CustomTextLayer({ page, scale, pageNumber, searchQuery, 
               while (matchIndex !== -1) {
                 if (matchIndex > lastIndex) {
                   parts.push(
-                    <span key={partKey++}>{item.str.slice(lastIndex, matchIndex)}</span>
+                    <span key={partKey++}>
+                      {item.str.slice(lastIndex, matchIndex)}
+                    </span>,
                   );
                 }
 
                 // Check if this match is the focused one
-                const isFocused = focusedMatchIndex !== undefined && globalMatchIndex === focusedMatchIndex;
+                const isFocused =
+                  focusedMatchIndex !== undefined &&
+                  globalMatchIndex === focusedMatchIndex;
                 globalMatchIndex++;
 
                 parts.push(
                   <mark
                     key={partKey++}
-                    style={isFocused ? {
-                      background: 'rgba(255, 100, 100, 0.7)',
-                      color: 'red',
-                      fontWeight: 'bold',
-                    } : {
-                      background: 'rgba(255, 255, 0, 0.4)',
-                    }}
+                    style={
+                      isFocused
+                        ? {
+                            background: "rgba(255, 100, 100, 0.7)",
+                            color: "red",
+                            fontWeight: "bold",
+                          }
+                        : {
+                            background: "rgba(255, 255, 0, 0.4)",
+                          }
+                    }
                   >
-                    {item.str.slice(matchIndex, matchIndex + searchQuery.length)}
-                  </mark>
+                    {item.str.slice(
+                      matchIndex,
+                      matchIndex + searchQuery.length,
+                    )}
+                  </mark>,
                 );
                 lastIndex = matchIndex + searchQuery.length;
                 matchIndex = lowerText.indexOf(lowerQuery, lastIndex);
               }
 
               if (lastIndex < item.str.length) {
-                parts.push(<span key={partKey++}>{item.str.slice(lastIndex)}</span>);
+                parts.push(
+                  <span key={partKey++}>{item.str.slice(lastIndex)}</span>,
+                );
               }
               content = parts;
             }
           }
 
-        // Build transform string with scaleX and rotation
-        const transforms: string[] = [`scaleX(${scaleX})`];
-        if (angle !== 0) {
-          transforms.push(`rotate(${angle}rad)`);
-        }
+          // Build transform string with scaleX and rotation
+          const transforms: string[] = [`scaleX(${scaleX})`];
+          if (angle !== 0) {
+            transforms.push(`rotate(${angle}rad)`);
+          }
 
-        const style: React.CSSProperties = {
-          position: 'absolute',
-          left: `${tx[4]}px`,
-          top: `${tx[5] - fontSize}px`,
-          fontSize: `${fontSize}px`,
-          fontFamily: item.fontName || 'sans-serif',
-          color: 'transparent',
-          whiteSpace: 'pre',
-          transformOrigin: '0% 0%',
-          transform: transforms.join(' '),
-        };
+          const style: React.CSSProperties = {
+            position: "absolute",
+            left: `${tx[4]}px`,
+            top: `${tx[5] - fontSize}px`,
+            fontSize: `${fontSize}px`,
+            fontFamily: item.fontName || "sans-serif",
+            color: "transparent",
+            whiteSpace: "pre",
+            transformOrigin: "0% 0%",
+            transform: transforms.join(" "),
+          };
 
           return (
             <span

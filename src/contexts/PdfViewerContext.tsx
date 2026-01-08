@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, ReactNode } from 'react';
-import { usePdfViewerState, PdfViewerState } from '@/hooks/usePdfViewerState';
+import React, { createContext, ReactNode, useContext } from "react";
+import { PdfViewerState, usePdfViewerState } from "@/hooks/usePdfViewerState";
 
 /**
  * Context for sharing PDF viewer state across components and hooks
@@ -28,7 +28,9 @@ export function PdfViewerProvider({ children }: { children: ReactNode }) {
 export function usePdfViewerContext(): PdfViewerState {
   const context = useContext(PdfViewerContext);
   if (context === null) {
-    throw new Error('usePdfViewerContext must be used within a PdfViewerProvider');
+    throw new Error(
+      "usePdfViewerContext must be used within a PdfViewerProvider",
+    );
   }
   return context;
 }

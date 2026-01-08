@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import type { Tab } from '@/types';
-import type { TabBarProps } from '@/types/components';
+import type { Tab } from "@/types";
+import type { TabBarProps } from "@/types/components";
 
 /**
  * Tab bar component for managing multiple PDF tabs.
@@ -20,21 +20,21 @@ export function TabBar({
   setActiveTabId,
 }: TabBarProps) {
   const handleWindowDragOver = (e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('application/x-pedaru-window')) {
+    if (e.dataTransfer.types.includes("application/x-pedaru-window")) {
       e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
+      e.dataTransfer.dropEffect = "move";
     }
   };
 
   const handleWindowDrop = (e: React.DragEvent) => {
-    const windowData = e.dataTransfer.getData('application/x-pedaru-window');
+    const windowData = e.dataTransfer.getData("application/x-pedaru-window");
     if (windowData) {
       e.preventDefault();
       try {
         const { label, page } = JSON.parse(windowData);
         moveWindowToTab(label, page);
       } catch (err) {
-        console.warn('Failed to parse window data', err);
+        console.warn("Failed to parse window data", err);
       }
     }
   };
@@ -56,11 +56,17 @@ export function TabBar({
 
   const handleTabDragEnd = (e: React.DragEvent, tab: Tab) => {
     const rect = e.currentTarget.parentElement?.getBoundingClientRect();
-    if (rect && (e.clientY < rect.top - 50 || e.clientY > rect.bottom + 50 || e.clientX < rect.left - 50 || e.clientX > rect.right + 50)) {
+    if (
+      rect &&
+      (e.clientY < rect.top - 50 ||
+        e.clientY > rect.bottom + 50 ||
+        e.clientX < rect.left - 50 ||
+        e.clientX > rect.right + 50)
+    ) {
       openStandaloneWindow(tab.page);
-      setTabs(prev => prev.filter(t => t.id !== tab.id));
+      setTabs((prev) => prev.filter((t) => t.id !== tab.id));
       if (activeTabId === tab.id) {
-        const remaining = tabs.filter(t => t.id !== tab.id);
+        const remaining = tabs.filter((t) => t.id !== tab.id);
         if (remaining.length > 0) {
           setActiveTabId(remaining[0].id);
           navigateToPageWithoutTabUpdate(remaining[0].page);
@@ -91,18 +97,23 @@ export function TabBar({
           key={tab.id}
           draggable
           onDragStart={(e) => {
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('application/x-pedaru-tab', JSON.stringify({ id: tab.id, page: tab.page }));
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData(
+              "application/x-pedaru-tab",
+              JSON.stringify({ id: tab.id, page: tab.page }),
+            );
           }}
           onDragOver={(e) => {
-            if (e.dataTransfer.types.includes('application/x-pedaru-window')) {
+            if (e.dataTransfer.types.includes("application/x-pedaru-window")) {
               e.preventDefault();
               e.stopPropagation();
-              e.dataTransfer.dropEffect = 'move';
+              e.dataTransfer.dropEffect = "move";
             }
           }}
           onDrop={(e) => {
-            const windowData = e.dataTransfer.getData('application/x-pedaru-window');
+            const windowData = e.dataTransfer.getData(
+              "application/x-pedaru-window",
+            );
             if (windowData) {
               e.preventDefault();
               e.stopPropagation();
@@ -110,14 +121,16 @@ export function TabBar({
                 const { label, page } = JSON.parse(windowData);
                 moveWindowToTab(label, page);
               } catch (err) {
-                console.warn('Failed to parse window data', err);
+                console.warn("Failed to parse window data", err);
               }
             }
           }}
           onDragEnd={(e) => handleTabDragEnd(e, tab)}
           onClick={() => selectTab(tab.id)}
           className={`group/tab flex items-center gap-1 pl-3 pr-1.5 py-1.5 rounded-lg text-sm transition-colors cursor-grab active:cursor-grabbing max-w-[220px] shrink-0 ${
-            activeTabId === tab.id ? 'bg-accent text-white' : 'bg-bg-tertiary hover:bg-bg-hover text-text-primary'
+            activeTabId === tab.id
+              ? "bg-accent text-white"
+              : "bg-bg-tertiary hover:bg-bg-hover text-text-primary"
           }`}
           title={`${tab.label} - Drag outside to open in new window`}
         >
@@ -125,12 +138,24 @@ export function TabBar({
           <button
             onClick={(e) => handleTabClose(e, tab)}
             className={`p-0.5 rounded opacity-0 group-hover/tab:opacity-100 transition-opacity ${
-              activeTabId === tab.id ? 'hover:bg-white/20' : 'hover:bg-bg-tertiary'
+              activeTabId === tab.id
+                ? "hover:bg-white/20"
+                : "hover:bg-bg-tertiary"
             }`}
             title="Close tab"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>

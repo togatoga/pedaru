@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-shell';
-import type { AuthStatus, DriveFolder, DriveItem, StoredFolder } from '@/types';
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-shell";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { AuthStatus, DriveFolder, DriveItem, StoredFolder } from "@/types";
 
 /**
  * Hook for managing Google OAuth authentication and Drive folder configuration
@@ -30,10 +30,10 @@ export function useGoogleAuth() {
    */
   const loadSyncedFolders = useCallback(async () => {
     try {
-      const folders = await invoke<StoredFolder[]>('get_drive_folders');
+      const folders = await invoke<StoredFolder[]>("get_drive_folders");
       setSyncedFolders(folders);
     } catch (err) {
-      console.error('Failed to load synced folders:', err);
+      console.error("Failed to load synced folders:", err);
     }
   }, []);
 
@@ -52,13 +52,13 @@ export function useGoogleAuth() {
   const checkAuthStatus = useCallback(async (): Promise<AuthStatus | null> => {
     try {
       setIsLoading(true);
-      const status = await invoke<AuthStatus>('get_google_auth_status');
+      const status = await invoke<AuthStatus>("get_google_auth_status");
       setAuthStatus(status);
       setHasCheckedAuth(true);
       setError(null);
       return status;
     } catch (err) {
-      console.error('Failed to check auth status:', err);
+      console.error("Failed to check auth status:", err);
       setError(String(err));
       setHasCheckedAuth(true);
       return null;
@@ -70,21 +70,24 @@ export function useGoogleAuth() {
   /**
    * Save OAuth credentials
    */
-  const saveCredentials = useCallback(async (clientId: string, clientSecret: string) => {
-    try {
-      setIsLoading(true);
-      await invoke('save_oauth_credentials', { clientId, clientSecret });
-      await checkAuthStatus();
-      setError(null);
-      return true;
-    } catch (err) {
-      console.error('Failed to save credentials:', err);
-      setError(String(err));
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [checkAuthStatus]);
+  const saveCredentials = useCallback(
+    async (clientId: string, clientSecret: string) => {
+      try {
+        setIsLoading(true);
+        await invoke("save_oauth_credentials", { clientId, clientSecret });
+        await checkAuthStatus();
+        setError(null);
+        return true;
+      } catch (err) {
+        console.error("Failed to save credentials:", err);
+        setError(String(err));
+        return false;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [checkAuthStatus],
+  );
 
   /**
    * Start OAuth login flow
@@ -95,7 +98,7 @@ export function useGoogleAuth() {
       setError(null);
 
       // Get OAuth URL from backend
-      const authUrl = await invoke<string>('start_google_auth');
+      const authUrl = await invoke<string>("start_google_auth");
 
       // Open in default browser
       await open(authUrl);
@@ -108,7 +111,7 @@ export function useGoogleAuth() {
       const pollInterval = setInterval(async () => {
         attempts++;
         try {
-          const status = await invoke<AuthStatus>('get_google_auth_status');
+          const status = await invoke<AuthStatus>("get_google_auth_status");
           if (status.authenticated) {
             clearInterval(pollInterval);
             setAuthStatus(status);
@@ -121,13 +124,12 @@ export function useGoogleAuth() {
 
         if (attempts >= maxAttempts) {
           clearInterval(pollInterval);
-          setError('Authentication timed out. Please try again.');
+          setError("Authentication timed out. Please try again.");
           setIsLoading(false);
         }
       }, 2000);
-
     } catch (err) {
-      console.error('Failed to start login:', err);
+      console.error("Failed to start login:", err);
       setError(String(err));
       setIsLoading(false);
     }
@@ -139,11 +141,11 @@ export function useGoogleAuth() {
   const logout = useCallback(async () => {
     try {
       setIsLoading(true);
-      await invoke('logout_google');
+      await invoke("logout_google");
       setAuthStatus({ authenticated: false, configured: true });
       setError(null);
     } catch (err) {
-      console.error('Failed to logout:', err);
+      console.error("Failed to logout:", err);
       setError(String(err));
     } finally {
       setIsLoading(false);
@@ -153,75 +155,97 @@ export function useGoogleAuth() {
   /**
    * List folders in Google Drive
    */
-  const listDriveFolders = useCallback(async (parentId?: string): Promise<DriveFolder[]> => {
-    try {
-      const folders = await invoke<DriveFolder[]>('list_drive_folders', { parentId });
-      return folders;
-    } catch (err) {
-      console.error('Failed to list drive folders:', err);
-      setError(String(err));
-      return [];
-    }
-  }, []);
+  const listDriveFolders = useCallback(
+    async (parentId?: string): Promise<DriveFolder[]> => {
+      try {
+        const folders = await invoke<DriveFolder[]>("list_drive_folders", {
+          parentId,
+        });
+        return folders;
+      } catch (err) {
+        console.error("Failed to list drive folders:", err);
+        setError(String(err));
+        return [];
+      }
+    },
+    [],
+  );
 
   /**
    * List both folders and files in Google Drive
    */
-  const listDriveItems = useCallback(async (parentId?: string): Promise<DriveItem[]> => {
-    try {
-      const items = await invoke<DriveItem[]>('list_drive_items', { parentId });
-      return items;
-    } catch (err) {
-      console.error('Failed to list drive items:', err);
-      setError(String(err));
-      return [];
-    }
-  }, []);
+  const listDriveItems = useCallback(
+    async (parentId?: string): Promise<DriveItem[]> => {
+      try {
+        const items = await invoke<DriveItem[]>("list_drive_items", {
+          parentId,
+        });
+        return items;
+      } catch (err) {
+        console.error("Failed to list drive items:", err);
+        setError(String(err));
+        return [];
+      }
+    },
+    [],
+  );
 
   /**
    * Import specific files from Google Drive
    * @returns The number of files imported
    */
-  const importDriveFiles = useCallback(async (files: DriveItem[], parentFolderId?: string): Promise<number> => {
-    try {
-      const count = await invoke<number>('import_drive_files', { files, parentFolderId });
-      return count;
-    } catch (err) {
-      console.error('Failed to import drive files:', err);
-      setError(String(err));
-      return 0;
-    }
-  }, []);
+  const importDriveFiles = useCallback(
+    async (files: DriveItem[], parentFolderId?: string): Promise<number> => {
+      try {
+        const count = await invoke<number>("import_drive_files", {
+          files,
+          parentFolderId,
+        });
+        return count;
+      } catch (err) {
+        console.error("Failed to import drive files:", err);
+        setError(String(err));
+        return 0;
+      }
+    },
+    [],
+  );
 
   /**
    * Add a folder to sync list
    */
-  const addSyncFolder = useCallback(async (folderId: string, folderName: string) => {
-    try {
-      await invoke('add_drive_folder', { folderId, folderName });
-      await loadSyncedFolders();
-      return true;
-    } catch (err) {
-      console.error('Failed to add sync folder:', err);
-      setError(String(err));
-      return false;
-    }
-  }, [loadSyncedFolders]);
+  const addSyncFolder = useCallback(
+    async (folderId: string, folderName: string) => {
+      try {
+        await invoke("add_drive_folder", { folderId, folderName });
+        await loadSyncedFolders();
+        return true;
+      } catch (err) {
+        console.error("Failed to add sync folder:", err);
+        setError(String(err));
+        return false;
+      }
+    },
+    [loadSyncedFolders],
+  );
 
   /**
    * Remove a folder from sync list
    */
-  const removeSyncFolder = useCallback(async (folderId: string) => {
-    try {
-      await invoke('remove_drive_folder', { folderId });
-      await loadSyncedFolders();
-      return true;
-    } catch (err) {
-      console.error('Failed to remove sync folder:', err);
-      setError(String(err));
-      return false;
-    }
-  }, [loadSyncedFolders]);
+  const removeSyncFolder = useCallback(
+    async (folderId: string) => {
+      try {
+        await invoke("remove_drive_folder", { folderId });
+        await loadSyncedFolders();
+        return true;
+      } catch (err) {
+        console.error("Failed to remove sync folder:", err);
+        setError(String(err));
+        return false;
+      }
+    },
+    [loadSyncedFolders],
+  );
 
   return {
     // State

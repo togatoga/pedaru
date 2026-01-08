@@ -1,6 +1,13 @@
-import { useCallback, useEffect, MutableRefObject } from 'react';
-import { saveSessionState } from '@/lib/database';
-import type { ViewMode, Bookmark, Tab, OpenWindow, HistoryEntry, PdfSessionState } from './types';
+import { MutableRefObject, useCallback, useEffect } from "react";
+import { saveSessionState } from "@/lib/database";
+import type {
+  Bookmark,
+  HistoryEntry,
+  OpenWindow,
+  PdfSessionState,
+  Tab,
+  ViewMode,
+} from "./types";
 
 /**
  * Custom hook for managing session persistence with debouncing
@@ -35,7 +42,7 @@ export function useSessionPersistence(
   pageHistory: HistoryEntry[],
   historyIndex: number,
   saveTimeoutRef: MutableRefObject<NodeJS.Timeout | null>,
-  isRestoringSessionRef: MutableRefObject<boolean>
+  isRestoringSessionRef: MutableRefObject<boolean>,
 ) {
   // Save current session state (debounced)
   const saveCurrentSession = useCallback(() => {
@@ -76,7 +83,7 @@ export function useSessionPersistence(
       };
       // Save to database (async, fire and forget)
       saveSessionState(filePath, state).catch((error) => {
-        console.error('Failed to save session state:', error);
+        console.error("Failed to save session state:", error);
       });
     }, 500);
   }, [

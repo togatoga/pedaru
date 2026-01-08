@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import type { TocEntry, Bookmark } from '@/types';
-import type { OpenWindow, HistoryEntry } from '@/hooks/types';
-import TocSidebar from './TocSidebar';
-import HistorySidebar from './HistorySidebar';
-import WindowSidebar from './WindowSidebar';
-import BookmarkSidebar from './BookmarkSidebar';
+import type { HistoryEntry, OpenWindow } from "@/hooks/types";
+import type { Bookmark, TocEntry } from "@/types";
+import BookmarkSidebar from "./BookmarkSidebar";
+import HistorySidebar from "./HistorySidebar";
+import TocSidebar from "./TocSidebar";
+import WindowSidebar from "./WindowSidebar";
 
 export interface MainSidebarProps {
   // Visibility flags
@@ -78,12 +78,12 @@ export default function MainSidebar({
     };
 
     const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
   };
 
   return (

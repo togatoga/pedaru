@@ -1,14 +1,14 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
-import { useSessionPersistence } from './useSessionPersistence';
-import { saveSessionState } from '@/lib/database';
+import { renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { saveSessionState } from "@/lib/database";
+import { useSessionPersistence } from "./useSessionPersistence";
 
 // Mock database module
-vi.mock('@/lib/database', () => ({
+vi.mock("@/lib/database", () => ({
   saveSessionState: vi.fn().mockResolvedValue(undefined),
 }));
 
-describe('useSessionPersistence', () => {
+describe("useSessionPersistence", () => {
   const mockSaveSessionState = saveSessionState as ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -21,22 +21,22 @@ describe('useSessionPersistence', () => {
   });
 
   const defaultProps = {
-    filePath: '/path/to/file.pdf',
+    filePath: "/path/to/file.pdf",
     isStandaloneMode: false,
     currentPage: 5,
     zoom: 1.0,
-    viewMode: 'single' as const,
-    tabs: [{ id: 1, page: 1, label: 'Page 1' }],
+    viewMode: "single" as const,
+    tabs: [{ id: 1, page: 1, label: "Page 1" }],
     activeTabId: 1,
     openWindows: [],
-    bookmarks: [{ page: 3, label: 'Bookmark', createdAt: 1000 }],
-    pageHistory: [{ page: 1, timestamp: '1000' }],
+    bookmarks: [{ page: 3, label: "Bookmark", createdAt: 1000 }],
+    pageHistory: [{ page: 1, timestamp: "1000" }],
     historyIndex: 0,
     saveTimeoutRef: { current: null },
     isRestoringSessionRef: { current: false },
   };
 
-  it('should not save when filePath is null', () => {
+  it("should not save when filePath is null", () => {
     renderHook(() =>
       useSessionPersistence(
         null,
@@ -51,15 +51,15 @@ describe('useSessionPersistence', () => {
         defaultProps.pageHistory,
         defaultProps.historyIndex,
         defaultProps.saveTimeoutRef,
-        defaultProps.isRestoringSessionRef
-      )
+        defaultProps.isRestoringSessionRef,
+      ),
     );
 
     vi.advanceTimersByTime(500);
     expect(mockSaveSessionState).not.toHaveBeenCalled();
   });
 
-  it('should not save in standalone mode', () => {
+  it("should not save in standalone mode", () => {
     renderHook(() =>
       useSessionPersistence(
         defaultProps.filePath,
@@ -74,15 +74,15 @@ describe('useSessionPersistence', () => {
         defaultProps.pageHistory,
         defaultProps.historyIndex,
         defaultProps.saveTimeoutRef,
-        defaultProps.isRestoringSessionRef
-      )
+        defaultProps.isRestoringSessionRef,
+      ),
     );
 
     vi.advanceTimersByTime(500);
     expect(mockSaveSessionState).not.toHaveBeenCalled();
   });
 
-  it('should not save during session restoration', () => {
+  it("should not save during session restoration", () => {
     const isRestoringRef = { current: true };
 
     renderHook(() =>
@@ -99,15 +99,15 @@ describe('useSessionPersistence', () => {
         defaultProps.pageHistory,
         defaultProps.historyIndex,
         defaultProps.saveTimeoutRef,
-        isRestoringRef
-      )
+        isRestoringRef,
+      ),
     );
 
     vi.advanceTimersByTime(500);
     expect(mockSaveSessionState).not.toHaveBeenCalled();
   });
 
-  it('should save session after 500ms debounce', () => {
+  it("should save session after 500ms debounce", () => {
     renderHook(() =>
       useSessionPersistence(
         defaultProps.filePath,
@@ -122,8 +122,8 @@ describe('useSessionPersistence', () => {
         defaultProps.pageHistory,
         defaultProps.historyIndex,
         defaultProps.saveTimeoutRef,
-        defaultProps.isRestoringSessionRef
-      )
+        defaultProps.isRestoringSessionRef,
+      ),
     );
 
     // Should not save immediately
@@ -138,11 +138,11 @@ describe('useSessionPersistence', () => {
         page: defaultProps.currentPage,
         zoom: defaultProps.zoom,
         viewMode: defaultProps.viewMode,
-      })
+      }),
     );
   });
 
-  it('should debounce multiple saves', () => {
+  it("should debounce multiple saves", () => {
     const { rerender } = renderHook(
       ({ currentPage }) =>
         useSessionPersistence(
@@ -158,9 +158,9 @@ describe('useSessionPersistence', () => {
           defaultProps.pageHistory,
           defaultProps.historyIndex,
           defaultProps.saveTimeoutRef,
-          defaultProps.isRestoringSessionRef
+          defaultProps.isRestoringSessionRef,
         ),
-      { initialProps: { currentPage: 1 } }
+      { initialProps: { currentPage: 1 } },
     );
 
     // Change page multiple times
@@ -183,11 +183,11 @@ describe('useSessionPersistence', () => {
       defaultProps.filePath,
       expect.objectContaining({
         page: 4,
-      })
+      }),
     );
   });
 
-  it('should limit page history to 100 entries', () => {
+  it("should limit page history to 100 entries", () => {
     const longHistory = Array.from({ length: 150 }, (_, i) => ({
       page: i + 1,
       timestamp: String(i * 1000),
@@ -207,8 +207,8 @@ describe('useSessionPersistence', () => {
         longHistory,
         149, // historyIndex at the end
         defaultProps.saveTimeoutRef,
-        defaultProps.isRestoringSessionRef
-      )
+        defaultProps.isRestoringSessionRef,
+      ),
     );
 
     vi.advanceTimersByTime(500);
@@ -217,7 +217,7 @@ describe('useSessionPersistence', () => {
       defaultProps.filePath,
       expect.objectContaining({
         pageHistory: expect.any(Array),
-      })
+      }),
     );
 
     const savedState = mockSaveSessionState.mock.calls[0][1];
@@ -226,7 +226,7 @@ describe('useSessionPersistence', () => {
     expect(savedState.historyIndex).toBe(99);
   });
 
-  it('should save correctly when there are no tabs', () => {
+  it("should save correctly when there are no tabs", () => {
     renderHook(() =>
       useSessionPersistence(
         defaultProps.filePath,
@@ -241,8 +241,8 @@ describe('useSessionPersistence', () => {
         defaultProps.pageHistory,
         defaultProps.historyIndex,
         defaultProps.saveTimeoutRef,
-        defaultProps.isRestoringSessionRef
-      )
+        defaultProps.isRestoringSessionRef,
+      ),
     );
 
     vi.advanceTimersByTime(500);
@@ -252,7 +252,7 @@ describe('useSessionPersistence', () => {
       expect.objectContaining({
         tabs: [],
         activeTabIndex: null,
-      })
+      }),
     );
   });
 });

@@ -1,45 +1,57 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import type { Dispatch, SetStateAction } from 'react';
-import { useBookmarks } from './useBookmarks';
-import type { Bookmark } from './types';
+import { act, renderHook } from "@testing-library/react";
+import type { Dispatch, SetStateAction } from "react";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import type { Bookmark } from "./types";
+import { useBookmarks } from "./useBookmarks";
 
 // Mock Tauri APIs
-vi.mock('@tauri-apps/api/event', () => ({
+vi.mock("@tauri-apps/api/event", () => ({
   emit: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('@tauri-apps/api/webviewWindow', () => ({
-  getCurrentWebviewWindow: vi.fn(() => ({ label: 'test-window' })),
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  getCurrentWebviewWindow: vi.fn(() => ({ label: "test-window" })),
 }));
 
-describe('useBookmarks', () => {
+describe("useBookmarks", () => {
   let mockBookmarks: Bookmark[];
   let mockSetBookmarks: Mock<Dispatch<SetStateAction<Bookmark[]>>>;
   let mockGetChapterForPage: (page: number) => string | undefined;
 
   beforeEach(() => {
     mockBookmarks = [
-      { page: 1, label: 'Page 1', createdAt: 1000 },
-      { page: 5, label: 'P5: Chapter 1', createdAt: 2000 },
+      { page: 1, label: "Page 1", createdAt: 1000 },
+      { page: 5, label: "P5: Chapter 1", createdAt: 2000 },
     ];
     mockSetBookmarks = vi.fn();
     mockGetChapterForPage = vi.fn((page: number) =>
-      page === 5 ? 'Chapter 1' : undefined
+      page === 5 ? "Chapter 1" : undefined,
     );
   });
 
-  it('should calculate isCurrentPageBookmarked correctly', () => {
+  it("should calculate isCurrentPageBookmarked correctly", () => {
     const { result } = renderHook(() =>
-      useBookmarks(mockBookmarks, mockSetBookmarks, 1, mockGetChapterForPage, false)
+      useBookmarks(
+        mockBookmarks,
+        mockSetBookmarks,
+        1,
+        mockGetChapterForPage,
+        false,
+      ),
     );
 
     expect(result.current.isCurrentPageBookmarked).toBe(true);
   });
 
-  it('should add bookmark when toggling on unbookmarked page', () => {
+  it("should add bookmark when toggling on unbookmarked page", () => {
     const { result } = renderHook(() =>
-      useBookmarks(mockBookmarks, mockSetBookmarks, 3, mockGetChapterForPage, false)
+      useBookmarks(
+        mockBookmarks,
+        mockSetBookmarks,
+        3,
+        mockGetChapterForPage,
+        false,
+      ),
     );
 
     act(() => {
@@ -48,14 +60,20 @@ describe('useBookmarks', () => {
 
     expect(mockSetBookmarks).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ page: 3, label: 'Page 3' }),
-      ])
+        expect.objectContaining({ page: 3, label: "Page 3" }),
+      ]),
     );
   });
 
-  it('should remove bookmark when toggling on bookmarked page', () => {
+  it("should remove bookmark when toggling on bookmarked page", () => {
     const { result } = renderHook(() =>
-      useBookmarks(mockBookmarks, mockSetBookmarks, 1, mockGetChapterForPage, false)
+      useBookmarks(
+        mockBookmarks,
+        mockSetBookmarks,
+        1,
+        mockGetChapterForPage,
+        false,
+      ),
     );
 
     act(() => {
@@ -64,13 +82,19 @@ describe('useBookmarks', () => {
 
     const newBookmarks = mockSetBookmarks.mock.calls[0][0];
     expect(newBookmarks).not.toContainEqual(
-      expect.objectContaining({ page: 1 })
+      expect.objectContaining({ page: 1 }),
     );
   });
 
-  it('should include chapter name in bookmark label when available', () => {
+  it("should include chapter name in bookmark label when available", () => {
     const { result } = renderHook(() =>
-      useBookmarks(mockBookmarks, mockSetBookmarks, 5, mockGetChapterForPage, false)
+      useBookmarks(
+        mockBookmarks,
+        mockSetBookmarks,
+        5,
+        mockGetChapterForPage,
+        false,
+      ),
     );
 
     act(() => {
@@ -80,7 +104,7 @@ describe('useBookmarks', () => {
 
     // Re-render with no bookmark on page 5
     const { result: result2 } = renderHook(() =>
-      useBookmarks([], mockSetBookmarks, 5, mockGetChapterForPage, false)
+      useBookmarks([], mockSetBookmarks, 5, mockGetChapterForPage, false),
     );
 
     act(() => {
@@ -89,14 +113,20 @@ describe('useBookmarks', () => {
 
     expect(mockSetBookmarks).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ page: 5, label: 'P5: Chapter 1' }),
-      ])
+        expect.objectContaining({ page: 5, label: "P5: Chapter 1" }),
+      ]),
     );
   });
 
-  it('should remove specific bookmark', () => {
+  it("should remove specific bookmark", () => {
     const { result } = renderHook(() =>
-      useBookmarks(mockBookmarks, mockSetBookmarks, 1, mockGetChapterForPage, false)
+      useBookmarks(
+        mockBookmarks,
+        mockSetBookmarks,
+        1,
+        mockGetChapterForPage,
+        false,
+      ),
     );
 
     act(() => {
@@ -105,14 +135,18 @@ describe('useBookmarks', () => {
 
     const newBookmarks = mockSetBookmarks.mock.calls[0][0];
     expect(newBookmarks).toHaveLength(1);
-    expect(newBookmarks).toContainEqual(
-      expect.objectContaining({ page: 1 })
-    );
+    expect(newBookmarks).toContainEqual(expect.objectContaining({ page: 1 }));
   });
 
-  it('should clear all bookmarks', () => {
+  it("should clear all bookmarks", () => {
     const { result } = renderHook(() =>
-      useBookmarks(mockBookmarks, mockSetBookmarks, 1, mockGetChapterForPage, false)
+      useBookmarks(
+        mockBookmarks,
+        mockSetBookmarks,
+        1,
+        mockGetChapterForPage,
+        false,
+      ),
     );
 
     act(() => {

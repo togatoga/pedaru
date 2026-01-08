@@ -1,4 +1,4 @@
-import { useRef, useEffect, type RefObject, type DependencyList } from 'react';
+import { type DependencyList, type RefObject, useEffect, useRef } from "react";
 
 /**
  * Options for auto-scroll behavior
@@ -22,9 +22,9 @@ interface AutoScrollOptions {
 }
 
 const defaultOptions: AutoScrollOptions = {
-  behavior: 'smooth',
-  block: 'nearest',
-  inline: 'nearest',
+  behavior: "smooth",
+  block: "nearest",
+  inline: "nearest",
 };
 
 /**
@@ -57,7 +57,7 @@ const defaultOptions: AutoScrollOptions = {
  */
 export function useAutoScroll<T extends HTMLElement = HTMLElement>(
   deps: DependencyList,
-  options: AutoScrollOptions = {}
+  options: AutoScrollOptions = {},
 ): RefObject<T | null> {
   const ref = useRef<T>(null);
   const mergedOptions = { ...defaultOptions, ...options };

@@ -1,7 +1,14 @@
-import { useCallback, useEffect, useRef, Dispatch, SetStateAction, MutableRefObject } from 'react';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getTabLabel } from '@/lib/formatUtils';
-import type { Tab, PdfInfo, TabState } from './types';
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import {
+  Dispatch,
+  MutableRefObject,
+  SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
+import { getTabLabel } from "@/lib/formatUtils";
+import type { PdfInfo, Tab, TabState } from "./types";
 
 /**
  * Custom hook for tab management in the main window
@@ -41,21 +48,30 @@ export function useTabManagement(
   setPendingTabsRestore: Dispatch<SetStateAction<TabState[] | null>>,
   pendingActiveTabIndex: number | null,
   setPendingActiveTabIndex: Dispatch<SetStateAction<number | null>>,
-  onClosePdf?: () => void
+  onClosePdf?: () => void,
 ) {
   // Ref to track pending tab restoration (avoids circular dependencies)
-  const pendingTabsRestoreRef = useRef<{ tabs: TabState[]; activeIndex: number | null } | null>(
-    null
-  );
+  const pendingTabsRestoreRef = useRef<{
+    tabs: TabState[];
+    activeIndex: number | null;
+  } | null>(null);
 
   // Update ref when pending restore states change
   useEffect(() => {
     if (pendingTabsRestore) {
-      pendingTabsRestoreRef.current = { tabs: pendingTabsRestore, activeIndex: pendingActiveTabIndex };
+      pendingTabsRestoreRef.current = {
+        tabs: pendingTabsRestore,
+        activeIndex: pendingActiveTabIndex,
+      };
       setPendingTabsRestore(null);
       setPendingActiveTabIndex(null);
     }
-  }, [pendingTabsRestore, pendingActiveTabIndex, setPendingTabsRestore, setPendingActiveTabIndex]);
+  }, [
+    pendingTabsRestore,
+    pendingActiveTabIndex,
+    setPendingTabsRestore,
+    setPendingActiveTabIndex,
+  ]);
 
   // Track if we've created an initial tab for this PDF to avoid duplicates
   const initialTabCreatedRef = useRef<boolean>(false);
@@ -71,7 +87,8 @@ export function useTabManagement(
     if (pdfInfo && !isStandaloneMode) {
       if (pendingTabsRestoreRef.current) {
         // Restore tabs from session - clear existing tabs first to avoid duplicates
-        const { tabs: tabsToRestore, activeIndex } = pendingTabsRestoreRef.current;
+        const { tabs: tabsToRestore, activeIndex } =
+          pendingTabsRestoreRef.current;
         pendingTabsRestoreRef.current = null;
         initialTabCreatedRef.current = true; // Mark as handled
 
@@ -98,7 +115,11 @@ export function useTabManagement(
         } else if (restoredTabs.length > 0) {
           setActiveTabId(restoredTabs[0].id);
         }
-      } else if (tabs.length === 0 && !pendingTabsRestore && !initialTabCreatedRef.current) {
+      } else if (
+        tabs.length === 0 &&
+        !pendingTabsRestore &&
+        !initialTabCreatedRef.current
+      ) {
         // No tabs to restore and no existing tabs - create initial tab
         // Only create if there's no pending restore and we haven't created one yet
         initialTabCreatedRef.current = true;
@@ -152,7 +173,7 @@ export function useTabManagement(
       setTabs,
       setActiveTabId,
       tabIdRef,
-    ]
+    ],
   );
 
   /**
@@ -166,7 +187,7 @@ export function useTabManagement(
       // Use navigateToPageWithoutTabUpdate to avoid overwriting the tab we're switching from
       navigateToPageWithoutTabUpdate(tab.page);
     },
-    [tabs, navigateToPageWithoutTabUpdate, setActiveTabId]
+    [tabs, navigateToPageWithoutTabUpdate, setActiveTabId],
   );
 
   /**
@@ -202,11 +223,18 @@ export function useTabManagement(
    * If no tabs remain, closes the PDF (returns to empty state)
    */
   const closeCurrentTab = useCallback(() => {
-    console.log('[closeCurrentTab] tabs.length:', tabs.length, 'activeTabId:', activeTabId, 'onClosePdf:', !!onClosePdf);
+    console.log(
+      "[closeCurrentTab] tabs.length:",
+      tabs.length,
+      "activeTabId:",
+      activeTabId,
+      "onClosePdf:",
+      !!onClosePdf,
+    );
 
     if (tabs.length === 0) {
       // No tabs open, close the PDF
-      console.log('[closeCurrentTab] No tabs, calling onClosePdf');
+      console.log("[closeCurrentTab] No tabs, calling onClosePdf");
       if (onClosePdf) {
         onClosePdf();
       }
@@ -215,11 +243,11 @@ export function useTabManagement(
 
     // Find and close the active tab
     const activeIndex = tabs.findIndex((t) => t.id === activeTabId);
-    console.log('[closeCurrentTab] activeIndex:', activeIndex);
+    console.log("[closeCurrentTab] activeIndex:", activeIndex);
 
     if (activeIndex === -1) {
       // No active tab, close the PDF
-      console.log('[closeCurrentTab] No active tab, calling onClosePdf');
+      console.log("[closeCurrentTab] No active tab, calling onClosePdf");
       if (onClosePdf) {
         onClosePdf();
       }
@@ -227,12 +255,12 @@ export function useTabManagement(
     }
 
     const newTabs = tabs.filter((t) => t.id !== activeTabId);
-    console.log('[closeCurrentTab] newTabs.length:', newTabs.length);
+    console.log("[closeCurrentTab] newTabs.length:", newTabs.length);
     setTabs(newTabs);
 
     if (newTabs.length === 0) {
       // No more tabs, close the PDF
-      console.log('[closeCurrentTab] Last tab closed, calling onClosePdf');
+      console.log("[closeCurrentTab] Last tab closed, calling onClosePdf");
       setActiveTabId(null);
       if (onClosePdf) {
         onClosePdf();

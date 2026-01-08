@@ -52,7 +52,7 @@ body {
 }
 
 .toc-item:hover {
-  background-color: var(--bg-tertiary)40;
+  background-color: var(--bg-tertiary) 40;
 }
 
 /* Button focus styles */

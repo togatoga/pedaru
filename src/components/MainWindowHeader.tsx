@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import type { Dispatch, SetStateAction } from 'react';
-import type { ViewMode, Tab } from '@/types';
-import Header from './Header';
-import { TabBar } from './TabBar';
+import type { Dispatch, SetStateAction } from "react";
+import type { Tab, ViewMode } from "@/types";
+import Header from "./Header";
+import { TabBar } from "./TabBar";
 
 export interface MainWindowHeaderProps {
   // Visibility

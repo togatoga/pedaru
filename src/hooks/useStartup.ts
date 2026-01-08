@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, Dispatch, SetStateAction } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from "@tauri-apps/api/core";
+import { Dispatch, SetStateAction, useEffect, useRef } from "react";
+import { getLastOpenedPath, loadSessionState } from "@/lib/database";
 import type {
-  ViewMode,
-  PdfInfo,
   Bookmark,
   HistoryEntry,
+  PdfInfo,
   TabState,
+  ViewMode,
   WindowState,
-} from '@/types';
-import { loadSessionState, getLastOpenedPath } from '@/lib/database';
+} from "@/types";
 
 /**
  * URL parameters for startup
@@ -30,12 +30,12 @@ interface UrlParams {
 function parseUrlParams(): UrlParams {
   const params = new URLSearchParams(window.location.search);
   return {
-    page: params.get('page'),
-    file: params.get('file'),
-    isStandalone: params.get('standalone') === 'true',
-    openFile: params.get('openFile'),
-    zoom: params.get('zoom'),
-    viewMode: params.get('viewMode') as ViewMode | null,
+    page: params.get("page"),
+    file: params.get("file"),
+    isStandalone: params.get("standalone") === "true",
+    openFile: params.get("openFile"),
+    zoom: params.get("zoom"),
+    viewMode: params.get("viewMode") as ViewMode | null,
   };
 }
 
@@ -58,9 +58,15 @@ export interface UseStartupConfig {
   setPendingWindowsRestore: Dispatch<SetStateAction<WindowState[] | null>>;
 
   // Functions
-  loadPdfFromPathInternal: (path: string, skipRestore: boolean) => Promise<boolean>;
+  loadPdfFromPathInternal: (
+    path: string,
+    skipRestore: boolean,
+  ) => Promise<boolean>;
   loadPdfFromPath: (path: string) => Promise<void>;
-  updateNativeWindowTitle: (page: number, forceStandalone?: boolean) => Promise<void>;
+  updateNativeWindowTitle: (
+    page: number,
+    forceStandalone?: boolean,
+  ) => Promise<void>;
 }
 
 /**
@@ -97,13 +103,13 @@ export function useStartup(config: UseStartupConfig): void {
     if (hasRunRef.current) return;
     hasRunRef.current = true;
 
-    console.log('=== Startup useEffect running ===');
+    console.log("=== Startup useEffect running ===");
 
     const loadOnStartup = async () => {
-      console.log('=== loadOnStartup called ===');
+      console.log("=== loadOnStartup called ===");
 
       const urlParams = parseUrlParams();
-      console.log('URL params:', urlParams);
+      console.log("URL params:", urlParams);
 
       // 1. Handle standalone mode (page viewer window)
       if (urlParams.isStandalone && urlParams.file && urlParams.page) {
@@ -132,18 +138,21 @@ export function useStartup(config: UseStartupConfig): void {
      * Initialize standalone page viewer window
      */
     async function handleStandaloneInit(urlParams: UrlParams) {
-      console.log('Standalone mode detected, loading PDF from:', urlParams.file);
+      console.log(
+        "Standalone mode detected, loading PDF from:",
+        urlParams.file,
+      );
       setIsStandaloneMode(true);
       setIsTocOpen(false);
 
       try {
         const decodedPath = decodeURIComponent(urlParams.file!);
-        console.log('Decoded file path:', decodedPath);
+        console.log("Decoded file path:", decodedPath);
 
         const success = await loadPdfFromPathInternal(decodedPath, true);
         if (success) {
           const pageNum = parseInt(urlParams.page!, 10);
-          console.log('Setting page to:', pageNum);
+          console.log("Setting page to:", pageNum);
           setCurrentPage(pageNum);
           updateNativeWindowTitle(pageNum, true);
 
@@ -151,10 +160,10 @@ export function useStartup(config: UseStartupConfig): void {
           if (urlParams.zoom) setZoom(parseFloat(urlParams.zoom));
           if (urlParams.viewMode) setViewMode(urlParams.viewMode);
         } else {
-          alert('Failed to load PDF file');
+          alert("Failed to load PDF file");
         }
       } catch (err) {
-        console.error('Error in standalone mode initialization:', err);
+        console.error("Error in standalone mode initialization:", err);
         alert(`Failed to load PDF: ${err}`);
       }
     }
@@ -163,22 +172,22 @@ export function useStartup(config: UseStartupConfig): void {
      * Initialize new independent main window
      */
     async function handleNewWindowInit(openFile: string) {
-      console.log('Opening PDF in new independent window:', openFile);
+      console.log("Opening PDF in new independent window:", openFile);
       try {
         const decodedPath = decodeURIComponent(openFile);
-        console.log('Decoded file path:', decodedPath);
+        console.log("Decoded file path:", decodedPath);
 
         const success = await loadPdfFromPathInternal(decodedPath, false);
         if (success) {
           setCurrentPage(1);
           setZoom(1.0);
-          setViewMode('single');
-          localStorage.setItem('pedaru_last_opened_path', decodedPath);
+          setViewMode("single");
+          localStorage.setItem("pedaru_last_opened_path", decodedPath);
         } else {
-          alert('Failed to load PDF file');
+          alert("Failed to load PDF file");
         }
       } catch (err) {
-        console.error('Error loading PDF:', err);
+        console.error("Error loading PDF:", err);
         alert(`Failed to load PDF: ${err}`);
       }
     }
@@ -188,15 +197,15 @@ export function useStartup(config: UseStartupConfig): void {
      */
     async function checkCliOpenedFile(): Promise<string | null> {
       try {
-        console.log('Checking for opened file from Rust...');
-        const openedFilePath = await invoke<string | null>('get_opened_file');
-        console.log('get_opened_file result:', openedFilePath);
+        console.log("Checking for opened file from Rust...");
+        const openedFilePath = await invoke<string | null>("get_opened_file");
+        console.log("get_opened_file result:", openedFilePath);
 
-        if (openedFilePath && openedFilePath.toLowerCase().endsWith('.pdf')) {
+        if (openedFilePath && openedFilePath.toLowerCase().endsWith(".pdf")) {
           return openedFilePath;
         }
       } catch (e) {
-        console.error('Error checking opened file:', e);
+        console.error("Error checking opened file:", e);
       }
       return null;
     }
@@ -208,7 +217,7 @@ export function useStartup(config: UseStartupConfig): void {
       const lastPath = getLastOpenedPath();
       if (!lastPath) return;
 
-      console.log('Loading last opened PDF:', lastPath);
+      console.log("Loading last opened PDF:", lastPath);
       const session = await loadSessionState(lastPath);
 
       // Reset pdfInfo before loading new PDF
@@ -216,7 +225,7 @@ export function useStartup(config: UseStartupConfig): void {
 
       if (session) {
         setZoom(session.zoom || 1.0);
-        setViewMode(session.viewMode || 'single');
+        setViewMode(session.viewMode || "single");
         const success = await loadPdfFromPathInternal(lastPath, false);
         if (success) {
           setCurrentPage(session.page || 1);
@@ -230,7 +239,9 @@ export function useStartup(config: UseStartupConfig): void {
           // Restore page history
           if (session.pageHistory && session.pageHistory.length > 0) {
             setPageHistory(session.pageHistory);
-            setHistoryIndex(session.historyIndex ?? session.pageHistory.length - 1);
+            setHistoryIndex(
+              session.historyIndex ?? session.pageHistory.length - 1,
+            );
           }
 
           // Set pending states for tabs and windows restoration
@@ -248,7 +259,7 @@ export function useStartup(config: UseStartupConfig): void {
         if (success) {
           setCurrentPage(1);
           setZoom(1.0);
-          setViewMode('single');
+          setViewMode("single");
         }
       }
     }

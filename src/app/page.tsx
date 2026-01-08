@@ -1,43 +1,48 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { open } from '@tauri-apps/plugin-dialog';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { StandaloneWindowControls } from '@/components/StandaloneWindowControls';
-import MainWindowHeader from '@/components/MainWindowHeader';
-import MainSidebar from '@/components/MainSidebar';
-import ViewerContent from '@/components/ViewerContent';
-import OverlayContainer from '@/components/OverlayContainer';
-import type { ViewMode, Bookmark, TabState, WindowState } from '@/types';
-
-import { getTabLabel } from '@/lib/formatUtils';
-import { getChapterForPage as getChapter } from '@/lib/pdfUtils';
-import { useTauriEventListener } from '@/lib/eventUtils';
-import { zoomIn, zoomOut, resetZoom } from '@/lib/zoomConfig';
-import { useBookmarks } from '@/hooks/useBookmarks';
-import { useNavigation } from '@/hooks/useNavigation';
-import { useSearch } from '@/hooks/useSearch';
-import { useTabManagement } from '@/hooks/useTabManagement';
-import { useWindowManagement } from '@/hooks/useWindowManagement';
-import { usePdfLoader } from '@/hooks/usePdfLoader';
-import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import { useStartup } from '@/hooks/useStartup';
-import { usePdfViewerState } from '@/hooks/usePdfViewerState';
-import { useTextSelection } from '@/hooks/useTextSelection';
-import { useHeaderVisibility } from '@/hooks/useHeaderVisibility';
-import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { useContextMenu } from '@/hooks/useContextMenu';
-import { useSessionPersistence } from '@/hooks/useSessionPersistence';
-import { useMenuHandlers } from '@/hooks/useMenuHandlers';
-import { useWindowSync } from '@/hooks/useWindowSync';
-import type { OpenWindow, Tab, HistoryEntry } from '@/hooks/types';
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { open } from "@tauri-apps/plugin-dialog";
+import { useCallback, useEffect, useRef, useState } from "react";
+import MainSidebar from "@/components/MainSidebar";
+import MainWindowHeader from "@/components/MainWindowHeader";
+import OverlayContainer from "@/components/OverlayContainer";
+import { StandaloneWindowControls } from "@/components/StandaloneWindowControls";
+import ViewerContent from "@/components/ViewerContent";
+import type { HistoryEntry, OpenWindow, Tab } from "@/hooks/types";
+import { useBookmarks } from "@/hooks/useBookmarks";
+import { useContextMenu } from "@/hooks/useContextMenu";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useHeaderVisibility } from "@/hooks/useHeaderVisibility";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useMenuHandlers } from "@/hooks/useMenuHandlers";
+import { useNavigation } from "@/hooks/useNavigation";
+import { usePdfLoader } from "@/hooks/usePdfLoader";
+import { usePdfViewerState } from "@/hooks/usePdfViewerState";
+import { useSearch } from "@/hooks/useSearch";
+import { useSessionPersistence } from "@/hooks/useSessionPersistence";
+import { useStartup } from "@/hooks/useStartup";
+import { useTabManagement } from "@/hooks/useTabManagement";
+import { useTextSelection } from "@/hooks/useTextSelection";
+import { useWindowManagement } from "@/hooks/useWindowManagement";
+import { useWindowSync } from "@/hooks/useWindowSync";
+import { useTauriEventListener } from "@/lib/eventUtils";
+import { getTabLabel } from "@/lib/formatUtils";
+import { getChapterForPage as getChapter } from "@/lib/pdfUtils";
+import { resetZoom, zoomIn, zoomOut } from "@/lib/zoomConfig";
+import type { Bookmark, TabState, ViewMode, WindowState } from "@/types";
 
 export default function Home() {
   // Debug: Log immediately on component mount
-  console.log('=== Home component mounting ===');
-  console.log('window.location.href:', typeof window !== 'undefined' ? window.location.href : 'SSR');
-  console.log('window.location.search:', typeof window !== 'undefined' ? window.location.search : 'SSR');
-  
+  console.log("=== Home component mounting ===");
+  console.log(
+    "window.location.href:",
+    typeof window !== "undefined" ? window.location.href : "SSR",
+  );
+  console.log(
+    "window.location.search:",
+    typeof window !== "undefined" ? window.location.search : "SSR",
+  );
+
   // All state managed via usePdfViewerState hook
   const {
     // State groups
@@ -69,17 +74,56 @@ export default function Home() {
   const { fileData, fileName, filePath, pdfInfo } = pdfFile;
   const { setFileData, setFileName, setFilePath, setPdfInfo } = pdfFileSetters;
 
-  const { currentPage, totalPages, zoom, viewMode, isLoading, isStandaloneMode } = viewer;
-  const { setCurrentPage, setTotalPages, setZoom, setViewMode, setIsLoading, setIsStandaloneMode } = viewerSetters;
+  const {
+    currentPage,
+    totalPages,
+    zoom,
+    viewMode,
+    isLoading,
+    isStandaloneMode,
+  } = viewer;
+  const {
+    setCurrentPage,
+    setTotalPages,
+    setZoom,
+    setViewMode,
+    setIsLoading,
+    setIsStandaloneMode,
+  } = viewerSetters;
 
-  const { isTocOpen, showHistory, showBookmarks, showBookshelf, showWindows, showHeader, showSearchResults, showStandaloneSearch, sidebarWidth } = ui;
-  const { setIsTocOpen, setShowHistory, setShowBookmarks, setShowBookshelf, setShowWindows, setShowHeader, setShowSearchResults, setShowStandaloneSearch, setSidebarWidth } = uiSetters;
+  const {
+    isTocOpen,
+    showHistory,
+    showBookmarks,
+    showBookshelf,
+    showWindows,
+    showHeader,
+    showSearchResults,
+    showStandaloneSearch,
+    sidebarWidth,
+  } = ui;
+  const {
+    setIsTocOpen,
+    setShowHistory,
+    setShowBookmarks,
+    setShowBookshelf,
+    setShowWindows,
+    setShowHeader,
+    setShowSearchResults,
+    setShowStandaloneSearch,
+    setSidebarWidth,
+  } = uiSetters;
 
   const searchQuery = search.query;
   const searchResults = search.results;
   const currentSearchIndex = search.currentIndex;
   const isSearching = search.isSearching;
-  const { setSearchQuery, setSearchResults, setCurrentSearchIndex, setIsSearching } = searchSetters;
+  const {
+    setSearchQuery,
+    setSearchResults,
+    setCurrentSearchIndex,
+    setIsSearching,
+  } = searchSetters;
 
   const { pageHistory, historyIndex } = history;
   const { setPageHistory, setHistoryIndex } = historySetters;
@@ -87,8 +131,13 @@ export default function Home() {
   const { tabs, activeTabId, openWindows } = tabWindow;
   const { setTabs, setActiveTabId, setOpenWindows } = tabWindowSetters;
 
-  const { pendingTabsRestore, pendingActiveTabIndex, pendingWindowsRestore } = pendingRestore;
-  const { setPendingTabsRestore, setPendingActiveTabIndex, setPendingWindowsRestore } = pendingRestoreSetters;
+  const { pendingTabsRestore, pendingActiveTabIndex, pendingWindowsRestore } =
+    pendingRestore;
+  const {
+    setPendingTabsRestore,
+    setPendingActiveTabIndex,
+    setPendingWindowsRestore,
+  } = pendingRestoreSetters;
 
   const {
     filePathRef,
@@ -107,36 +156,47 @@ export default function Home() {
     filePathRef.current = filePath;
   }, [filePath, filePathRef]);
 
-  const updateNativeWindowTitle = useCallback(async (page: number, forceStandalone?: boolean) => {
-    // Check if we're in standalone mode - use forceStandalone for initial load
-    // since isStandaloneMode state might not be set yet
-    const isStandalone = forceStandalone ?? isStandaloneMode;
-    if (!isStandalone) return;
-    try {
-      const win = getCurrentWebviewWindow();
-      await win.setTitle(`Page ${page}`);
-    } catch (e) {
-      console.warn('Failed to update window title:', e);
-    }
-  }, [isStandaloneMode]);
+  const updateNativeWindowTitle = useCallback(
+    async (page: number, forceStandalone?: boolean) => {
+      // Check if we're in standalone mode - use forceStandalone for initial load
+      // since isStandaloneMode state might not be set yet
+      const isStandalone = forceStandalone ?? isStandaloneMode;
+      if (!isStandalone) return;
+      try {
+        const win = getCurrentWebviewWindow();
+        await win.setTitle(`Page ${page}`);
+      } catch (e) {
+        console.warn("Failed to update window title:", e);
+      }
+    },
+    [isStandaloneMode],
+  );
 
   // Debug: Log component state changes
   useEffect(() => {
-    console.log('Component state:', {
+    console.log("Component state:", {
       hasFileData: !!fileData,
       fileName,
       filePath,
       currentPage,
       totalPages,
       isStandaloneMode,
-      isLoading
+      isLoading,
     });
-  }, [fileData, fileName, filePath, currentPage, totalPages, isStandaloneMode, isLoading]);
+  }, [
+    fileData,
+    fileName,
+    filePath,
+    currentPage,
+    totalPages,
+    isStandaloneMode,
+    isLoading,
+  ]);
 
   // Helper function for getting chapter names
   const getChapterForPage = useCallback(
     (page: number) => getChapter(pdfInfo, page),
-    [pdfInfo]
+    [pdfInfo],
   );
 
   // Initialize custom hooks
@@ -163,7 +223,7 @@ export default function Home() {
     tabs,
     setTabs,
     activeTabId,
-    pdfInfo
+    pdfInfo,
   );
 
   const {
@@ -176,7 +236,7 @@ export default function Home() {
     setBookmarks,
     currentPage,
     getChapterForPage,
-    isStandaloneMode
+    isStandaloneMode,
   );
 
   const {
@@ -204,15 +264,17 @@ export default function Home() {
     goToPage,
     goToPageWithoutHistory,
     isStandaloneMode,
-    setViewMode
+    setViewMode,
   );
 
   // Text selection and translation
-  const { selection, autoExplain, clearSelection, triggerTranslation, triggerExplanation } = useTextSelection(
-    pdfDocRef,
-    currentPage,
-    totalPages
-  );
+  const {
+    selection,
+    autoExplain,
+    clearSelection,
+    triggerTranslation,
+    triggerExplanation,
+  } = useTextSelection(pdfDocRef, currentPage, totalPages);
 
   // Settings modal state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -229,7 +291,7 @@ export default function Home() {
 
   // Close PDF and reset to empty state
   const closePdf = useCallback(() => {
-    console.log('[closePdf] Closing PDF and resetting state');
+    console.log("[closePdf] Closing PDF and resetting state");
     resetAllState();
   }, [resetAllState]);
 
@@ -256,7 +318,7 @@ export default function Home() {
     setPendingTabsRestore,
     pendingActiveTabIndex,
     setPendingActiveTabIndex,
-    closePdf
+    closePdf,
   );
 
   const {
@@ -280,33 +342,34 @@ export default function Home() {
     setActiveTabId,
     tabIdRef,
     pendingWindowsRestore,
-    setPendingWindowsRestore
+    setPendingWindowsRestore,
   );
 
-  const { loadPdfFromPath, loadPdfInternal: loadPdfFromPathInternal } = usePdfLoader({
-    setFileData,
-    setFileName,
-    setFilePath,
-    setPdfInfo,
-    setCurrentPage,
-    setZoom,
-    setViewMode,
-    setBookmarks,
-    setPageHistory,
-    setHistoryIndex,
-    setSearchQuery,
-    setSearchResults,
-    setShowSearchResults,
-    setIsLoading,
-    setOpenWindows,
-    setTabs,
-    setActiveTabId,
-    setPendingTabsRestore,
-    setPendingActiveTabIndex,
-    setPendingWindowsRestore,
-    openWindows,
-    isRestoringSessionRef,
-  });
+  const { loadPdfFromPath, loadPdfInternal: loadPdfFromPathInternal } =
+    usePdfLoader({
+      setFileData,
+      setFileName,
+      setFilePath,
+      setPdfInfo,
+      setCurrentPage,
+      setZoom,
+      setViewMode,
+      setBookmarks,
+      setPageHistory,
+      setHistoryIndex,
+      setSearchQuery,
+      setSearchResults,
+      setShowSearchResults,
+      setIsLoading,
+      setOpenWindows,
+      setTabs,
+      setActiveTabId,
+      setPendingTabsRestore,
+      setPendingActiveTabIndex,
+      setPendingWindowsRestore,
+      openWindows,
+      isRestoringSessionRef,
+    });
 
   // Zoom handlers using centralized config (consistent across keyboard and menu)
   const handleZoomIn = useCallback(() => {
@@ -326,7 +389,7 @@ export default function Home() {
     showHeader,
     setShowHeader,
     tempShowHeaderRef,
-    headerTimerRef
+    headerTimerRef,
   );
 
   // Initialize keyboard shortcuts
@@ -360,7 +423,8 @@ export default function Home() {
     selectTab,
     toggleBookmark,
     openStandaloneWindow,
-    toggleTwoColumn: () => setViewMode((prev) => (prev === 'two-column' ? 'single' : 'two-column')),
+    toggleTwoColumn: () =>
+      setViewMode((prev) => (prev === "two-column" ? "single" : "two-column")),
     toggleHeader: handleToggleHeader,
     showHeader,
     setShowHeader,
@@ -390,7 +454,9 @@ export default function Home() {
         setShowHeader(true);
       }
       // Focus search input in main window
-      const searchInput = document.querySelector('input[placeholder="Search..."]') as HTMLInputElement;
+      const searchInput = document.querySelector(
+        'input[placeholder="Search..."]',
+      ) as HTMLInputElement;
       if (searchInput) {
         searchInput.focus();
         searchInput.select();
@@ -452,13 +518,19 @@ export default function Home() {
   });
 
   // Note: Tab and window restoration are handled via refs to avoid circular dependencies
-  const pendingTabsRestoreRef = useRef<{ tabs: TabState[]; activeIndex: number | null } | null>(null);
+  const pendingTabsRestoreRef = useRef<{
+    tabs: TabState[];
+    activeIndex: number | null;
+  } | null>(null);
   const pendingWindowsRestoreRef = useRef<WindowState[] | null>(null);
 
   // Update refs when pending restore states change
   useEffect(() => {
     if (pendingTabsRestore) {
-      pendingTabsRestoreRef.current = { tabs: pendingTabsRestore, activeIndex: pendingActiveTabIndex };
+      pendingTabsRestoreRef.current = {
+        tabs: pendingTabsRestore,
+        activeIndex: pendingActiveTabIndex,
+      };
       setPendingTabsRestore(null);
       setPendingActiveTabIndex(null);
     }
@@ -475,24 +547,22 @@ export default function Home() {
     try {
       const selected = await open({
         multiple: false,
-        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
       });
 
-      if (selected && typeof selected === 'string') {
+      if (selected && typeof selected === "string") {
         await loadPdfFromPath(selected);
       }
     } catch (error) {
-      console.error('Error opening file:', error);
+      console.error("Error opening file:", error);
       setIsLoading(false);
     }
   }, [loadPdfFromPath]);
 
   // Listen for open file menu event (must be after handleOpenFile is defined)
-  useTauriEventListener(
-    'menu-open-file-requested',
+  useTauriEventListener("menu-open-file-requested", handleOpenFile, [
     handleOpenFile,
-    [handleOpenFile]
-  );
+  ]);
 
   const handleLoadSuccess = useCallback((numPages: number) => {
     setTotalPages(numPages);
@@ -515,11 +585,17 @@ export default function Home() {
     pageHistory,
     historyIndex,
     saveTimeoutRef,
-    isRestoringSessionRef
+    isRestoringSessionRef,
   );
 
   // Document title updates (extracted to hook)
-  useDocumentTitle(fileName, pdfInfo, isStandaloneMode, currentPage, getChapterForPage);
+  useDocumentTitle(
+    fileName,
+    pdfInfo,
+    isStandaloneMode,
+    currentPage,
+    getChapterForPage,
+  );
 
   // Window synchronization (extracted to hook)
   useWindowSync(
@@ -532,14 +608,13 @@ export default function Home() {
     setTabs,
     setActiveTabId,
     setCurrentPage,
-    tabIdRef
+    tabIdRef,
   );
-
 
   // Show sidebar in main window for all sidebar types, or in standalone for ToC/History/Bookmarks
   const showSidebar = isStandaloneMode
-    ? (isTocOpen || showHistory || showBookmarks)
-    : (isTocOpen || showHistory || showBookmarks || showWindows);
+    ? isTocOpen || showHistory || showBookmarks
+    : isTocOpen || showHistory || showBookmarks || showWindows;
 
   return (
     <main className="flex flex-col h-screen bg-bg-primary relative group">
@@ -672,8 +747,10 @@ export default function Home() {
           filePath={filePath}
           searchQuery={searchQuery}
           focusedSearchPage={searchResults[currentSearchIndex]?.page}
-          focusedSearchMatchIndex={searchResults[currentSearchIndex]?.matchIndex}
-          bookmarkedPages={bookmarks.map(b => b.page)}
+          focusedSearchMatchIndex={
+            searchResults[currentSearchIndex]?.matchIndex
+          }
+          bookmarkedPages={bookmarks.map((b) => b.page)}
           onToggleBookmark={(page) => {
             const existingIndex = bookmarks.findIndex((b) => b.page === page);
             if (existingIndex >= 0) {
@@ -681,7 +758,10 @@ export default function Home() {
             } else {
               const chapter = getChapterForPage(page);
               const label = getTabLabel(page, chapter);
-              setBookmarks((prev) => [...prev, { page, label, createdAt: Date.now() }]);
+              setBookmarks((prev) => [
+                ...prev,
+                { page, label, createdAt: Date.now() },
+              ]);
             }
           }}
           onLoadSuccess={handleLoadSuccess}
@@ -695,14 +775,14 @@ export default function Home() {
           onSearchResultSelect={(index) => {
             setCurrentSearchIndex(index);
             if (isStandaloneMode) {
-              setViewMode('single');
+              setViewMode("single");
             }
             goToPage(searchResults[index].page);
           }}
           onOpenInWindow={(page) => openStandaloneWindow(page)}
           onCloseSearchResults={() => {
             setShowSearchResults(false);
-            setSearchQuery('');
+            setSearchQuery("");
             setSearchResults([]);
           }}
         />

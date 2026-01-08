@@ -1,25 +1,31 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from "@tauri-apps/api/core";
 import type {
+  BookmarkState,
+  HistoryEntry,
+  PdfSessionState,
+  TabState,
   ViewMode,
+  WindowState,
+} from "@/types";
+
+// Re-export types for backward compatibility
+export type {
   TabState,
   WindowState,
   BookmarkState,
   HistoryEntry,
   PdfSessionState,
-} from '@/types';
-
-// Re-export types for backward compatibility
-export type { TabState, WindowState, BookmarkState, HistoryEntry, PdfSessionState };
+};
 
 // Constants
-const LAST_OPENED_KEY = 'pedaru_last_opened_path';
+const LAST_OPENED_KEY = "pedaru_last_opened_path";
 
 // Save session state for a PDF
 export async function saveSessionState(
   filePath: string,
-  state: PdfSessionState
+  state: PdfSessionState,
 ): Promise<void> {
-  await invoke('save_session', { filePath, state });
+  await invoke("save_session", { filePath, state });
 
   // Update last opened path in localStorage (for quick access on startup)
   localStorage.setItem(LAST_OPENED_KEY, filePath);
@@ -27,9 +33,9 @@ export async function saveSessionState(
 
 // Load session state for a PDF
 export async function loadSessionState(
-  filePath: string
+  filePath: string,
 ): Promise<PdfSessionState | null> {
-  return await invoke<PdfSessionState | null>('load_session', { filePath });
+  return await invoke<PdfSessionState | null>("load_session", { filePath });
 }
 
 // Get last opened PDF path (from localStorage for fast startup)
@@ -39,17 +45,19 @@ export function getLastOpenedPath(): string | null {
 
 // Delete session for a PDF
 export async function deleteSession(filePath: string): Promise<void> {
-  await invoke('delete_session', { filePath });
+  await invoke("delete_session", { filePath });
 }
 
 // Get recent files for menu
-export async function getRecentFiles(limit: number = 10): Promise<Array<{
-  filePath: string;
-  lastOpened: number;
-}>> {
+export async function getRecentFiles(limit: number = 10): Promise<
+  Array<{
+    filePath: string;
+    lastOpened: number;
+  }>
+> {
   return await invoke<Array<{ filePath: string; lastOpened: number }>>(
-    'get_recent_files',
-    { limit }
+    "get_recent_files",
+    { limit },
   );
 }
 
@@ -59,7 +67,7 @@ export function createDefaultState(): PdfSessionState {
     lastOpened: Date.now(),
     page: 1,
     zoom: 1.0,
-    viewMode: 'single',
+    viewMode: "single",
     activeTabIndex: null,
     tabs: [],
     windows: [],

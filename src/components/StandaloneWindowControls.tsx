@@ -1,9 +1,17 @@
-'use client';
+"use client";
 
-import { Columns, History, PanelTop, Bookmark as BookmarkIcon, Search, X, List } from 'lucide-react';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { emit } from '@tauri-apps/api/event';
-import type { StandaloneWindowControlsProps } from '@/types/components';
+import { emit } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import {
+  Bookmark as BookmarkIcon,
+  Columns,
+  History,
+  List,
+  PanelTop,
+  Search,
+  X,
+} from "lucide-react";
+import type { StandaloneWindowControlsProps } from "@/types/components";
 
 /**
  * Floating navigation controls for standalone PDF windows.
@@ -45,8 +53,18 @@ export function StandaloneWindowControls({
         className="p-1.5 rounded hover:bg-bg-tertiary text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         title="Back"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 19l-7-7 7-7"
+          />
         </svg>
       </button>
       <button
@@ -55,8 +73,18 @@ export function StandaloneWindowControls({
         className="p-1.5 rounded hover:bg-bg-tertiary text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         title="Forward"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5l7 7-7 7"
+          />
         </svg>
       </button>
       <button
@@ -65,8 +93,18 @@ export function StandaloneWindowControls({
         className="p-1.5 rounded hover:bg-bg-tertiary text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         title="Previous Page (←)"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 19l-7-7 7-7"
+          />
         </svg>
       </button>
 
@@ -80,36 +118,58 @@ export function StandaloneWindowControls({
         className="p-1.5 rounded hover:bg-bg-tertiary text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         title="Next Page (→)"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5l7 7-7 7"
+          />
         </svg>
       </button>
 
       {/* ToC toggle */}
       <button
         onClick={() => setIsTocOpen((prev) => !prev)}
-        className={`ml-2 p-1.5 rounded hover:bg-bg-tertiary text-text-primary transition-colors ${isTocOpen ? 'text-accent' : ''}`}
-        title={isTocOpen ? 'Hide Table of Contents' : 'Show Table of Contents'}
-        aria-label={isTocOpen ? 'Hide Table of Contents' : 'Show Table of Contents'}
+        className={`ml-2 p-1.5 rounded hover:bg-bg-tertiary text-text-primary transition-colors ${isTocOpen ? "text-accent" : ""}`}
+        title={isTocOpen ? "Hide Table of Contents" : "Show Table of Contents"}
+        aria-label={
+          isTocOpen ? "Hide Table of Contents" : "Show Table of Contents"
+        }
       >
         <List className="w-5 h-5" />
       </button>
 
       {/* View mode toggle */}
       <button
-        onClick={() => setViewMode(prev => (prev === 'two-column' ? 'single' : 'two-column'))}
+        onClick={() =>
+          setViewMode((prev) =>
+            prev === "two-column" ? "single" : "two-column",
+          )
+        }
         className="p-1.5 rounded hover:bg-bg-tertiary text-text-primary transition-colors"
-        title={viewMode === 'two-column' ? 'Switch to Single Page' : 'Switch to Two-Column'}
+        title={
+          viewMode === "two-column"
+            ? "Switch to Single Page"
+            : "Switch to Two-Column"
+        }
       >
-        <Columns className={`w-5 h-5 ${viewMode === 'two-column' ? 'text-accent' : ''}`} />
+        <Columns
+          className={`w-5 h-5 ${viewMode === "two-column" ? "text-accent" : ""}`}
+        />
       </button>
 
       {/* History toggle */}
       <button
         onClick={() => setShowHistory((prev) => !prev)}
-        className={`p-1.5 rounded hover:bg-bg-tertiary text-text-primary transition-colors ${showHistory ? 'text-accent' : ''}`}
-        title={showHistory ? 'Hide History' : 'Show History'}
-        aria-label={showHistory ? 'Hide History' : 'Show History'}
+        className={`p-1.5 rounded hover:bg-bg-tertiary text-text-primary transition-colors ${showHistory ? "text-accent" : ""}`}
+        title={showHistory ? "Hide History" : "Show History"}
+        aria-label={showHistory ? "Hide History" : "Show History"}
       >
         <History className="w-5 h-5" />
       </button>
@@ -117,14 +177,18 @@ export function StandaloneWindowControls({
       {/* Bookmark toggle */}
       <button
         onClick={toggleBookmark}
-        className={`relative p-1.5 rounded hover:bg-bg-tertiary transition-colors ${isCurrentPageBookmarked ? 'text-yellow-500' : 'text-text-primary'}`}
-        title={isCurrentPageBookmarked ? 'Remove Bookmark' : 'Add Bookmark'}
-        aria-label={isCurrentPageBookmarked ? 'Remove Bookmark' : 'Add Bookmark'}
+        className={`relative p-1.5 rounded hover:bg-bg-tertiary transition-colors ${isCurrentPageBookmarked ? "text-yellow-500" : "text-text-primary"}`}
+        title={isCurrentPageBookmarked ? "Remove Bookmark" : "Add Bookmark"}
+        aria-label={
+          isCurrentPageBookmarked ? "Remove Bookmark" : "Add Bookmark"
+        }
       >
-        <BookmarkIcon className={`w-5 h-5 ${isCurrentPageBookmarked ? 'fill-yellow-500' : ''}`} />
+        <BookmarkIcon
+          className={`w-5 h-5 ${isCurrentPageBookmarked ? "fill-yellow-500" : ""}`}
+        />
         {bookmarks.length > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] flex items-center justify-center bg-yellow-500 text-white text-[10px] font-bold rounded-full px-0.5">
-            {bookmarks.length > 99 ? '99+' : bookmarks.length}
+            {bookmarks.length > 99 ? "99+" : bookmarks.length}
           </span>
         )}
       </button>
@@ -136,8 +200,18 @@ export function StandaloneWindowControls({
           className="p-1.5 rounded hover:bg-bg-tertiary text-text-primary transition-colors"
           title="Zoom Out"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 12H5" />
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 12H5"
+            />
           </svg>
         </button>
         <span className="text-text-primary text-sm min-w-[50px] text-center">
@@ -148,8 +222,18 @@ export function StandaloneWindowControls({
           className="p-1.5 rounded hover:bg-bg-tertiary text-text-primary transition-colors"
           title="Zoom In"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14M19 12H5" />
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 5v14M19 12H5"
+            />
           </svg>
         </button>
       </div>
@@ -165,9 +249,9 @@ export function StandaloneWindowControls({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Escape') {
+                if (e.key === "Escape") {
                   setShowStandaloneSearch(false);
-                  setSearchQuery('');
+                  setSearchQuery("");
                 }
               }}
               placeholder="Search in page..."
@@ -177,7 +261,7 @@ export function StandaloneWindowControls({
             <button
               onClick={() => {
                 setShowStandaloneSearch(false);
-                setSearchQuery('');
+                setSearchQuery("");
               }}
               className="p-0.5 rounded hover:bg-bg-tertiary text-text-secondary hover:text-text-primary transition-colors"
               title="Close search"
@@ -203,7 +287,7 @@ export function StandaloneWindowControls({
       <button
         onClick={async () => {
           const win = getCurrentWebviewWindow();
-          await emit('move-window-to-tab', {
+          await emit("move-window-to-tab", {
             label: win.label,
             page: currentPage,
           });

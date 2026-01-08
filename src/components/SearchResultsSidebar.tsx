@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { ExternalLink, X, Loader2 } from 'lucide-react';
-import type { SearchResult } from '@/types';
-import { useAutoScroll } from '@/hooks/useAutoScroll';
-import type { SearchResultsSidebarProps } from '@/types/components';
+import { ExternalLink, Loader2, X } from "lucide-react";
+import { useAutoScroll } from "@/hooks/useAutoScroll";
+import type { SearchResult } from "@/types";
+import type { SearchResultsSidebarProps } from "@/types/components";
 
 // Re-export for backward compatibility
 export type { SearchResult };
@@ -28,7 +28,9 @@ export default function SearchResultsSidebar({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-bg-tertiary">
         <div className="flex flex-col">
-          <h3 className="text-sm font-medium text-text-primary">Search Results</h3>
+          <h3 className="text-sm font-medium text-text-primary">
+            Search Results
+          </h3>
           {isSearching ? (
             <span className="text-xs text-text-secondary flex items-center gap-1">
               <Loader2 className="w-3 h-3 animate-spin" />
@@ -36,7 +38,8 @@ export default function SearchResultsSidebar({
             </span>
           ) : (
             <span className="text-xs text-text-secondary">
-              {results.length} match{results.length !== 1 ? 'es' : ''} for "{query}"
+              {results.length} match{results.length !== 1 ? "es" : ""} for "
+              {query}"
             </span>
           )}
         </div>
@@ -66,7 +69,9 @@ export default function SearchResultsSidebar({
               key={`${result.page}-${result.matchIndex}`}
               ref={index === currentIndex ? activeItemRef : null}
               className={`px-4 py-3 border-b border-bg-tertiary cursor-pointer transition-colors hover:bg-bg-tertiary ${
-                index === currentIndex ? 'bg-accent/20 border-l-2 border-l-accent' : ''
+                index === currentIndex
+                  ? "bg-accent/20 border-l-2 border-l-accent"
+                  : ""
               }`}
               onClick={() => onSelect(index)}
             >
