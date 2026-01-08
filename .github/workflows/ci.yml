@@ -75,7 +75,7 @@ jobs:
         run: npm test
 
       - name: Check TypeScript types
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Build frontend
         run: npm run build

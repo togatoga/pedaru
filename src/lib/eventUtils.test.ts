@@ -74,9 +74,10 @@ describe("eventUtils", () => {
         expect(capturedCallback).not.toBeNull();
       });
 
-      // Simulate event
-      if (!capturedCallback) throw new Error("capturedCallback is null");
-      capturedCallback({ payload: { data: "test" } });
+      // Simulate event - use type assertion since TypeScript can't track mock assignment
+      (capturedCallback as unknown as (event: { payload: unknown }) => void)({
+        payload: { data: "test" },
+      });
 
       await vi.waitFor(() => {
         expect(handler).toHaveBeenCalledWith({ data: "test" });
@@ -103,9 +104,10 @@ describe("eventUtils", () => {
 
       unmount();
 
-      // Try to call handler after unmount
-      if (!capturedCallback) throw new Error("capturedCallback is null");
-      capturedCallback({ payload: { data: "test" } });
+      // Try to call handler after unmount - use type assertion since TypeScript can't track mock assignment
+      (capturedCallback as unknown as (event: { payload: unknown }) => void)({
+        payload: { data: "test" },
+      });
 
       // Handler should not be called because component is unmounted
       expect(handler).not.toHaveBeenCalled();
@@ -249,9 +251,10 @@ describe("eventUtils", () => {
       // Update handler without re-registering listener
       rerender({ handler: handler2 });
 
-      // Trigger event - should use updated handler
-      if (!capturedCallback) throw new Error("capturedCallback is null");
-      capturedCallback({ payload: { data: "test" } });
+      // Trigger event - should use updated handler - use type assertion since TypeScript can't track mock assignment
+      (capturedCallback as unknown as (event: { payload: unknown }) => void)({
+        payload: { data: "test" },
+      });
 
       await vi.waitFor(() => {
         expect(handler1).not.toHaveBeenCalled();

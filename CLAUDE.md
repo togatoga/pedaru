@@ -32,7 +32,7 @@ cargo test --verbose             # Run Rust tests (in src-tauri/)
 npm test                         # Run frontend unit tests (Vitest)
 npm run test:ui                  # Run tests with Vitest UI
 npm run test:coverage            # Run tests with coverage report
-npx tsc --noEmit                 # TypeScript type checking
+npm run typecheck                # TypeScript type checking
 cargo clippy -- -D warnings      # Rust linting (in src-tauri/)
 cargo fmt -- --check             # Rust formatting check (in src-tauri/)
 
