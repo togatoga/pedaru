@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PdfInfo } from "@/types/pdf";
+import type { PdfInfo, TocEntry } from "@/types/pdf";
 import {
   formatPageLabel,
   formatTabLabel,
@@ -7,37 +7,40 @@ import {
   getTocBreadcrumb,
 } from "./pdfUtils";
 
+// Helper to create PdfInfo with default values
+function createPdfInfo(toc: TocEntry[], title = "Test PDF"): PdfInfo {
+  return {
+    title,
+    author: null,
+    creationDate: null,
+    modDate: null,
+    fileSize: null,
+    pageCount: null,
+    toc,
+  };
+}
+
 describe("pdfUtils", () => {
   describe("getChapterForPage", () => {
-    const mockPdfInfo: PdfInfo = {
-      title: "Test PDF",
-      author: null,
-      subject: null,
-      toc: [
-        { title: "Chapter 1", page: 1, children: [] },
-        {
-          title: "Chapter 2",
-          page: 10,
-          children: [
-            { title: "Section 2.1", page: 12, children: [] },
-            { title: "Section 2.2", page: 15, children: [] },
-          ],
-        },
-        { title: "Chapter 3", page: 20, children: [] },
-      ],
-    };
+    const mockPdfInfo = createPdfInfo([
+      { title: "Chapter 1", page: 1, children: [] },
+      {
+        title: "Chapter 2",
+        page: 10,
+        children: [
+          { title: "Section 2.1", page: 12, children: [] },
+          { title: "Section 2.2", page: 15, children: [] },
+        ],
+      },
+      { title: "Chapter 3", page: 20, children: [] },
+    ]);
 
     it("should return undefined when pdfInfo is null", () => {
       expect(getChapterForPage(null, 5)).toBeUndefined();
     });
 
     it("should return undefined when TOC is empty", () => {
-      const emptyTocInfo: PdfInfo = {
-        title: "Test PDF",
-        author: null,
-        subject: null,
-        toc: [],
-      };
+      const emptyTocInfo = createPdfInfo([]);
       expect(getChapterForPage(emptyTocInfo, 5)).toBeUndefined();
     });
 
@@ -97,28 +100,18 @@ describe("pdfUtils", () => {
     });
 
     it("should return empty array when TOC is empty", () => {
-      const emptyTocInfo: PdfInfo = {
-        title: "Test PDF",
-        author: null,
-        subject: null,
-        toc: [],
-      };
+      const emptyTocInfo = createPdfInfo([]);
       expect(getTocBreadcrumb(emptyTocInfo, 5)).toEqual([]);
     });
 
     it("should return breadcrumb for 2-level hierarchy", () => {
-      const pdfInfo: PdfInfo = {
-        title: "Test PDF",
-        author: null,
-        subject: null,
-        toc: [
-          {
-            title: "Chapter 1",
-            page: 1,
-            children: [{ title: "Section 1.1", page: 5, children: [] }],
-          },
-        ],
-      };
+      const pdfInfo = createPdfInfo([
+        {
+          title: "Chapter 1",
+          page: 1,
+          children: [{ title: "Section 1.1", page: 5, children: [] }],
+        },
+      ]);
       expect(getTocBreadcrumb(pdfInfo, 6)).toEqual([
         "Chapter 1",
         "Section 1.1",
@@ -126,26 +119,19 @@ describe("pdfUtils", () => {
     });
 
     it("should return breadcrumb for 3-level hierarchy", () => {
-      const pdfInfo: PdfInfo = {
-        title: "Test PDF",
-        author: null,
-        subject: null,
-        toc: [
-          {
-            title: "Chapter 1",
-            page: 1,
-            children: [
-              {
-                title: "Section 1.1",
-                page: 5,
-                children: [
-                  { title: "Subsection 1.1.1", page: 10, children: [] },
-                ],
-              },
-            ],
-          },
-        ],
-      };
+      const pdfInfo = createPdfInfo([
+        {
+          title: "Chapter 1",
+          page: 1,
+          children: [
+            {
+              title: "Section 1.1",
+              page: 5,
+              children: [{ title: "Subsection 1.1.1", page: 10, children: [] }],
+            },
+          ],
+        },
+      ]);
       expect(getTocBreadcrumb(pdfInfo, 12)).toEqual([
         "Chapter 1",
         "Section 1.1",
@@ -154,32 +140,27 @@ describe("pdfUtils", () => {
     });
 
     it("should return breadcrumb for 4-level hierarchy", () => {
-      const pdfInfo: PdfInfo = {
-        title: "Test PDF",
-        author: null,
-        subject: null,
-        toc: [
-          {
-            title: "Part 1",
-            page: 1,
-            children: [
-              {
-                title: "Chapter 1",
-                page: 5,
-                children: [
-                  {
-                    title: "Section 1.1",
-                    page: 10,
-                    children: [
-                      { title: "Subsection 1.1.1", page: 15, children: [] },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      };
+      const pdfInfo = createPdfInfo([
+        {
+          title: "Part 1",
+          page: 1,
+          children: [
+            {
+              title: "Chapter 1",
+              page: 5,
+              children: [
+                {
+                  title: "Section 1.1",
+                  page: 10,
+                  children: [
+                    { title: "Subsection 1.1.1", page: 15, children: [] },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ]);
       expect(getTocBreadcrumb(pdfInfo, 18)).toEqual([
         "Part 1",
         "Chapter 1",
@@ -189,38 +170,33 @@ describe("pdfUtils", () => {
     });
 
     it("should return breadcrumb for 5-level hierarchy", () => {
-      const pdfInfo: PdfInfo = {
-        title: "Test PDF",
-        author: null,
-        subject: null,
-        toc: [
-          {
-            title: "Part 1",
-            page: 1,
-            children: [
-              {
-                title: "Chapter 1",
-                page: 5,
-                children: [
-                  {
-                    title: "Section 1.1",
-                    page: 10,
-                    children: [
-                      {
-                        title: "Subsection 1.1.1",
-                        page: 15,
-                        children: [
-                          { title: "Paragraph A", page: 20, children: [] },
-                        ],
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      };
+      const pdfInfo = createPdfInfo([
+        {
+          title: "Part 1",
+          page: 1,
+          children: [
+            {
+              title: "Chapter 1",
+              page: 5,
+              children: [
+                {
+                  title: "Section 1.1",
+                  page: 10,
+                  children: [
+                    {
+                      title: "Subsection 1.1.1",
+                      page: 15,
+                      children: [
+                        { title: "Paragraph A", page: 20, children: [] },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ]);
       expect(getTocBreadcrumb(pdfInfo, 22)).toEqual([
         "Part 1",
         "Chapter 1",
@@ -231,21 +207,16 @@ describe("pdfUtils", () => {
     });
 
     it("should find correct breadcrumb when page is between entries", () => {
-      const pdfInfo: PdfInfo = {
-        title: "Test PDF",
-        author: null,
-        subject: null,
-        toc: [
-          {
-            title: "Chapter 1",
-            page: 1,
-            children: [
-              { title: "Section 1.1", page: 5, children: [] },
-              { title: "Section 1.2", page: 15, children: [] },
-            ],
-          },
-        ],
-      };
+      const pdfInfo = createPdfInfo([
+        {
+          title: "Chapter 1",
+          page: 1,
+          children: [
+            { title: "Section 1.1", page: 5, children: [] },
+            { title: "Section 1.2", page: 15, children: [] },
+          ],
+        },
+      ]);
       // Page 10 is after Section 1.1 (page 5) but before Section 1.2 (page 15)
       expect(getTocBreadcrumb(pdfInfo, 10)).toEqual([
         "Chapter 1",

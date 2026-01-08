@@ -28,13 +28,20 @@ pub struct TocEntry {
 
 /// Information extracted from a PDF document
 #[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct PdfInfo {
     /// PDF document title from metadata
     pub title: Option<String>,
     /// PDF document author from metadata
     pub author: Option<String>,
-    /// PDF document subject from metadata
-    pub subject: Option<String>,
+    /// Document creation date (ISO 8601 format)
+    pub creation_date: Option<String>,
+    /// Document modification date (ISO 8601 format)
+    pub mod_date: Option<String>,
+    /// File size in bytes
+    pub file_size: Option<u64>,
+    /// Total number of pages
+    pub page_count: Option<u32>,
     /// Table of contents extracted from PDF outline
     pub toc: Vec<TocEntry>,
 }
@@ -175,12 +182,16 @@ mod tests {
         let info = PdfInfo {
             title: Some("Test PDF".to_string()),
             author: Some("Test Author".to_string()),
-            subject: Some("Test Subject".to_string()),
+            creation_date: Some("2024-01-01".to_string()),
+            mod_date: Some("2024-06-01".to_string()),
+            file_size: Some(1024),
+            page_count: Some(10),
             toc: vec![],
         };
         assert_eq!(info.title, Some("Test PDF".to_string()));
         assert_eq!(info.author, Some("Test Author".to_string()));
-        assert_eq!(info.subject, Some("Test Subject".to_string()));
+        assert_eq!(info.file_size, Some(1024));
+        assert_eq!(info.page_count, Some(10));
         assert!(info.toc.is_empty());
     }
 

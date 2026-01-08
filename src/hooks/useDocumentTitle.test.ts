@@ -29,7 +29,10 @@ describe("useDocumentTitle", () => {
       const pdfInfo: PdfInfo = {
         title: "My PDF Document",
         author: null,
-        subject: null,
+        creationDate: null,
+        modDate: null,
+        fileSize: null,
+        pageCount: null,
         toc: [],
       };
 
@@ -58,7 +61,10 @@ describe("useDocumentTitle", () => {
       const pdfInfo: PdfInfo = {
         title: "PDF Title",
         author: null,
-        subject: null,
+        creationDate: null,
+        modDate: null,
+        fileSize: null,
+        pageCount: null,
         toc: [],
       };
 
@@ -87,7 +93,10 @@ describe("useDocumentTitle", () => {
       const pdfInfo: PdfInfo = {
         title: "Test",
         author: null,
-        subject: null,
+        creationDate: null,
+        modDate: null,
+        fileSize: null,
+        pageCount: null,
         toc: [],
       };
       const getChapter = (page: number) =>

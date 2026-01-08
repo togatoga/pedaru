@@ -25,6 +25,7 @@ export interface MainWindowHeaderProps {
   currentSearchIndex: number;
   windowCount: number;
   bookmarkCount: number;
+  thumbnailUrl: string | null;
   // Header handlers
   onOpenFile: () => void;
   onPrevPage: () => void;
@@ -81,6 +82,7 @@ export default function MainWindowHeader({
   currentSearchIndex,
   windowCount,
   bookmarkCount,
+  thumbnailUrl,
   onOpenFile,
   onPrevPage,
   onNextPage,
@@ -150,6 +152,7 @@ export default function MainWindowHeader({
         bookmarkCount={bookmarkCount}
         onCloseAllWindows={onCloseAllWindows}
         showWindows={showWindows}
+        thumbnailUrl={thumbnailUrl}
       />
 
       {/* Tabs bar - shows when tabs exist OR when windows exist (for drop target) */}

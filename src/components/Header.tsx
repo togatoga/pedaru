@@ -18,6 +18,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import Image from "next/image";
 import type { HeaderProps } from "@/types/components";
 
 export default function Header({
@@ -37,6 +38,7 @@ export default function Header({
   currentSearchIndex,
   windowCount,
   bookmarkCount,
+  thumbnailUrl,
   onOpenFile,
   onPrevPage,
   onNextPage,
@@ -81,13 +83,32 @@ export default function Header({
         >
           <Library className="w-4 h-4" />
         </button>
+        {/* PDF Info: Thumbnail and Title - Click to toggle bookshelf */}
         {(pdfTitle || fileName) && (
-          <span
-            className="text-text-secondary text-sm truncate max-w-[200px]"
-            title={pdfTitle || undefined}
+          <button
+            type="button"
+            onClick={onToggleBookshelf}
+            className="flex items-center gap-2 hover:bg-bg-tertiary rounded-lg px-2 py-1 -mx-2 -my-1 transition-colors"
+            title="Click to toggle bookshelf"
           >
-            {fileName || pdfTitle}
-          </span>
+            {thumbnailUrl && (
+              <div className="w-8 h-10 flex-shrink-0 rounded overflow-hidden bg-bg-tertiary border border-bg-hover relative">
+                <Image
+                  src={thumbnailUrl}
+                  alt="PDF thumbnail"
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+            )}
+            <span
+              className="text-text-secondary text-sm truncate max-w-[200px]"
+              title={pdfTitle || fileName || undefined}
+            >
+              {pdfTitle || fileName}
+            </span>
+          </button>
         )}
 
         {/* Search */}
