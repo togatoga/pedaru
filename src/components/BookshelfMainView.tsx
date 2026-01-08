@@ -140,11 +140,14 @@ export default function BookshelfMainView({
     (async () => {
       try {
         await generateThumbnailsInBackground(
-          itemsNeedingThumbnails.map((item) => ({
-            driveFileId: item.driveFileId || undefined,
-            itemId: item.driveFileId ? undefined : item.id,
-            localPath: item.localPath!,
-          })),
+          itemsNeedingThumbnails
+            .filter((item) => item.localPath)
+            .map((item) => ({
+              driveFileId: item.driveFileId || undefined,
+              itemId: item.driveFileId ? undefined : item.id,
+              // localPath is guaranteed by the filter above
+              localPath: item.localPath as string,
+            })),
           async (thumbnailItem, thumbnailData) => {
             if (thumbnailItem.driveFileId) {
               // Cloud item
@@ -340,7 +343,7 @@ export default function BookshelfMainView({
     [hasCheckedAuth, checkAuthStatus, downloadItem],
   );
 
-  const handleDelete = useCallback(
+  const _handleDelete = useCallback(
     async (item: BookshelfItemType) => {
       await deleteLocalCopy(item.driveFileId || "");
     },
@@ -578,7 +581,10 @@ export default function BookshelfMainView({
 
     // Grid view
     return (
+      // biome-ignore lint/a11y/noStaticElementInteractions: role/tabIndex added conditionally based on download status
       <div
+        role={isDownloaded ? "button" : undefined}
+        tabIndex={isDownloaded ? 0 : undefined}
         key={item.id}
         className={`
           relative group rounded-lg overflow-hidden
@@ -586,10 +592,21 @@ export default function BookshelfMainView({
           transition-all duration-200
           ${isDownloaded ? "cursor-pointer" : ""}
         `}
-        onClick={() => isDownloaded && handleOpenPdf(item)}
+        onClick={isDownloaded ? () => handleOpenPdf(item) : undefined}
+        onKeyDown={
+          isDownloaded
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleOpenPdf(item);
+                }
+              }
+            : undefined
+        }
       >
         <div className="aspect-[3/4] flex items-center justify-center bg-bg-primary/50">
           {item.thumbnailData ? (
+            // biome-ignore lint/performance/noImgElement: base64 data URI cannot be optimized by Next.js Image
             <img
               src={`data:image/png;base64,${item.thumbnailData}`}
               alt={displayName}
@@ -612,6 +629,7 @@ export default function BookshelfMainView({
                 />
               </div>
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleCancel(item);
@@ -667,6 +685,7 @@ export default function BookshelfMainView({
         <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
           {/* Favorite button - always visible on hover */}
           <button
+            type="button"
             onClick={(e) => handleToggleFavorite(item, e)}
             className={`p-2 rounded transition-colors ${
               item.isFavorite
@@ -684,6 +703,7 @@ export default function BookshelfMainView({
           {isDownloaded ? (
             <>
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleOpenPdf(item);
@@ -694,6 +714,7 @@ export default function BookshelfMainView({
                 <ExternalLink className="w-4 h-4" />
               </button>
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDeleteItem(item);
@@ -708,6 +729,7 @@ export default function BookshelfMainView({
             authStatus.authenticated &&
             item.sourceType !== "local" ? (
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 handleDownload(item);
@@ -735,6 +757,7 @@ export default function BookshelfMainView({
             </span>
           </div>
           <button
+            type="button"
             onClick={() => setShowSettings(false)}
             className="p-2 hover:bg-bg-tertiary rounded"
           >
@@ -749,10 +772,14 @@ export default function BookshelfMainView({
                 Set up OAuth credentials to connect to Google Drive.
               </p>
               <div>
-                <label className="block text-sm text-text-tertiary mb-2">
+                <label
+                  htmlFor="bookshelf-client-id"
+                  className="block text-sm text-text-tertiary mb-2"
+                >
                   Client ID
                 </label>
                 <input
+                  id="bookshelf-client-id"
                   type="text"
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
@@ -761,10 +788,14 @@ export default function BookshelfMainView({
                 />
               </div>
               <div>
-                <label className="block text-sm text-text-tertiary mb-2">
+                <label
+                  htmlFor="bookshelf-client-secret"
+                  className="block text-sm text-text-tertiary mb-2"
+                >
                   Client Secret
                 </label>
                 <input
+                  id="bookshelf-client-secret"
                   type="password"
                   value={clientSecret}
                   onChange={(e) => setClientSecret(e.target.value)}
@@ -773,6 +804,7 @@ export default function BookshelfMainView({
                 />
               </div>
               <button
+                type="button"
                 onClick={handleSaveCredentials}
                 disabled={!clientId || !clientSecret || authLoading}
                 className="w-full px-4 py-2 bg-accent text-white rounded font-medium disabled:opacity-50 hover:bg-accent/80 transition-colors"
@@ -795,6 +827,7 @@ export default function BookshelfMainView({
                     : "Not connected"}
                 </span>
                 <button
+                  type="button"
                   onClick={authStatus.authenticated ? logout : login}
                   disabled={authLoading}
                   className={`px-4 py-2 rounded flex items-center gap-2 ${
@@ -826,6 +859,7 @@ export default function BookshelfMainView({
                       Synced Folders
                     </span>
                     <button
+                      type="button"
                       onClick={async () => {
                         // Ensure auth is checked before browsing folders
                         if (!hasCheckedAuth) {
@@ -859,6 +893,7 @@ export default function BookshelfMainView({
                             {folder.folderName}
                           </span>
                           <button
+                            type="button"
                             onClick={() => removeSyncFolder(folder.folderId)}
                             className="text-text-tertiary hover:text-red-400"
                           >
@@ -869,6 +904,7 @@ export default function BookshelfMainView({
                     </ul>
                   )}
                   <button
+                    type="button"
                     onClick={handleSync}
                     disabled={isSyncing}
                     className="w-full px-4 py-2 bg-accent text-white rounded font-medium hover:bg-accent/80 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
@@ -901,6 +937,7 @@ export default function BookshelfMainView({
             </span>
           </div>
           <button
+            type="button"
             onClick={() => {
               setShowFolderBrowser(false);
               setFolderPath([]);
@@ -913,6 +950,7 @@ export default function BookshelfMainView({
 
         <div className="px-6 py-3 border-b border-bg-tertiary flex items-center gap-2 text-sm flex-wrap">
           <button
+            type="button"
             onClick={() => navigateBackForSync(0)}
             className="text-accent hover:underline"
           >
@@ -925,6 +963,7 @@ export default function BookshelfMainView({
             >
               <ChevronRight className="w-4 h-4 text-text-tertiary" />
               <button
+                type="button"
                 onClick={() => navigateBackForSync(index + 1)}
                 className="text-accent hover:underline"
               >
@@ -948,6 +987,7 @@ export default function BookshelfMainView({
               {folders.map((folder, index) => (
                 <li key={folder.id || `folder-${index}`}>
                   <button
+                    type="button"
                     onClick={() => navigateToFolderForSync(folder)}
                     className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary rounded-lg text-left"
                   >
@@ -966,6 +1006,7 @@ export default function BookshelfMainView({
         {folderPath.length > 0 && (
           <div className="p-6 border-t border-bg-tertiary">
             <button
+              type="button"
               onClick={handleAddCurrentFolder}
               className="w-full px-4 py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent/80 transition-colors flex items-center justify-center gap-2"
             >
@@ -994,6 +1035,7 @@ export default function BookshelfMainView({
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() =>
                 setBrowserViewMode(browserViewMode === "grid" ? "list" : "grid")
               }
@@ -1007,6 +1049,7 @@ export default function BookshelfMainView({
               )}
             </button>
             <button
+              type="button"
               onClick={() => {
                 setShowCloudFileBrowser(false);
                 setFolderPath([]);
@@ -1021,6 +1064,7 @@ export default function BookshelfMainView({
 
         <div className="px-6 py-3 border-b border-bg-tertiary flex items-center gap-2 text-sm flex-wrap">
           <button
+            type="button"
             onClick={() => navigateBackForImport(0)}
             className="text-accent hover:underline"
           >
@@ -1033,6 +1077,7 @@ export default function BookshelfMainView({
             >
               <ChevronRight className="w-4 h-4 text-text-tertiary" />
               <button
+                type="button"
                 onClick={() => navigateBackForImport(index + 1)}
                 className="text-accent hover:underline"
               >
@@ -1063,6 +1108,7 @@ export default function BookshelfMainView({
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                     {folders.map((folder, index) => (
                       <button
+                        type="button"
                         key={folder.id || `folder-${index}`}
                         onClick={() => navigateToFolderForImport(folder)}
                         className="p-4 bg-bg-tertiary hover:bg-bg-secondary rounded-lg flex flex-col items-center gap-2 transition-colors"
@@ -1090,6 +1136,7 @@ export default function BookshelfMainView({
                       );
                       return (
                         <button
+                          type="button"
                           key={file.id || `file-${index}`}
                           onClick={() => toggleFileSelection(file)}
                           className={`relative rounded-lg overflow-hidden transition-all ${
@@ -1100,6 +1147,7 @@ export default function BookshelfMainView({
                         >
                           <div className="aspect-[3/4] bg-bg-tertiary flex items-center justify-center">
                             {file.thumbnailLink ? (
+                              // biome-ignore lint/performance/noImgElement: external Google Drive thumbnail URL
                               <img
                                 src={file.thumbnailLink}
                                 alt={file.name}
@@ -1123,9 +1171,10 @@ export default function BookshelfMainView({
                             </p>
                             {file.size && (
                               <p className="text-xs text-text-tertiary">
-                                {(parseInt(file.size) / (1024 * 1024)).toFixed(
-                                  1,
-                                )}{" "}
+                                {(
+                                  parseInt(file.size, 10) /
+                                  (1024 * 1024)
+                                ).toFixed(1)}{" "}
                                 MB
                               </p>
                             )}
@@ -1162,6 +1211,7 @@ export default function BookshelfMainView({
                     {folders.map((folder, index) => (
                       <li key={folder.id || `folder-${index}`}>
                         <button
+                          type="button"
                           onClick={() => navigateToFolderForImport(folder)}
                           className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary rounded-lg text-left"
                         >
@@ -1191,6 +1241,7 @@ export default function BookshelfMainView({
                       return (
                         <li key={file.id || `file-${index}`}>
                           <button
+                            type="button"
                             onClick={() => toggleFileSelection(file)}
                             className={`w-full px-4 py-2 flex items-center gap-3 rounded-lg text-left transition-colors ${
                               isSelected
@@ -1212,6 +1263,7 @@ export default function BookshelfMainView({
                             {/* Thumbnail */}
                             <div className="w-10 h-14 bg-bg-tertiary rounded overflow-hidden flex items-center justify-center shrink-0">
                               {file.thumbnailLink ? (
+                                // biome-ignore lint/performance/noImgElement: external Google Drive thumbnail URL
                                 <img
                                   src={file.thumbnailLink}
                                   alt={file.name}
@@ -1233,9 +1285,10 @@ export default function BookshelfMainView({
                             </span>
                             {file.size && (
                               <span className="text-xs text-text-tertiary shrink-0">
-                                {(parseInt(file.size) / (1024 * 1024)).toFixed(
-                                  1,
-                                )}{" "}
+                                {(
+                                  parseInt(file.size, 10) /
+                                  (1024 * 1024)
+                                ).toFixed(1)}{" "}
                                 MB
                               </span>
                             )}
@@ -1255,6 +1308,7 @@ export default function BookshelfMainView({
           <div className="p-6 border-t border-bg-tertiary space-y-3">
             {selectedFiles.length > 0 && (
               <button
+                type="button"
                 onClick={handleImportSelectedFiles}
                 disabled={isImporting}
                 className="w-full px-4 py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent/80 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
@@ -1270,6 +1324,7 @@ export default function BookshelfMainView({
             )}
             {folderPath.length > 0 && (
               <button
+                type="button"
                 onClick={async () => {
                   const currentFolder = folderPath[folderPath.length - 1];
                   await addSyncFolder(currentFolder.id, currentFolder.name);
@@ -1313,6 +1368,7 @@ export default function BookshelfMainView({
           {/* Add button with dropdown */}
           <div className="relative">
             <button
+              type="button"
               onClick={() => setShowAddMenu(!showAddMenu)}
               disabled={isImporting}
               className="p-2 hover:bg-bg-tertiary rounded transition-colors"
@@ -1326,12 +1382,15 @@ export default function BookshelfMainView({
             </button>
             {showAddMenu && (
               <>
-                <div
-                  className="fixed inset-0 z-10"
+                <button
+                  type="button"
+                  aria-label="Close menu"
+                  className="fixed inset-0 z-10 cursor-default bg-transparent border-none"
                   onClick={() => setShowAddMenu(false)}
                 />
                 <div className="absolute right-0 top-full mt-2 w-56 bg-bg-secondary border border-bg-tertiary rounded-lg shadow-lg z-20 overflow-hidden">
                   <button
+                    type="button"
                     onClick={handleImportFiles}
                     className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary text-left"
                   >
@@ -1346,6 +1405,7 @@ export default function BookshelfMainView({
                     </div>
                   </button>
                   <button
+                    type="button"
                     onClick={handleImportDirectory}
                     className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary text-left"
                   >
@@ -1360,6 +1420,7 @@ export default function BookshelfMainView({
                     </div>
                   </button>
                   <button
+                    type="button"
                     onClick={async () => {
                       setShowAddMenu(false);
                       // Check auth status when clicking cloud import
@@ -1390,6 +1451,7 @@ export default function BookshelfMainView({
                     </div>
                   </button>
                   <button
+                    type="button"
                     onClick={async () => {
                       setShowAddMenu(false);
                       // Check auth status when clicking Google Drive option
@@ -1415,6 +1477,7 @@ export default function BookshelfMainView({
             )}
           </div>
           <button
+            type="button"
             onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
             className="p-2 hover:bg-bg-tertiary rounded transition-colors"
             title={viewMode === "grid" ? "List view" : "Grid view"}
@@ -1426,6 +1489,7 @@ export default function BookshelfMainView({
             )}
           </button>
           <button
+            type="button"
             onClick={handleSync}
             disabled={isSyncing}
             className="p-2 hover:bg-bg-tertiary rounded transition-colors"
@@ -1436,6 +1500,7 @@ export default function BookshelfMainView({
             />
           </button>
           <button
+            type="button"
             onClick={() => setShowSettings(true)}
             className="p-2 hover:bg-bg-tertiary rounded transition-colors"
             title="Settings"
@@ -1444,6 +1509,7 @@ export default function BookshelfMainView({
           </button>
           {onClose && (
             <button
+              type="button"
               onClick={onClose}
               className="p-2 hover:bg-bg-tertiary rounded transition-colors"
               title="Close"
@@ -1490,6 +1556,7 @@ export default function BookshelfMainView({
                 />
                 {searchQuery && (
                   <button
+                    type="button"
                     onClick={() => setSearchQuery("")}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary"
                   >
@@ -1499,6 +1566,7 @@ export default function BookshelfMainView({
               </div>
               <div className="flex border border-bg-tertiary rounded-lg overflow-hidden">
                 <button
+                  type="button"
                   onClick={() => setFilterMode("all")}
                   className={`px-4 py-2 text-sm font-medium transition-colors ${
                     filterMode === "all"
@@ -1509,6 +1577,7 @@ export default function BookshelfMainView({
                   All ({items.length})
                 </button>
                 <button
+                  type="button"
                   onClick={() => setFilterMode("pending")}
                   className={`px-4 py-2 text-sm font-medium transition-colors ${
                     filterMode === "pending"
@@ -1519,6 +1588,7 @@ export default function BookshelfMainView({
                   Not DL ({notDownloadedCount})
                 </button>
                 <button
+                  type="button"
                   onClick={() => setFilterMode("downloaded")}
                   className={`px-4 py-2 text-sm font-medium transition-colors ${
                     filterMode === "downloaded"
@@ -1532,6 +1602,7 @@ export default function BookshelfMainView({
               {/* Source type filter */}
               <div className="flex gap-2">
                 <button
+                  type="button"
                   onClick={() =>
                     setSourceFilter(sourceFilter === "local" ? null : "local")
                   }
@@ -1545,6 +1616,7 @@ export default function BookshelfMainView({
                   Local ({localCount})
                 </button>
                 <button
+                  type="button"
                   onClick={() =>
                     setSourceFilter(sourceFilter === "cloud" ? null : "cloud")
                   }
@@ -1560,6 +1632,7 @@ export default function BookshelfMainView({
               </div>
               {/* Favorites filter */}
               <button
+                type="button"
                 onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
                 className={`px-4 py-2 text-sm font-medium transition-colors flex items-center gap-1 border rounded-lg ${
                   showFavoritesOnly
@@ -1611,6 +1684,7 @@ export default function BookshelfMainView({
             sourceFilter !== "local" && (
               <div className="px-6 py-3 border-b border-bg-tertiary shrink-0">
                 <button
+                  type="button"
                   onClick={handleDownloadAll}
                   disabled={isDownloadingAll}
                   className="px-6 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/80 transition-colors flex items-center gap-2 disabled:opacity-50"
@@ -1669,6 +1743,7 @@ export default function BookshelfMainView({
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-14 flex-shrink-0 flex items-center justify-center bg-bg-tertiary rounded overflow-hidden">
                               {item.thumbnailData ? (
+                                // biome-ignore lint/performance/noImgElement: base64 data URI cannot be optimized by Next.js Image
                                 <img
                                   src={`data:image/png;base64,${item.thumbnailData}`}
                                   alt={displayName}
@@ -1736,6 +1811,7 @@ export default function BookshelfMainView({
                           <div className="flex items-center gap-1">
                             {/* Favorite toggle button */}
                             <button
+                              type="button"
                               onClick={(e) => handleToggleFavorite(item, e)}
                               className={`p-1.5 hover:bg-bg-hover rounded transition-colors ${
                                 item.isFavorite
@@ -1754,6 +1830,7 @@ export default function BookshelfMainView({
                             </button>
                             {isDownloading && (
                               <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleCancel(item);
@@ -1767,6 +1844,7 @@ export default function BookshelfMainView({
                             {isDownloaded && (
                               <>
                                 <button
+                                  type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleOpenPdf(item);
@@ -1777,6 +1855,7 @@ export default function BookshelfMainView({
                                   <ExternalLink className="w-4 h-4 text-text-secondary" />
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleDeleteItem(item);
@@ -1793,6 +1872,7 @@ export default function BookshelfMainView({
                               authStatus.authenticated &&
                               item.sourceType !== "local" && (
                                 <button
+                                  type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleDownload(item);

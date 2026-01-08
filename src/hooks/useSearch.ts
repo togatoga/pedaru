@@ -1,4 +1,8 @@
-import { Dispatch, SetStateAction, useCallback, useRef } from "react";
+import type {
+  PDFDocumentProxy,
+  TextItem,
+} from "pdfjs-dist/types/src/display/api";
+import { type Dispatch, type SetStateAction, useCallback, useRef } from "react";
 import type { SearchResult, ViewMode } from "./types";
 
 /**
@@ -25,16 +29,16 @@ import type { SearchResult, ViewMode } from "./types";
  * @returns Search functions and PDF document handler
  */
 export function useSearch(
-  pdfDocRef: React.MutableRefObject<any>,
-  searchQuery: string,
+  pdfDocRef: React.MutableRefObject<PDFDocumentProxy | null>,
+  _searchQuery: string,
   setSearchQuery: Dispatch<SetStateAction<string>>,
   searchResults: SearchResult[],
   setSearchResults: Dispatch<SetStateAction<SearchResult[]>>,
   currentSearchIndex: number,
   setCurrentSearchIndex: Dispatch<SetStateAction<number>>,
-  isSearching: boolean,
+  _isSearching: boolean,
   setIsSearching: Dispatch<SetStateAction<boolean>>,
-  showSearchResults: boolean,
+  _showSearchResults: boolean,
   setShowSearchResults: Dispatch<SetStateAction<boolean>>,
   totalPages: number,
   goToPage: (page: number) => void,
@@ -81,7 +85,8 @@ export function useSearch(
           const page = await doc.getPage(pageNum);
           const textContent = await page.getTextContent();
           const fullText = textContent.items
-            .map((item: any) => item.str)
+            .filter((item): item is TextItem => "str" in item)
+            .map((item) => item.str)
             .join(" ");
           const lowerText = fullText.toLowerCase();
 
@@ -146,6 +151,7 @@ export function useSearch(
       setCurrentSearchIndex,
       setShowSearchResults,
       setIsSearching,
+      pdfDocRef.current,
     ],
   );
 
@@ -270,9 +276,12 @@ export function useSearch(
    * Store PDF document reference for search operations
    * Called by PdfViewer when document loads
    */
-  const handlePdfDocumentLoad = useCallback((pdf: any) => {
-    pdfDocRef.current = pdf;
-  }, []);
+  const handlePdfDocumentLoad = useCallback(
+    (pdf: PDFDocumentProxy) => {
+      pdfDocRef.current = pdf;
+    },
+    [pdfDocRef],
+  );
 
   return {
     performSearch,

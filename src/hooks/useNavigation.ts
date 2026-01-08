@@ -1,6 +1,6 @@
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { Dispatch, SetStateAction, useCallback, useMemo } from "react";
+import { type Dispatch, type SetStateAction, useCallback } from "react";
 import { getTabLabel, getWindowTitle } from "@/lib/formatUtils";
 import { getChapterForPage as getChapter } from "@/lib/pdfUtils";
 import type { HistoryEntry, PdfInfo, Tab, ViewMode } from "./types";
@@ -35,7 +35,7 @@ export function useNavigation(
   historyIndex: number,
   setHistoryIndex: Dispatch<SetStateAction<number>>,
   isStandaloneMode: boolean,
-  tabs: Tab[],
+  _tabs: Tab[],
   setTabs: Dispatch<SetStateAction<Tab[]>>,
   activeTabId: number | null,
   pdfInfo: PdfInfo | null,

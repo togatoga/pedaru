@@ -1,12 +1,18 @@
 import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { Dispatch, MutableRefObject, SetStateAction, useCallback } from "react";
+import {
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+  useCallback,
+} from "react";
 import { loadSessionState } from "@/lib/database";
 import type {
   Bookmark,
   HistoryEntry,
   OpenWindow,
   PdfInfo,
+  SearchResult,
   Tab,
   TabState,
   ViewMode,
@@ -62,7 +68,7 @@ export function usePdfLoader({
   setPageHistory: Dispatch<SetStateAction<HistoryEntry[]>>;
   setHistoryIndex: Dispatch<SetStateAction<number>>;
   setSearchQuery: Dispatch<SetStateAction<string>>;
-  setSearchResults: Dispatch<SetStateAction<any[]>>;
+  setSearchResults: Dispatch<SetStateAction<SearchResult[]>>;
   setShowSearchResults: Dispatch<SetStateAction<boolean>>;
   setIsLoading: Dispatch<SetStateAction<boolean>>;
   setOpenWindows: Dispatch<SetStateAction<OpenWindow[]>>;
@@ -222,7 +228,8 @@ export function usePdfLoader({
       loadPdfInternal,
       setPendingTabsRestore,
       setPendingActiveTabIndex,
-      setPendingWindowsRestore,
+      setPendingWindowsRestore, // Prevent saving during session restoration
+      isRestoringSessionRef,
     ],
   );
 

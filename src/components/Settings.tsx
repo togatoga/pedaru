@@ -55,15 +55,6 @@ export default function Settings({
   const [isSavingOAuth, setIsSavingOAuth] = useState(false);
   const [oauthSaveSuccess, setOauthSaveSuccess] = useState(false);
 
-  // Load settings when opened
-  useEffect(() => {
-    if (isOpen) {
-      loadSettings();
-      loadAuthStatus();
-      loadOAuthCredentials();
-    }
-  }, [isOpen]);
-
   const loadSettings = async () => {
     const settings = await getGeminiSettings();
     setGeminiSettings(settings);
@@ -92,6 +83,16 @@ export default function Settings({
       console.error("Failed to get OAuth credentials:", error);
     }
   };
+
+  // Load settings when opened
+  // biome-ignore lint/correctness/useExhaustiveDependencies: functions are stable and don't need to be dependencies
+  useEffect(() => {
+    if (isOpen) {
+      loadSettings();
+      loadAuthStatus();
+      loadOAuthCredentials();
+    }
+  }, [isOpen]);
 
   const handleSaveOAuthCredentials = async () => {
     if (!clientId.trim() || !clientSecret.trim()) return;
@@ -179,6 +180,7 @@ export default function Settings({
         <div className="flex items-center justify-between p-4 border-b border-bg-tertiary">
           <h2 className="text-lg font-semibold text-text-primary">Settings</h2>
           <button
+            type="button"
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-bg-tertiary text-text-secondary hover:text-text-primary transition-colors"
           >
@@ -189,6 +191,7 @@ export default function Settings({
         {/* Tabs */}
         <div className="flex border-b border-bg-tertiary">
           <button
+            type="button"
             onClick={() => setActiveTab("display")}
             className={`px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === "display"
@@ -199,6 +202,7 @@ export default function Settings({
             Display
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab("translation")}
             className={`px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === "translation"
@@ -209,6 +213,7 @@ export default function Settings({
             Translation
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab("cloud")}
             className={`px-4 py-2 text-sm font-medium transition-colors flex items-center gap-1.5 ${
               activeTab === "cloud"
@@ -232,6 +237,7 @@ export default function Settings({
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
                   <button
+                    type="button"
                     onClick={() => onViewModeChange("single")}
                     className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
                       viewMode === "single"
@@ -250,6 +256,7 @@ export default function Settings({
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => onViewModeChange("two-column")}
                     className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
                       viewMode === "two-column"
@@ -275,11 +282,15 @@ export default function Settings({
             <div className="space-y-6">
               {/* API Key */}
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">
+                <label
+                  htmlFor="gemini-api-key"
+                  className="block text-sm font-medium text-text-primary mb-2"
+                >
                   Gemini API Key
                 </label>
                 <div className="relative">
                   <input
+                    id="gemini-api-key"
                     type={showApiKey ? "text" : "password"}
                     value={geminiSettings.apiKey}
                     onChange={(e) =>
@@ -318,10 +329,14 @@ export default function Settings({
 
               {/* Translation Model Selection */}
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">
+                <label
+                  htmlFor="translation-model"
+                  className="block text-sm font-medium text-text-primary mb-2"
+                >
                   翻訳モデル
                 </label>
                 <select
+                  id="translation-model"
                   value={geminiSettings.model}
                   onChange={(e) =>
                     setGeminiSettings({
@@ -344,10 +359,14 @@ export default function Settings({
 
               {/* Explanation Model Selection */}
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">
+                <label
+                  htmlFor="explanation-model"
+                  className="block text-sm font-medium text-text-primary mb-2"
+                >
                   解説モデル
                 </label>
                 <select
+                  id="explanation-model"
                   value={geminiSettings.explanationModel}
                   onChange={(e) =>
                     setGeminiSettings({
@@ -371,6 +390,7 @@ export default function Settings({
               {/* Actions */}
               <div className="flex items-center justify-end pt-4 border-t border-bg-tertiary">
                 <button
+                  type="button"
                   onClick={handleSaveGeminiSettings}
                   disabled={isSaving}
                   className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50"
@@ -405,6 +425,7 @@ export default function Settings({
                   </div>
                   {authStatus.authenticated ? (
                     <button
+                      type="button"
                       onClick={handleLogout}
                       className="flex items-center gap-2 px-3 py-1.5 text-sm text-red-400 hover:text-red-300 transition-colors"
                     >
@@ -413,6 +434,7 @@ export default function Settings({
                     </button>
                   ) : authStatus.configured ? (
                     <button
+                      type="button"
                       onClick={handleGoogleAuth}
                       disabled={isAuthLoading}
                       className="flex items-center gap-2 px-3 py-1.5 bg-accent text-white text-sm rounded hover:bg-accent/90 transition-colors disabled:opacity-50"
@@ -448,10 +470,14 @@ export default function Settings({
 
                 {/* Client ID */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-text-primary mb-2">
+                  <label
+                    htmlFor="settings-client-id"
+                    className="block text-sm font-medium text-text-primary mb-2"
+                  >
                     Client ID
                   </label>
                   <input
+                    id="settings-client-id"
                     type="text"
                     value={clientId}
                     onChange={(e) => setClientId(e.target.value)}
@@ -462,11 +488,15 @@ export default function Settings({
 
                 {/* Client Secret */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-text-primary mb-2">
+                  <label
+                    htmlFor="settings-client-secret"
+                    className="block text-sm font-medium text-text-primary mb-2"
+                  >
                     Client Secret
                   </label>
                   <div className="relative">
                     <input
+                      id="settings-client-secret"
                       type={showClientSecret ? "text" : "password"}
                       value={clientSecret}
                       onChange={(e) => setClientSecret(e.target.value)}
@@ -489,6 +519,7 @@ export default function Settings({
 
                 {/* Save Button */}
                 <button
+                  type="button"
                   onClick={handleSaveOAuthCredentials}
                   disabled={
                     isSavingOAuth || !clientId.trim() || !clientSecret.trim()

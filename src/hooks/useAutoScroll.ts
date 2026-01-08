@@ -70,7 +70,7 @@ export function useAutoScroll<T extends HTMLElement = HTMLElement>(
         inline: mergedOptions.inline,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: deps is passed dynamically
   }, deps);
 
   return ref;

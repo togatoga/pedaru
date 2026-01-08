@@ -35,6 +35,12 @@ npm run test:coverage            # Run tests with coverage report
 npx tsc --noEmit                 # TypeScript type checking
 cargo clippy -- -D warnings      # Rust linting (in src-tauri/)
 cargo fmt -- --check             # Rust formatting check (in src-tauri/)
+
+# Linting & Formatting (Frontend)
+npm run lint                     # Run Biome linter
+npm run lint:fix                 # Run Biome linter with auto-fix
+npm run format                   # Format code with Biome/Prettier
+npm run format:check             # Check formatting without changes
 ```
 
 ### Debugging

@@ -24,7 +24,6 @@ export interface MainWindowHeaderProps {
   searchResultCount: number;
   currentSearchIndex: number;
   windowCount: number;
-  tabCount: number;
   bookmarkCount: number;
   // Header handlers
   onOpenFile: () => void;
@@ -81,7 +80,6 @@ export default function MainWindowHeader({
   searchResultCount,
   currentSearchIndex,
   windowCount,
-  tabCount,
   bookmarkCount,
   onOpenFile,
   onPrevPage,
@@ -149,7 +147,6 @@ export default function MainWindowHeader({
         onSearchPrev={onSearchPrev}
         onSearchNext={onSearchNext}
         windowCount={windowCount}
-        tabCount={tabCount}
         bookmarkCount={bookmarkCount}
         onCloseAllWindows={onCloseAllWindows}
         showWindows={showWindows}

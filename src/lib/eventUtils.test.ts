@@ -63,7 +63,7 @@ describe("eventUtils", () => {
       let capturedCallback: ((event: { payload: unknown }) => void) | null =
         null;
 
-      mockListen.mockImplementation((eventName, callback) => {
+      mockListen.mockImplementation((_eventName, callback) => {
         capturedCallback = callback;
         return Promise.resolve(mockUnlisten);
       });
@@ -75,7 +75,8 @@ describe("eventUtils", () => {
       });
 
       // Simulate event
-      capturedCallback!({ payload: { data: "test" } });
+      if (!capturedCallback) throw new Error("capturedCallback is null");
+      capturedCallback({ payload: { data: "test" } });
 
       await vi.waitFor(() => {
         expect(handler).toHaveBeenCalledWith({ data: "test" });
@@ -87,7 +88,7 @@ describe("eventUtils", () => {
       let capturedCallback: ((event: { payload: unknown }) => void) | null =
         null;
 
-      mockListen.mockImplementation((eventName, callback) => {
+      mockListen.mockImplementation((_eventName, callback) => {
         capturedCallback = callback;
         return Promise.resolve(mockUnlisten);
       });
@@ -103,7 +104,8 @@ describe("eventUtils", () => {
       unmount();
 
       // Try to call handler after unmount
-      capturedCallback!({ payload: { data: "test" } });
+      if (!capturedCallback) throw new Error("capturedCallback is null");
+      capturedCallback({ payload: { data: "test" } });
 
       // Handler should not be called because component is unmounted
       expect(handler).not.toHaveBeenCalled();
@@ -229,7 +231,7 @@ describe("eventUtils", () => {
       let capturedCallback: ((event: { payload: unknown }) => void) | null =
         null;
 
-      mockListen.mockImplementation((eventName, callback) => {
+      mockListen.mockImplementation((_eventName, callback) => {
         capturedCallback = callback;
         return Promise.resolve(mockUnlisten);
       });
@@ -248,7 +250,8 @@ describe("eventUtils", () => {
       rerender({ handler: handler2 });
 
       // Trigger event - should use updated handler
-      capturedCallback!({ payload: { data: "test" } });
+      if (!capturedCallback) throw new Error("capturedCallback is null");
+      capturedCallback({ payload: { data: "test" } });
 
       await vi.waitFor(() => {
         expect(handler1).not.toHaveBeenCalled();

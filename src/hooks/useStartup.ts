@@ -1,7 +1,7 @@
 "use client";
 
 import { invoke } from "@tauri-apps/api/core";
-import { Dispatch, SetStateAction, useEffect, useRef } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useRef } from "react";
 import { getLastOpenedPath, loadSessionState } from "@/lib/database";
 import type {
   Bookmark,
@@ -22,6 +22,14 @@ interface UrlParams {
   openFile: string | null;
   zoom: string | null;
   viewMode: ViewMode | null;
+}
+
+/**
+ * URL parameters for standalone mode (file and page are guaranteed)
+ */
+interface StandaloneUrlParams extends UrlParams {
+  file: string;
+  page: string;
 }
 
 /**
@@ -113,7 +121,7 @@ export function useStartup(config: UseStartupConfig): void {
 
       // 1. Handle standalone mode (page viewer window)
       if (urlParams.isStandalone && urlParams.file && urlParams.page) {
-        await handleStandaloneInit(urlParams);
+        await handleStandaloneInit(urlParams as StandaloneUrlParams);
         return;
       }
 
@@ -137,7 +145,7 @@ export function useStartup(config: UseStartupConfig): void {
     /**
      * Initialize standalone page viewer window
      */
-    async function handleStandaloneInit(urlParams: UrlParams) {
+    async function handleStandaloneInit(urlParams: StandaloneUrlParams) {
       console.log(
         "Standalone mode detected, loading PDF from:",
         urlParams.file,
@@ -146,12 +154,12 @@ export function useStartup(config: UseStartupConfig): void {
       setIsTocOpen(false);
 
       try {
-        const decodedPath = decodeURIComponent(urlParams.file!);
+        const decodedPath = decodeURIComponent(urlParams.file);
         console.log("Decoded file path:", decodedPath);
 
         const success = await loadPdfFromPathInternal(decodedPath, true);
         if (success) {
-          const pageNum = parseInt(urlParams.page!, 10);
+          const pageNum = parseInt(urlParams.page, 10);
           console.log("Setting page to:", pageNum);
           setCurrentPage(pageNum);
           updateNativeWindowTitle(pageNum, true);
@@ -201,7 +209,7 @@ export function useStartup(config: UseStartupConfig): void {
         const openedFilePath = await invoke<string | null>("get_opened_file");
         console.log("get_opened_file result:", openedFilePath);
 
-        if (openedFilePath && openedFilePath.toLowerCase().endsWith(".pdf")) {
+        if (openedFilePath?.toLowerCase().endsWith(".pdf")) {
           return openedFilePath;
         }
       } catch (e) {
@@ -265,5 +273,21 @@ export function useStartup(config: UseStartupConfig): void {
     }
 
     loadOnStartup();
-  }, []); // Run only once on mount
+  }, [
+    loadPdfFromPath,
+    loadPdfFromPathInternal,
+    setBookmarks,
+    setCurrentPage,
+    setHistoryIndex,
+    setIsStandaloneMode,
+    setIsTocOpen,
+    setPageHistory, // Reset pdfInfo before loading new PDF
+    setPdfInfo,
+    setPendingActiveTabIndex,
+    setPendingTabsRestore,
+    setPendingWindowsRestore,
+    setViewMode,
+    setZoom,
+    updateNativeWindowTitle,
+  ]); // Run only once on mount
 }

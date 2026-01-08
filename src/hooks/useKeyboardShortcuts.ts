@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect } from "react";
+import { type Dispatch, type SetStateAction, useEffect } from "react";
 import type { SearchResult, Tab } from "./types";
 
 /**
@@ -401,7 +401,7 @@ export function useKeyboardShortcuts({
             tabs.length > 0
           ) {
             e.preventDefault();
-            const tabIndex = parseInt(e.key) - 1;
+            const tabIndex = parseInt(e.key, 10) - 1;
             // Cmd/Ctrl+9 goes to last tab if there are more than 9 tabs
             if (e.key === "9" && tabs.length > 9) {
               selectTab(tabs[tabs.length - 1].id);
@@ -454,5 +454,6 @@ export function useKeyboardShortcuts({
     showHeaderTemporarily,
     triggerTranslation,
     triggerExplanation,
+    headerWasHiddenBeforeSearchRef,
   ]);
 }

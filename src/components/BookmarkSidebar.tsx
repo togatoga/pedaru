@@ -43,6 +43,7 @@ export default function BookmarkSidebar({
         <div className="flex items-center gap-2">
           {bookmarks.length > 0 && (
             <button
+              type="button"
               onClick={() => setSortMode(sortMode === "date" ? "page" : "date")}
               className="flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary"
               title={`Sort by ${sortMode === "date" ? "page" : "date"}`}
@@ -53,6 +54,7 @@ export default function BookmarkSidebar({
           )}
           {onClear && bookmarks.length > 0 && (
             <button
+              type="button"
               onClick={onClear}
               className="text-xs text-text-secondary hover:text-text-primary"
             >
@@ -76,6 +78,7 @@ export default function BookmarkSidebar({
               }`}
             >
               <button
+                type="button"
                 className="flex-1 flex items-center gap-2 text-left min-w-0"
                 onClick={() => onSelect(bookmark.page)}
               >
@@ -88,6 +91,7 @@ export default function BookmarkSidebar({
                 </div>
               </button>
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onRemove(bookmark.page);

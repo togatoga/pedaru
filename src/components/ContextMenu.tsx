@@ -88,8 +88,9 @@ export default function ContextMenu({
         top: adjustedPosition.top,
       }}
     >
-      {menuItems.map((item, index) => (
+      {menuItems.map((item, _index) => (
         <button
+          type="button"
           key={item.label}
           onClick={() => {
             item.onClick();

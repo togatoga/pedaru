@@ -1,7 +1,10 @@
 "use client";
 
-import React, { createContext, ReactNode, useContext } from "react";
-import { PdfViewerState, usePdfViewerState } from "@/hooks/usePdfViewerState";
+import { createContext, type ReactNode, useContext } from "react";
+import {
+  type PdfViewerState,
+  usePdfViewerState,
+} from "@/hooks/usePdfViewerState";
 
 /**
  * Context for sharing PDF viewer state across components and hooks

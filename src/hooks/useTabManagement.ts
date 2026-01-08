@@ -1,8 +1,7 @@
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
-  Dispatch,
-  MutableRefObject,
-  SetStateAction,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
   useCallback,
   useEffect,
   useRef,
@@ -79,7 +78,7 @@ export function useTabManagement(
   // Reset the flag when pdfInfo changes (new PDF loaded)
   useEffect(() => {
     initialTabCreatedRef.current = false;
-  }, [pdfInfo]);
+  }, []);
 
   // Restore tabs after PDF info is available and getChapterForPage is defined
   // Or create initial tab if no tabs to restore

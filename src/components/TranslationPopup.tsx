@@ -26,12 +26,7 @@ import {
   isGeminiConfigured,
   translateWithGemini,
 } from "@/lib/settings";
-import type {
-  GeminiSettings,
-  TextSelection,
-  TranslationResponse,
-  ViewMode,
-} from "@/types";
+import type { GeminiSettings, TranslationResponse } from "@/types";
 import type { TranslationPopupProps } from "@/types/components";
 
 // Custom components for ReactMarkdown to render ***text*** with yellow highlight
@@ -66,6 +61,7 @@ function CollapsibleSection({
   return (
     <div className="border border-bg-tertiary rounded-lg overflow-hidden mb-2">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-3 py-2 flex items-center justify-between bg-bg-tertiary/50 hover:bg-bg-tertiary transition-colors"
       >
@@ -173,7 +169,7 @@ export default function TranslationPopup({
       initializedRef.current = true;
     }
     // Don't update position when selection changes - keep the popup in place
-  }, [selection]);
+  }, []);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -441,6 +437,7 @@ export default function TranslationPopup({
         <div className="flex items-center gap-1">
           {translationResponse && (
             <button
+              type="button"
               onClick={handleOpenInNewWindow}
               className="p-1 rounded hover:bg-bg-hover text-text-tertiary hover:text-text-primary transition-colors"
               title="Open in new window"
@@ -449,6 +446,7 @@ export default function TranslationPopup({
             </button>
           )}
           <button
+            type="button"
             onClick={onClose}
             className="p-1 rounded hover:bg-bg-hover text-text-tertiary hover:text-text-primary transition-colors"
           >
@@ -460,6 +458,7 @@ export default function TranslationPopup({
       {/* Context (collapsible, for debugging) */}
       <div className="border-b border-bg-tertiary">
         <button
+          type="button"
           onClick={() => setShowContext(!showContext)}
           className="w-full px-3 py-1.5 flex items-center justify-between text-xs text-text-tertiary hover:text-text-secondary transition-colors"
         >
@@ -501,6 +500,7 @@ export default function TranslationPopup({
             </p>
             {onOpenSettings && (
               <button
+                type="button"
                 onClick={() => {
                   onClose();
                   onOpenSettings();
@@ -565,7 +565,7 @@ export default function TranslationPopup({
                   {explanationPoints && explanationPoints.length > 0 && (
                     <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
                       {explanationPoints.map((point, index) => (
-                        <li key={index}>
+                        <li key={`explanation-${index}-${point.slice(0, 20)}`}>
                           <ReactMarkdown components={markdownComponents}>
                             {point}
                           </ReactMarkdown>
@@ -599,7 +599,7 @@ export default function TranslationPopup({
                   translationResponse.points.length > 0 ? (
                     <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
                       {translationResponse.points.map((point, index) => (
-                        <li key={index}>
+                        <li key={`point-${index}-${point.slice(0, 20)}`}>
                           <ReactMarkdown components={markdownComponents}>
                             {point}
                           </ReactMarkdown>
@@ -634,7 +634,9 @@ export default function TranslationPopup({
                       {explanationPoints && explanationPoints.length > 0 && (
                         <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
                           {explanationPoints.map((point, index) => (
-                            <li key={index}>
+                            <li
+                              key={`exp-point-${index}-${point.slice(0, 20)}`}
+                            >
                               <ReactMarkdown components={markdownComponents}>
                                 {point}
                               </ReactMarkdown>
@@ -684,6 +686,7 @@ export default function TranslationPopup({
           {/* Action buttons - hide in autoExplain mode or after explanation is loaded */}
           {!autoExplain && !explanationPoints && (
             <button
+              type="button"
               onClick={handleExplain}
               disabled={isExplaining}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition-colors ${

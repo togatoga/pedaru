@@ -3,7 +3,7 @@
 import { ChevronRight, FileText } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { TocItemProps, TocSidebarProps } from "@/types/components";
-import { TocEntry } from "@/types/pdf";
+import type { TocEntry } from "@/types/pdf";
 
 // Helper: check if a TocEntry tree contains a specific page
 function containsPage(entry: TocEntry, page: number): boolean {
@@ -36,9 +36,10 @@ function TocItem({ entry, depth, currentPage, onPageSelect }: TocItemProps) {
 
   return (
     <li>
-      <div
+      <button
+        type="button"
         className={`
-          toc-item flex items-center gap-2 py-2 px-3 cursor-pointer rounded-lg mx-2 my-0.5
+          toc-item flex items-center gap-2 py-2 px-3 cursor-pointer rounded-lg mx-2 my-0.5 w-[calc(100%-16px)] text-left
           ${isActive ? "bg-accent text-white" : isNearby ? "text-text-primary" : "text-text-secondary"}
           hover:bg-bg-tertiary
         `}
@@ -46,16 +47,25 @@ function TocItem({ entry, depth, currentPage, onPageSelect }: TocItemProps) {
         onClick={handleClick}
       >
         {hasChildren && (
-          <button
+          <span
+            role="img"
+            aria-label={isExpanded ? "Collapse" : "Expand"}
             onClick={(e) => {
               e.stopPropagation();
               setIsExpanded(!isExpanded);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }
             }}
             className="p-0.5 hover:bg-bg-hover rounded transition-transform"
             style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}
           >
             <ChevronRight className="w-4 h-4" />
-          </button>
+          </span>
         )}
         {!hasChildren && <FileText className="w-4 h-4 opacity-50" />}
 
@@ -68,13 +78,13 @@ function TocItem({ entry, depth, currentPage, onPageSelect }: TocItemProps) {
             {entry.page}
           </span>
         )}
-      </div>
+      </button>
 
       {hasChildren && isExpanded && (
         <ul className="list-none">
-          {entry.children.map((child, index) => (
+          {entry.children.map((child) => (
             <TocItem
-              key={index}
+              key={`${child.title}-${child.page ?? "no-page"}`}
               entry={child}
               depth={depth + 1}
               currentPage={currentPage}
@@ -106,9 +116,9 @@ export default function TocSidebar({
       <div className="flex-1 overflow-y-auto py-2">
         {toc.length > 0 ? (
           <ul className="list-none">
-            {toc.map((entry, index) => (
+            {toc.map((entry) => (
               <TocItem
-                key={index}
+                key={`${entry.title}-${entry.page ?? "no-page"}`}
                 entry={entry}
                 depth={0}
                 currentPage={currentPage}

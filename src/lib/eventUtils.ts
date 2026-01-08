@@ -1,7 +1,7 @@
 "use client";
 
-import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { DependencyList, useEffect, useRef } from "react";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { type DependencyList, useEffect, useRef } from "react";
 
 /**
  * Hook for listening to a single Tauri event with proper lifecycle management.
@@ -125,6 +125,6 @@ export function useTauriEventListeners(
         } catch {}
       });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: deps is passed dynamically
   }, deps);
 }
