@@ -72,6 +72,7 @@ pub struct CloudItem {
     pub pdf_author: Option<String>,
     pub is_favorite: bool,
     pub last_opened: Option<i64>,
+    pub created_at: i64,
 }
 
 // ============================================================================
@@ -92,6 +93,7 @@ pub struct LocalItem {
     pub pdf_author: Option<String>,
     pub is_favorite: bool,
     pub last_opened: Option<i64>,
+    pub imported_at: i64,
 }
 
 // ============================================================================
@@ -314,7 +316,7 @@ pub fn get_cloud_items(app: &AppHandle) -> Result<Vec<CloudItem>, PedaruError> {
         .prepare(
             "SELECT id, drive_file_id, drive_folder_id, file_name, file_size,
                     thumbnail_data, local_path, download_status, download_progress,
-                    pdf_title, pdf_author, is_favorite, last_opened
+                    pdf_title, pdf_author, is_favorite, last_opened, created_at
              FROM bookshelf_cloud
              ORDER BY last_opened IS NULL, last_opened DESC, file_name ASC",
         )
@@ -338,6 +340,7 @@ pub fn get_cloud_items(app: &AppHandle) -> Result<Vec<CloudItem>, PedaruError> {
                 pdf_author: row.get(10)?,
                 is_favorite: row.get::<_, i64>(11)? != 0,
                 last_opened: row.get(12)?,
+                created_at: row.get(13)?,
             })
         })
         .db_err()?
@@ -632,7 +635,7 @@ pub fn get_local_items(app: &AppHandle) -> Result<Vec<LocalItem>, PedaruError> {
     let mut stmt = conn
         .prepare(
             "SELECT id, file_path, original_path, file_name, file_size,
-                    thumbnail_data, pdf_title, pdf_author, is_favorite, last_opened
+                    thumbnail_data, pdf_title, pdf_author, is_favorite, last_opened, imported_at
              FROM bookshelf_local
              ORDER BY last_opened IS NULL, last_opened DESC, file_name ASC",
         )
@@ -651,6 +654,7 @@ pub fn get_local_items(app: &AppHandle) -> Result<Vec<LocalItem>, PedaruError> {
                 pdf_author: row.get(7)?,
                 is_favorite: row.get::<_, i64>(8)? != 0,
                 last_opened: row.get(9)?,
+                imported_at: row.get(10)?,
             })
         })
         .db_err()?
@@ -879,6 +883,7 @@ pub fn import_local_file(app: &AppHandle, source_path: &str) -> Result<LocalItem
         pdf_author: None,
         is_favorite: false,
         last_opened: None,
+        imported_at: now,
     })
 }
 
@@ -1086,7 +1091,7 @@ impl From<CloudItem> for BookshelfItem {
             pdf_author: item.pdf_author,
             source_type: "google_drive".to_string(),
             original_path: None,
-            created_at: 0, // Not available in new schema
+            created_at: item.created_at,
             is_favorite: item.is_favorite,
             last_opened: item.last_opened,
         }
@@ -1109,7 +1114,7 @@ impl From<LocalItem> for BookshelfItem {
             pdf_author: item.pdf_author,
             source_type: "local".to_string(),
             original_path: Some(item.original_path),
-            created_at: 0, // Not available in new schema
+            created_at: item.imported_at,
             is_favorite: item.is_favorite,
             last_opened: item.last_opened,
         }
@@ -1219,4 +1224,113 @@ pub fn extract_and_save_pdf_metadata(
     item_id: &str,
 ) -> Result<(), PedaruError> {
     extract_and_save_cloud_metadata(app, file_path, item_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cloud_item_to_bookshelf_item_preserves_created_at() {
+        let cloud_item = CloudItem {
+            id: 1,
+            drive_file_id: "abc123".to_string(),
+            drive_folder_id: "folder456".to_string(),
+            file_name: "test.pdf".to_string(),
+            file_size: Some(1024),
+            thumbnail_data: None,
+            local_path: Some("/path/to/test.pdf".to_string()),
+            download_status: DownloadStatus::Completed,
+            download_progress: 100.0,
+            pdf_title: Some("Test PDF".to_string()),
+            pdf_author: Some("Author".to_string()),
+            is_favorite: false,
+            last_opened: Some(1704067200),
+            created_at: 1704067200, // 2024-01-01 00:00:00 UTC
+        };
+
+        let bookshelf_item: BookshelfItem = cloud_item.into();
+
+        // Verify created_at is preserved, not set to 0 (which would show as 1970)
+        assert_eq!(bookshelf_item.created_at, 1704067200);
+        assert_ne!(bookshelf_item.created_at, 0);
+        assert_eq!(bookshelf_item.source_type, "google_drive");
+    }
+
+    #[test]
+    fn test_local_item_to_bookshelf_item_preserves_imported_at() {
+        let local_item = LocalItem {
+            id: 1,
+            file_path: "/path/to/test.pdf".to_string(),
+            original_path: "/original/path/test.pdf".to_string(),
+            file_name: "test.pdf".to_string(),
+            file_size: Some(2048),
+            thumbnail_data: None,
+            pdf_title: Some("Local PDF".to_string()),
+            pdf_author: Some("Local Author".to_string()),
+            is_favorite: true,
+            last_opened: Some(1704153600),
+            imported_at: 1704153600, // 2024-01-02 00:00:00 UTC
+        };
+
+        let bookshelf_item: BookshelfItem = local_item.into();
+
+        // Verify created_at uses imported_at value, not 0 (which would show as 1970)
+        assert_eq!(bookshelf_item.created_at, 1704153600);
+        assert_ne!(bookshelf_item.created_at, 0);
+        assert_eq!(bookshelf_item.source_type, "local");
+    }
+
+    #[test]
+    fn test_cloud_item_created_at_not_1970() {
+        // This test specifically checks for the bug where created_at was hardcoded to 0
+        let cloud_item = CloudItem {
+            id: 1,
+            drive_file_id: "test".to_string(),
+            drive_folder_id: "folder".to_string(),
+            file_name: "file.pdf".to_string(),
+            file_size: None,
+            thumbnail_data: None,
+            local_path: None,
+            download_status: DownloadStatus::Pending,
+            download_progress: 0.0,
+            pdf_title: None,
+            pdf_author: None,
+            is_favorite: false,
+            last_opened: None,
+            created_at: 1735689600, // 2025-01-01 00:00:00 UTC
+        };
+
+        let bookshelf_item: BookshelfItem = cloud_item.into();
+
+        // Unix timestamp 0 = 1970-01-01, which is the bug we're fixing
+        // The created_at should match what was set in the CloudItem
+        assert!(bookshelf_item.created_at > 0);
+        assert_eq!(bookshelf_item.created_at, 1735689600);
+    }
+
+    #[test]
+    fn test_local_item_imported_at_not_1970() {
+        // This test specifically checks for the bug where created_at was hardcoded to 0
+        let local_item = LocalItem {
+            id: 1,
+            file_path: "/test.pdf".to_string(),
+            original_path: "/original.pdf".to_string(),
+            file_name: "test.pdf".to_string(),
+            file_size: None,
+            thumbnail_data: None,
+            pdf_title: None,
+            pdf_author: None,
+            is_favorite: false,
+            last_opened: None,
+            imported_at: 1735689600, // 2025-01-01 00:00:00 UTC
+        };
+
+        let bookshelf_item: BookshelfItem = local_item.into();
+
+        // Unix timestamp 0 = 1970-01-01, which is the bug we're fixing
+        // The created_at should match the imported_at from LocalItem
+        assert!(bookshelf_item.created_at > 0);
+        assert_eq!(bookshelf_item.created_at, 1735689600);
+    }
 }

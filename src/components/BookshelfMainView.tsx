@@ -557,13 +557,15 @@ export default function BookshelfMainView({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  // Format date
+  // Format date with time
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
-    return date.toLocaleDateString("ja-JP", {
+    return date.toLocaleString("ja-JP", {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
