@@ -187,7 +187,12 @@ export interface SyncResult {
 /**
  * Download status of a bookshelf item
  */
-export type DownloadStatus = "pending" | "queued" | "downloading" | "completed" | "error";
+export type DownloadStatus =
+  | "pending"
+  | "queued"
+  | "downloading"
+  | "completed"
+  | "error";
 
 /**
  * Source type for bookshelf items

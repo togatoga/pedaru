@@ -691,7 +691,13 @@ export default function BookshelfMainView({
 
     // Use the queue-based download
     await downloadAllQueued();
-  }, [downloadableItems.length, hasCheckedAuth, checkAuthStatus, authStatus.authenticated, downloadAllQueued]);
+  }, [
+    downloadableItems.length,
+    hasCheckedAuth,
+    checkAuthStatus,
+    authStatus.authenticated,
+    downloadAllQueued,
+  ]);
 
   const handleStopDownloadAll = useCallback(async () => {
     await stopDownloadQueue();
@@ -1828,7 +1834,9 @@ export default function BookshelfMainView({
           </div>
 
           {/* Download progress (queue-based) */}
-          {(queueState?.isRunning || hasQueuedItems || (downloadingItem && downloadingItem.downloadProgress > 0)) && (
+          {(queueState?.isRunning ||
+            hasQueuedItems ||
+            (downloadingItem && downloadingItem.downloadProgress > 0)) && (
             <div className="px-6 py-3 bg-accent/10 border-b border-bg-tertiary shrink-0">
               <div className="flex items-center gap-3 text-sm text-text-primary">
                 <Loader2 className="w-4 h-4 text-accent animate-spin shrink-0" />
@@ -1838,7 +1846,7 @@ export default function BookshelfMainView({
                     downloadingItem?.fileName ||
                     "Starting..."}
                 </span>
-                {(queueState?.isRunning || hasQueuedItems) ? (
+                {queueState?.isRunning || hasQueuedItems ? (
                   <>
                     <span className="text-text-tertiary shrink-0">
                       {queueState?.pendingCount && queueState.pendingCount > 0
@@ -2135,7 +2143,9 @@ export default function BookshelfMainView({
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (isQueued) {
-                                    cancelQueuedDownload(item.driveFileId || "");
+                                    cancelQueuedDownload(
+                                      item.driveFileId || "",
+                                    );
                                   } else {
                                     handleCancel(item);
                                   }

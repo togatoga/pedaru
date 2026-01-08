@@ -93,7 +93,9 @@ export function useBookshelf() {
 
     const loadQueueState = async () => {
       try {
-        const state = await invoke<DownloadQueueState>("get_download_queue_state");
+        const state = await invoke<DownloadQueueState>(
+          "get_download_queue_state",
+        );
         setQueueState(state);
         prevQueueStateRef.current = state;
       } catch (err) {
@@ -118,11 +120,14 @@ export function useBookshelf() {
           if (
             prevState?.currentItem?.status === "processing" &&
             (!newState.currentItem ||
-              newState.currentItem.driveFileId !== prevState.currentItem.driveFileId)
+              newState.currentItem.driveFileId !==
+                prevState.currentItem.driveFileId)
           ) {
             // Reload items to get updated localPath, but preserve queued status
             try {
-              const bookshelfItems = await invoke<BookshelfItem[]>("get_bookshelf_items");
+              const bookshelfItems = await invoke<BookshelfItem[]>(
+                "get_bookshelf_items",
+              );
 
               // If queue is still running, preserve queued status for pending items
               if (newState.isRunning || newState.pendingCount > 0) {
@@ -130,7 +135,10 @@ export function useBookshelf() {
                   // Build a set of currently queued drive file IDs
                   const queuedIds = new Set(
                     prevItems
-                      .filter((item) => item.downloadStatus === "queued" && item.driveFileId)
+                      .filter(
+                        (item) =>
+                          item.downloadStatus === "queued" && item.driveFileId,
+                      )
                       .map((item) => item.driveFileId),
                   );
 
@@ -593,7 +601,11 @@ export function useBookshelf() {
         prevItems.map((item) =>
           item.sourceType === "google_drive" &&
           (item.downloadStatus === "pending" || item.downloadStatus === "error")
-            ? { ...item, downloadStatus: "queued" as const, downloadProgress: 0 }
+            ? {
+                ...item,
+                downloadStatus: "queued" as const,
+                downloadProgress: 0,
+              }
             : item,
         ),
       );
@@ -601,9 +613,8 @@ export function useBookshelf() {
       // Always try to start worker (it will handle already-running case)
       try {
         await invoke("start_download_worker");
-      } catch (workerErr) {
-        // Worker may already be running, which is fine
-        console.log("Worker start:", workerErr);
+      } catch {
+        // Worker may already be running, which is fine - ignore error
       }
 
       return count;
@@ -623,8 +634,13 @@ export function useBookshelf() {
       // Immediately reset queued/downloading items to pending
       setItems((prevItems) =>
         prevItems.map((item) =>
-          item.downloadStatus === "queued" || item.downloadStatus === "downloading"
-            ? { ...item, downloadStatus: "pending" as const, downloadProgress: 0 }
+          item.downloadStatus === "queued" ||
+          item.downloadStatus === "downloading"
+            ? {
+                ...item,
+                downloadStatus: "pending" as const,
+                downloadProgress: 0,
+              }
             : item,
         ),
       );
@@ -639,13 +655,19 @@ export function useBookshelf() {
   const cancelQueuedDownload = useCallback(
     async (driveFileId: string): Promise<boolean> => {
       try {
-        const result = await invoke<boolean>("cancel_queued_download", { driveFileId });
+        const result = await invoke<boolean>("cancel_queued_download", {
+          driveFileId,
+        });
         if (result) {
           // Immediately update UI to show item as pending
           setItems((prevItems) =>
             prevItems.map((item) =>
               item.driveFileId === driveFileId
-                ? { ...item, downloadStatus: "pending" as const, downloadProgress: 0 }
+                ? {
+                    ...item,
+                    downloadStatus: "pending" as const,
+                    downloadProgress: 0,
+                  }
                 : item,
             ),
           );

@@ -62,26 +62,20 @@ fn parse_pdf_date(date_str: &str) -> Option<String> {
 
 /// Internal implementation of get_pdf_info with typed errors
 fn get_pdf_info_impl(path: &str) -> error::Result<PdfInfo> {
-    eprintln!("[Pedaru] get_pdf_info called for: {}", path);
-
     // Get file size
     let file_size = std::fs::metadata(path).ok().map(|m| m.len());
-    eprintln!("[Pedaru] File size: {:?}", file_size);
 
     // Load document from file
-    eprintln!("[Pedaru] Loading PDF document...");
     let doc = Document::load(path).map_err(|source| PdfError::LoadFailed {
         path: path.to_string(),
         source,
     })?;
-    eprintln!("[Pedaru] PDF loaded successfully");
 
     let mut title = None;
     let mut author = None;
     let mut creation_date = None;
     let mut mod_date = None;
 
-    eprintln!("[Pedaru] Extracting metadata...");
     if let Ok(lopdf::Object::Reference(ref_id)) = doc.trailer.get(b"Info")
         && let Ok(info_dict) = doc.get_dictionary(*ref_id)
     {
@@ -98,15 +92,9 @@ fn get_pdf_info_impl(path: &str) -> error::Result<PdfInfo> {
             .and_then(decode_pdf_string)
             .and_then(|s| parse_pdf_date(&s));
     }
-    eprintln!("[Pedaru] Metadata extracted");
 
-    eprintln!("[Pedaru] Extracting TOC...");
     let toc = extract_toc(&doc);
-    eprintln!("[Pedaru] TOC extracted, {} entries", toc.len());
-
-    eprintln!("[Pedaru] Getting page count...");
     let page_count = Some(doc.get_pages().len() as u32);
-    eprintln!("[Pedaru] Page count: {:?}", page_count);
 
     Ok(PdfInfo {
         title,
@@ -615,22 +603,11 @@ async fn download_bookshelf_item_internal(
 /// Stop the download worker
 #[tauri::command]
 fn stop_download_worker(app: tauri::AppHandle) -> Result<(), String> {
-    eprintln!("[Pedaru] stop_download_worker called");
     download_queue::request_stop_worker();
 
     // Also cancel the currently processing download
-    match download_queue::get_processing_item(&app) {
-        Ok(Some(item)) => {
-            eprintln!("[Pedaru] Cancelling processing item: {}", item.drive_file_id);
-            let cancelled = bookshelf::cancel_download(&item.drive_file_id);
-            eprintln!("[Pedaru] Cancel result: {}", cancelled);
-        }
-        Ok(None) => {
-            eprintln!("[Pedaru] No processing item found");
-        }
-        Err(e) => {
-            eprintln!("[Pedaru] Error getting processing item: {:?}", e);
-        }
+    if let Ok(Some(item)) = download_queue::get_processing_item(&app) {
+        bookshelf::cancel_download(&item.drive_file_id);
     }
 
     Ok(())

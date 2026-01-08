@@ -360,3 +360,92 @@ pub fn get_queue_state(app: &AppHandle) -> Result<QueueState, PedaruError> {
         pending_count,
     })
 }
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_stop_flag() {
+        // Clear any existing state
+        clear_stop_flag();
+
+        // Initially should not be stopped
+        assert!(!should_stop_worker());
+
+        // Request stop
+        request_stop_worker();
+        assert!(should_stop_worker());
+
+        // Clear stop flag
+        clear_stop_flag();
+        assert!(!should_stop_worker());
+    }
+
+    #[test]
+    fn test_worker_lock() {
+        // Release any existing lock first
+        release_worker_lock();
+
+        // Initially should not be running
+        assert!(!is_worker_running());
+
+        // Acquire lock
+        assert!(try_acquire_worker_lock());
+        assert!(is_worker_running());
+
+        // Try to acquire again should fail
+        assert!(!try_acquire_worker_lock());
+
+        // Release lock
+        release_worker_lock();
+        assert!(!is_worker_running());
+
+        // Should be able to acquire again
+        assert!(try_acquire_worker_lock());
+        release_worker_lock();
+    }
+
+    #[test]
+    fn test_queued_download_serialization() {
+        let item = QueuedDownload {
+            id: 1,
+            drive_file_id: "abc123".to_string(),
+            file_name: "test.pdf".to_string(),
+            priority: 0,
+            status: "queued".to_string(),
+            error_message: None,
+            download_progress: 0.0,
+            queued_at: 1704067200,
+            started_at: None,
+            completed_at: None,
+        };
+
+        // Test serialization
+        let json = serde_json::to_string(&item).unwrap();
+        assert!(json.contains("\"driveFileId\":\"abc123\""));
+        assert!(json.contains("\"fileName\":\"test.pdf\""));
+
+        // Test deserialization
+        let deserialized: QueuedDownload = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.drive_file_id, "abc123");
+        assert_eq!(deserialized.file_name, "test.pdf");
+    }
+
+    #[test]
+    fn test_queue_state_serialization() {
+        let state = QueueState {
+            is_running: true,
+            current_item: None,
+            pending_count: 5,
+        };
+
+        let json = serde_json::to_string(&state).unwrap();
+        assert!(json.contains("\"isRunning\":true"));
+        assert!(json.contains("\"pendingCount\":5"));
+    }
+}
