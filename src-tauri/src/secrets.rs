@@ -7,8 +7,12 @@
 //! - Linux: Secret Service (gnome-keyring, KWallet, etc.)
 //!
 //! All secrets are stored in a single JSON entry to minimize keychain access prompts.
+//!
+//! **Security Note**: All secret values are wrapped in `SecureString` to prevent
+//! accidental logging. Use `.expose()` only when the actual value is needed.
 
 use crate::error::PedaruError;
+use crate::secure_string::SecureString;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::RwLock;
@@ -19,7 +23,8 @@ const KEYRING_SERVICE: &str = "pedaru";
 const KEYRING_KEY: &str = "secrets";
 
 /// In-memory cache of all secrets to avoid repeated keychain access
-static SECRETS_CACHE: RwLock<Option<HashMap<String, String>>> = RwLock::new(None);
+/// Values are stored as SecureString to prevent accidental logging
+static SECRETS_CACHE: RwLock<Option<HashMap<String, SecureString>>> = RwLock::new(None);
 
 /// Keys for secrets stored in keyring
 pub mod keys {
@@ -32,14 +37,15 @@ pub mod keys {
 }
 
 /// All secrets stored as a single JSON object
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+/// Note: Debug is intentionally not derived to prevent accidental logging
+#[derive(Clone, Serialize, Deserialize, Default)]
 struct AllSecrets {
     #[serde(flatten)]
-    secrets: HashMap<String, String>,
+    secrets: HashMap<String, SecureString>,
 }
 
 /// Load all secrets from keychain into cache (called once on first access)
-fn load_secrets_from_keychain() -> Result<HashMap<String, String>, PedaruError> {
+fn load_secrets_from_keychain() -> Result<HashMap<String, SecureString>, PedaruError> {
     let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_KEY)
         .map_err(|e| PedaruError::Secrets(format!("Failed to create keyring entry: {}", e)))?;
 
@@ -57,7 +63,7 @@ fn load_secrets_from_keychain() -> Result<HashMap<String, String>, PedaruError> 
 }
 
 /// Save all secrets from cache to keychain
-fn save_secrets_to_keychain(secrets: &HashMap<String, String>) -> Result<(), PedaruError> {
+fn save_secrets_to_keychain(secrets: &HashMap<String, SecureString>) -> Result<(), PedaruError> {
     let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_KEY)
         .map_err(|e| PedaruError::Secrets(format!("Failed to create keyring entry: {}", e)))?;
 
@@ -86,7 +92,7 @@ fn save_secrets_to_keychain(secrets: &HashMap<String, String>) -> Result<(), Ped
 }
 
 /// Get or initialize the secrets cache
-fn get_secrets_cache() -> Result<HashMap<String, String>, PedaruError> {
+fn get_secrets_cache() -> Result<HashMap<String, SecureString>, PedaruError> {
     // First try to read from cache
     {
         let cache = SECRETS_CACHE.read().unwrap();
@@ -108,9 +114,11 @@ fn get_secrets_cache() -> Result<HashMap<String, String>, PedaruError> {
 }
 
 /// Store a secret in the OS keychain
+///
+/// The value is automatically wrapped in SecureString for safe storage.
 pub fn store_secret(_app: &tauri::AppHandle, key: &str, value: &str) -> Result<(), PedaruError> {
     let mut secrets = get_secrets_cache()?;
-    secrets.insert(key.to_string(), value.to_string());
+    secrets.insert(key.to_string(), SecureString::new(value));
 
     // Save to keychain
     save_secrets_to_keychain(&secrets)?;
@@ -125,7 +133,10 @@ pub fn store_secret(_app: &tauri::AppHandle, key: &str, value: &str) -> Result<(
 }
 
 /// Retrieve a secret from the OS keychain
-pub fn get_secret(_app: &tauri::AppHandle, key: &str) -> Result<Option<String>, PedaruError> {
+///
+/// Returns a SecureString to prevent accidental logging.
+/// Use `.expose()` only when the actual value is needed.
+pub fn get_secret(_app: &tauri::AppHandle, key: &str) -> Result<Option<SecureString>, PedaruError> {
     let secrets = get_secrets_cache()?;
     Ok(secrets.get(key).cloned())
 }

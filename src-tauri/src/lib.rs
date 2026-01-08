@@ -22,6 +22,7 @@ pub mod menu;
 pub mod oauth;
 pub mod pdf;
 pub mod secrets;
+pub mod secure_string;
 pub mod session;
 pub mod settings;
 pub mod types;
@@ -149,7 +150,7 @@ fn save_oauth_credentials(
         &app,
         &oauth::OAuthCredentials {
             client_id,
-            client_secret,
+            client_secret: client_secret.into(), // Convert to SecureString
         },
     )
     .map_err(|e| e.into_tauri_error())
@@ -518,7 +519,7 @@ async fn translate_with_gemini(
     let model = model_override.as_deref().unwrap_or(&gemini_settings.model);
 
     gemini::translate_text(
-        &gemini_settings.api_key,
+        gemini_settings.api_key.expose(), // SecureString -> &str
         model,
         &text,
         &context_before,
@@ -543,7 +544,7 @@ async fn explain_directly(
         .unwrap_or(&gemini_settings.explanation_model);
 
     gemini::explain_text(
-        &gemini_settings.api_key,
+        gemini_settings.api_key.expose(), // SecureString -> &str
         model,
         &text,
         &context_before,
