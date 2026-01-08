@@ -286,6 +286,49 @@ export default function Home() {
     null,
   );
 
+  // PDF thumbnail URL (generated from first page)
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+
+  // Generate thumbnail when PDF document is loaded
+  // biome-ignore lint/correctness/useExhaustiveDependencies: pdfDocRef is a ref, .current should not be in deps
+  useEffect(() => {
+    // Reset thumbnail when file changes or no file loaded
+    if (totalPages === 0) {
+      setThumbnailUrl(null);
+      return;
+    }
+
+    const generateThumbnail = async () => {
+      const pdfDoc = pdfDocRef.current;
+      if (!pdfDoc) {
+        return;
+      }
+
+      try {
+        const page = await pdfDoc.getPage(1);
+        const viewport = page.getViewport({ scale: 0.15 }); // Small scale for thumbnail
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        if (!context) return;
+
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        await page.render({
+          canvasContext: context,
+          viewport,
+        }).promise;
+
+        setThumbnailUrl(canvas.toDataURL("image/jpeg", 0.7));
+      } catch (error) {
+        console.warn("Failed to generate thumbnail:", error);
+        setThumbnailUrl(null);
+      }
+    };
+
+    generateThumbnail();
+  }, [totalPages]); // Regenerate when PDF is loaded (totalPages changes from 0 to positive)
+
   // Get TOC breadcrumb for current or preview page
   const currentBreadcrumb = getTocBreadcrumb(
     pdfInfo,
@@ -667,6 +710,7 @@ export default function Home() {
           currentSearchIndex={currentSearchIndex}
           windowCount={openWindows.length}
           bookmarkCount={bookmarks.length}
+          thumbnailUrl={thumbnailUrl}
           onOpenFile={handleOpenFile}
           onPrevPage={goToPrevPage}
           onNextPage={goToNextPage}
@@ -741,6 +785,11 @@ export default function Home() {
           setSidebarWidth={setSidebarWidth}
           toc={pdfInfo?.toc || []}
           currentPage={currentPage}
+          pdfTitle={pdfInfo?.title}
+          pdfAuthor={pdfInfo?.author}
+          thumbnailUrl={thumbnailUrl}
+          pdfInfo={pdfInfo}
+          filePath={filePath}
           windows={openWindows}
           onFocusWindow={focusWindow}
           onCloseWindow={(label) => {

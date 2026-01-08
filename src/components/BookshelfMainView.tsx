@@ -16,6 +16,7 @@ import {
   FolderPlus,
   Grid,
   HardDrive,
+  Info,
   Library,
   List,
   Loader2,
@@ -30,12 +31,14 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import BookDetailModal from "@/components/BookDetailModal";
 import { useBookshelf } from "@/hooks/useBookshelf";
 import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 import { filterBySource, getItemKey } from "@/lib/bookshelfUtils";
 import { generateThumbnailsInBackground } from "@/lib/thumbnailGenerator";
 import type { BookshelfItem as BookshelfItemType, DriveItem } from "@/types";
 import type { BookshelfMainViewProps } from "@/types/components";
+import type { PdfInfo } from "@/types/pdf";
 
 /**
  * Main view bookshelf component for full-screen book selection
@@ -113,6 +116,14 @@ export default function BookshelfMainView({
     "title" | "author" | "createdAt" | "modifiedTime" | "fileSize"
   >("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Book detail modal state
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedBookForDetail, setSelectedBookForDetail] =
+    useState<BookshelfItemType | null>(null);
+  const [selectedBookPdfInfo, setSelectedBookPdfInfo] =
+    useState<PdfInfo | null>(null);
+  const [isTocLoading, setIsTocLoading] = useState(false);
 
   // Credentials input (for first-time setup)
   const [clientId, setClientId] = useState("");
@@ -463,6 +474,57 @@ export default function BookshelfMainView({
     [toggleFavorite],
   );
 
+  // Handle show book detail modal
+  const handleShowDetail = useCallback(
+    (item: BookshelfItemType, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setSelectedBookForDetail(item);
+      setShowDetailModal(true);
+
+      // Show basic info immediately from bookshelf data
+      const basicInfo: PdfInfo = {
+        title: item.pdfTitle || item.fileName,
+        author: item.pdfAuthor || null,
+        creationDate: null,
+        modDate: item.modifiedTime || null,
+        fileSize: item.fileSize || null,
+        pageCount: null,
+        toc: [], // TOC will be loaded async
+      };
+      setSelectedBookPdfInfo(basicInfo);
+
+      // If the file is available locally, fetch full PDF info including TOC asynchronously
+      if (item.localPath) {
+        setIsTocLoading(true);
+        (async () => {
+          try {
+            const { invoke } = await import("@tauri-apps/api/core");
+            const pdfInfo = await invoke<PdfInfo>("get_pdf_info", {
+              path: item.localPath,
+            });
+            // Update with full info including TOC
+            setSelectedBookPdfInfo(pdfInfo);
+          } catch (error) {
+            console.error("Failed to get PDF info:", error);
+            // Keep basic info on error
+          } finally {
+            setIsTocLoading(false);
+          }
+        })();
+      }
+    },
+    [],
+  );
+
+  // Get thumbnail URL for the modal
+  const getBookDetailThumbnail = useCallback(
+    (item: BookshelfItemType | null): string | null => {
+      if (!item?.thumbnailData) return null;
+      return `data:image/png;base64,${item.thumbnailData}`;
+    },
+    [],
+  );
+
   // Get downloadable items count (only cloud files can be downloaded)
   const downloadableItems = useMemo(() => {
     return items.filter(
@@ -789,6 +851,15 @@ export default function BookshelfMainView({
             <Star
               className={`w-4 h-4 ${item.isFavorite ? "fill-white" : ""}`}
             />
+          </button>
+          {/* Info button - always visible on hover */}
+          <button
+            type="button"
+            onClick={(e) => handleShowDetail(item, e)}
+            className="p-2 bg-bg-tertiary text-text-secondary rounded hover:bg-bg-secondary transition-colors"
+            title="Book details"
+          >
+            <Info className="w-4 h-4" />
           </button>
           {isDownloaded ? (
             <>
@@ -2005,6 +2076,15 @@ export default function BookshelfMainView({
                                 className={`w-4 h-4 ${item.isFavorite ? "fill-yellow-500" : ""}`}
                               />
                             </button>
+                            {/* Info button */}
+                            <button
+                              type="button"
+                              onClick={(e) => handleShowDetail(item, e)}
+                              className="p-1.5 hover:bg-bg-hover rounded transition-colors text-text-tertiary hover:text-text-secondary"
+                              title="Book details"
+                            >
+                              <Info className="w-4 h-4" />
+                            </button>
                             {isDownloading && (
                               <button
                                 type="button"
@@ -2078,6 +2158,25 @@ export default function BookshelfMainView({
           )}
         </div>
       )}
+
+      {/* Book Detail Modal */}
+      <BookDetailModal
+        isOpen={showDetailModal}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedBookForDetail(null);
+          setSelectedBookPdfInfo(null);
+          setIsTocLoading(false);
+        }}
+        pdfInfo={selectedBookPdfInfo}
+        thumbnailUrl={getBookDetailThumbnail(selectedBookForDetail)}
+        filePath={
+          selectedBookForDetail?.localPath ||
+          selectedBookForDetail?.originalPath ||
+          null
+        }
+        isTocLoading={isTocLoading}
+      />
     </div>
   );
 }

@@ -65,7 +65,10 @@ describe("usePdfLoader", () => {
   const mockPdfInfo: PdfInfo = {
     title: "Test PDF",
     author: "Test Author",
-    subject: "Test Subject",
+    creationDate: null,
+    modDate: null,
+    fileSize: null,
+    pageCount: null,
     toc: [],
   };
 

@@ -37,6 +37,7 @@ export interface HeaderProps {
   currentSearchIndex: number;
   windowCount: number;
   bookmarkCount: number;
+  thumbnailUrl: string | null;
   onOpenFile: () => void;
   onPrevPage: () => void;
   onNextPage: () => void;
@@ -104,6 +105,13 @@ export interface TocSidebarProps {
   currentPage: number;
   isOpen: boolean;
   onPageSelect: (page: number) => void;
+  // Book info for header card
+  pdfTitle?: string | null;
+  pdfAuthor?: string | null;
+  thumbnailUrl?: string | null;
+  // For book detail modal
+  pdfInfo?: import("./pdf").PdfInfo | null;
+  filePath?: string | null;
 }
 
 export interface TocItemProps {

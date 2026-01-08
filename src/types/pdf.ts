@@ -7,6 +7,9 @@ export interface TocEntry {
 export interface PdfInfo {
   title: string | null;
   author: string | null;
-  subject: string | null;
+  creationDate: string | null;
+  modDate: string | null;
+  fileSize: number | null;
+  pageCount: number | null;
   toc: TocEntry[];
 }

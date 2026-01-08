@@ -36,9 +36,35 @@ use error::{IntoTauriError, IoError, MenuError, PdfError};
 use menu::{build_app_menu, decode_file_path_from_menu_id};
 use pdf::extract_toc;
 
+/// Parse PDF date string (D:YYYYMMDDHHmmSS) to ISO 8601 format
+fn parse_pdf_date(date_str: &str) -> Option<String> {
+    // PDF date format: D:YYYYMMDDHHmmSSOHH'mm' (where O is + or - for timezone)
+    let date_str = date_str.trim_start_matches("D:");
+    if date_str.len() < 4 {
+        return None;
+    }
+
+    let year = &date_str[0..4];
+    let month = if date_str.len() >= 6 {
+        &date_str[4..6]
+    } else {
+        "01"
+    };
+    let day = if date_str.len() >= 8 {
+        &date_str[6..8]
+    } else {
+        "01"
+    };
+
+    Some(format!("{}-{}-{}", year, month, day))
+}
+
 /// Internal implementation of get_pdf_info with typed errors
 fn get_pdf_info_impl(path: &str) -> error::Result<PdfInfo> {
     eprintln!("[Pedaru] get_pdf_info called for: {}", path);
+
+    // Get file size
+    let file_size = std::fs::metadata(path).ok().map(|m| m.len());
 
     // Load document from file
     let doc = Document::load(path).map_err(|source| PdfError::LoadFailed {
@@ -49,22 +75,36 @@ fn get_pdf_info_impl(path: &str) -> error::Result<PdfInfo> {
 
     let mut title = None;
     let mut author = None;
-    let mut subject = None;
+    let mut creation_date = None;
+    let mut mod_date = None;
 
     if let Ok(lopdf::Object::Reference(ref_id)) = doc.trailer.get(b"Info")
         && let Ok(info_dict) = doc.get_dictionary(*ref_id)
     {
         title = info_dict.get(b"Title").ok().and_then(decode_pdf_string);
         author = info_dict.get(b"Author").ok().and_then(decode_pdf_string);
-        subject = info_dict.get(b"Subject").ok().and_then(decode_pdf_string);
+        creation_date = info_dict
+            .get(b"CreationDate")
+            .ok()
+            .and_then(decode_pdf_string)
+            .and_then(|s| parse_pdf_date(&s));
+        mod_date = info_dict
+            .get(b"ModDate")
+            .ok()
+            .and_then(decode_pdf_string)
+            .and_then(|s| parse_pdf_date(&s));
     }
 
     let toc = extract_toc(&doc);
+    let page_count = Some(doc.get_pages().len() as u32);
 
     Ok(PdfInfo {
         title,
         author,
-        subject,
+        creation_date,
+        mod_date,
+        file_size,
+        page_count,
         toc,
     })
 }

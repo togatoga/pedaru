@@ -80,7 +80,7 @@ export function TabBar({
   return (
     <div
       role="tablist"
-      className="flex items-center gap-2 px-4 py-2 bg-bg-secondary border-b border-bg-tertiary min-h-[44px] overflow-x-auto scrollbar-thin scrollbar-thumb-bg-tertiary scrollbar-track-transparent"
+      className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-secondary border-b border-bg-tertiary min-h-[36px] overflow-x-auto scrollbar-thin scrollbar-thumb-bg-tertiary scrollbar-track-transparent"
       onDragOver={handleWindowDragOver}
       onDrop={handleWindowDrop}
     >
@@ -137,7 +137,7 @@ export function TabBar({
               selectTab(tab.id);
             }
           }}
-          className={`group/tab flex items-center gap-1 pl-3 pr-1.5 py-1.5 rounded-lg text-sm transition-colors cursor-grab active:cursor-grabbing max-w-[220px] shrink-0 ${
+          className={`group/tab flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-lg text-xs transition-colors cursor-grab active:cursor-grabbing max-w-[400px] shrink-0 ${
             activeTabId === tab.id
               ? "bg-accent text-white"
               : "bg-bg-tertiary hover:bg-bg-hover text-text-primary"
@@ -148,7 +148,7 @@ export function TabBar({
           <button
             type="button"
             onClick={(e) => handleTabClose(e, tab)}
-            className={`p-0.5 rounded opacity-0 group-hover/tab:opacity-100 transition-opacity ${
+            className={`p-0.5 rounded opacity-0 group-hover/tab:opacity-100 transition-opacity flex-shrink-0 ${
               activeTabId === tab.id
                 ? "hover:bg-white/20"
                 : "hover:bg-bg-tertiary"
@@ -157,7 +157,7 @@ export function TabBar({
             aria-label="Close tab"
           >
             <svg
-              className="w-3.5 h-3.5"
+              className="w-3 h-3"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

@@ -20,6 +20,13 @@ export interface MainSidebarProps {
   // TOC
   toc: TocEntry[];
   currentPage: number;
+  // Book info for TOC header
+  pdfTitle?: string | null;
+  pdfAuthor?: string | null;
+  thumbnailUrl?: string | null;
+  // For book detail modal
+  pdfInfo?: import("@/types/pdf").PdfInfo | null;
+  filePath?: string | null;
   // Windows
   windows: OpenWindow[];
   onFocusWindow: (label: string) => void;
@@ -51,6 +58,11 @@ export default function MainSidebar({
   setSidebarWidth,
   toc,
   currentPage,
+  pdfTitle,
+  pdfAuthor,
+  thumbnailUrl,
+  pdfInfo,
+  filePath,
   windows,
   onFocusWindow,
   onCloseWindow,
@@ -111,6 +123,11 @@ export default function MainSidebar({
             currentPage={currentPage}
             isOpen={isTocOpen}
             onPageSelect={goToPage}
+            pdfTitle={pdfTitle}
+            pdfAuthor={pdfAuthor}
+            thumbnailUrl={thumbnailUrl}
+            pdfInfo={pdfInfo}
+            filePath={filePath}
           />
         </div>
       )}

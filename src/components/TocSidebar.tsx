@@ -1,9 +1,11 @@
 "use client";
 
-import { ChevronRight, FileText } from "lucide-react";
+import { ChevronRight, FileText, Info } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import type { TocItemProps, TocSidebarProps } from "@/types/components";
 import type { TocEntry } from "@/types/pdf";
+import BookDetailModal from "./BookDetailModal";
 
 // Helper: check if a TocEntry tree contains a specific page
 function containsPage(entry: TocEntry, page: number): boolean {
@@ -102,16 +104,62 @@ export default function TocSidebar({
   currentPage,
   isOpen,
   onPageSelect,
+  pdfTitle,
+  pdfAuthor,
+  thumbnailUrl,
+  pdfInfo,
+  filePath,
 }: TocSidebarProps) {
+  const [showDetailModal, setShowDetailModal] = useState(false);
+
   if (!isOpen) return null;
 
   return (
     <aside className="w-80 bg-bg-secondary border-r border-bg-tertiary flex flex-col flex-shrink-0 overflow-hidden">
-      <div className="p-4 border-b border-bg-tertiary">
-        <h2 className="text-lg font-semibold text-text-primary">
-          Table of Contents
-        </h2>
-      </div>
+      {/* Book Info Card - Clickable to show details */}
+      {(pdfTitle || thumbnailUrl) && (
+        <button
+          type="button"
+          onClick={() => setShowDetailModal(true)}
+          className="p-4 border-b border-bg-tertiary hover:bg-bg-tertiary/50 transition-colors text-left w-full"
+        >
+          <div className="flex items-start gap-3">
+            {thumbnailUrl && (
+              <div className="w-12 h-16 flex-shrink-0 rounded overflow-hidden bg-bg-tertiary border border-bg-hover relative shadow-sm">
+                <Image
+                  src={thumbnailUrl}
+                  alt="PDF thumbnail"
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              {pdfTitle && (
+                <h2 className="text-sm font-semibold text-text-primary leading-tight line-clamp-2">
+                  {pdfTitle}
+                </h2>
+              )}
+              {pdfAuthor && (
+                <p className="text-xs text-text-secondary mt-1 truncate">
+                  {pdfAuthor}
+                </p>
+              )}
+            </div>
+            <Info className="w-4 h-4 text-text-secondary flex-shrink-0 mt-0.5" />
+          </div>
+        </button>
+      )}
+
+      {/* Book Detail Modal */}
+      <BookDetailModal
+        isOpen={showDetailModal}
+        onClose={() => setShowDetailModal(false)}
+        pdfInfo={pdfInfo ?? null}
+        thumbnailUrl={thumbnailUrl ?? null}
+        filePath={filePath ?? null}
+      />
 
       <div className="flex-1 overflow-y-auto py-2">
         {toc.length > 0 ? (
