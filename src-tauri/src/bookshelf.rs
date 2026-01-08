@@ -7,6 +7,7 @@
 //! - `bookshelf_cloud`: PDFs synced from Google Drive
 //! - `bookshelf_local`: PDFs imported from local filesystem
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -15,6 +16,13 @@ use tauri::{AppHandle, Manager};
 
 use crate::db::{ToDbError, now_timestamp, open_db};
 use crate::error::{DatabaseError, IoError, PedaruError};
+
+/// Convert Unix timestamp to ISO 8601 format string
+fn timestamp_to_iso(timestamp: i64) -> String {
+    DateTime::<Utc>::from_timestamp(timestamp, 0)
+        .map(|dt| dt.to_rfc3339())
+        .unwrap_or_default()
+}
 
 // ============================================================================
 // Types - Cloud Items (Google Drive)
@@ -64,6 +72,7 @@ pub struct CloudItem {
     pub drive_folder_id: String,
     pub file_name: String,
     pub file_size: Option<i64>,
+    pub modified_time: Option<String>,
     pub thumbnail_data: Option<String>,
     pub local_path: Option<String>,
     pub download_status: DownloadStatus,
@@ -94,6 +103,7 @@ pub struct LocalItem {
     pub is_favorite: bool,
     pub last_opened: Option<i64>,
     pub imported_at: i64,
+    pub updated_at: i64,
 }
 
 // ============================================================================
@@ -315,8 +325,8 @@ pub fn get_cloud_items(app: &AppHandle) -> Result<Vec<CloudItem>, PedaruError> {
     let mut stmt = conn
         .prepare(
             "SELECT id, drive_file_id, drive_folder_id, file_name, file_size,
-                    thumbnail_data, local_path, download_status, download_progress,
-                    pdf_title, pdf_author, is_favorite, last_opened, created_at
+                    drive_modified_time, thumbnail_data, local_path, download_status,
+                    download_progress, pdf_title, pdf_author, is_favorite, last_opened, created_at
              FROM bookshelf_cloud
              ORDER BY last_opened IS NULL, last_opened DESC, file_name ASC",
         )
@@ -324,7 +334,7 @@ pub fn get_cloud_items(app: &AppHandle) -> Result<Vec<CloudItem>, PedaruError> {
 
     let items = stmt
         .query_map([], |row| {
-            let status_str: String = row.get(7)?;
+            let status_str: String = row.get(8)?;
             let download_status = status_str.parse().unwrap_or_default();
             Ok(CloudItem {
                 id: row.get(0)?,
@@ -332,15 +342,16 @@ pub fn get_cloud_items(app: &AppHandle) -> Result<Vec<CloudItem>, PedaruError> {
                 drive_folder_id: row.get(2)?,
                 file_name: row.get(3)?,
                 file_size: row.get(4)?,
-                thumbnail_data: row.get(5)?,
-                local_path: row.get(6)?,
+                modified_time: row.get(5)?,
+                thumbnail_data: row.get(6)?,
+                local_path: row.get(7)?,
                 download_status,
-                download_progress: row.get(8)?,
-                pdf_title: row.get(9)?,
-                pdf_author: row.get(10)?,
-                is_favorite: row.get::<_, i64>(11)? != 0,
-                last_opened: row.get(12)?,
-                created_at: row.get(13)?,
+                download_progress: row.get(9)?,
+                pdf_title: row.get(10)?,
+                pdf_author: row.get(11)?,
+                is_favorite: row.get::<_, i64>(12)? != 0,
+                last_opened: row.get(13)?,
+                created_at: row.get(14)?,
             })
         })
         .db_err()?
@@ -635,7 +646,7 @@ pub fn get_local_items(app: &AppHandle) -> Result<Vec<LocalItem>, PedaruError> {
     let mut stmt = conn
         .prepare(
             "SELECT id, file_path, original_path, file_name, file_size,
-                    thumbnail_data, pdf_title, pdf_author, is_favorite, last_opened, imported_at
+                    thumbnail_data, pdf_title, pdf_author, is_favorite, last_opened, imported_at, updated_at
              FROM bookshelf_local
              ORDER BY last_opened IS NULL, last_opened DESC, file_name ASC",
         )
@@ -655,6 +666,7 @@ pub fn get_local_items(app: &AppHandle) -> Result<Vec<LocalItem>, PedaruError> {
                 is_favorite: row.get::<_, i64>(8)? != 0,
                 last_opened: row.get(9)?,
                 imported_at: row.get(10)?,
+                updated_at: row.get(11)?,
             })
         })
         .db_err()?
@@ -884,6 +896,7 @@ pub fn import_local_file(app: &AppHandle, source_path: &str) -> Result<LocalItem
         is_favorite: false,
         last_opened: None,
         imported_at: now,
+        updated_at: now,
     })
 }
 
@@ -1062,6 +1075,7 @@ pub struct BookshelfItem {
     pub drive_folder_id: Option<String>,
     pub file_name: String,
     pub file_size: Option<i64>,
+    pub modified_time: Option<String>,
     pub thumbnail_data: Option<String>,
     pub local_path: Option<String>,
     pub download_status: String,
@@ -1083,6 +1097,7 @@ impl From<CloudItem> for BookshelfItem {
             drive_folder_id: Some(item.drive_folder_id),
             file_name: item.file_name,
             file_size: item.file_size,
+            modified_time: item.modified_time,
             thumbnail_data: item.thumbnail_data,
             local_path: item.local_path,
             download_status: item.download_status.to_string(),
@@ -1106,6 +1121,7 @@ impl From<LocalItem> for BookshelfItem {
             drive_folder_id: None,
             file_name: item.file_name,
             file_size: item.file_size,
+            modified_time: Some(timestamp_to_iso(item.updated_at)),
             thumbnail_data: item.thumbnail_data,
             local_path: Some(item.file_path),
             download_status: "completed".to_string(),
@@ -1238,6 +1254,7 @@ mod tests {
             drive_folder_id: "folder456".to_string(),
             file_name: "test.pdf".to_string(),
             file_size: Some(1024),
+            modified_time: Some("2024-01-01T00:00:00Z".to_string()),
             thumbnail_data: None,
             local_path: Some("/path/to/test.pdf".to_string()),
             download_status: DownloadStatus::Completed,
@@ -1271,6 +1288,7 @@ mod tests {
             is_favorite: true,
             last_opened: Some(1704153600),
             imported_at: 1704153600, // 2024-01-02 00:00:00 UTC
+            updated_at: 1704153600,
         };
 
         let bookshelf_item: BookshelfItem = local_item.into();
@@ -1290,6 +1308,7 @@ mod tests {
             drive_folder_id: "folder".to_string(),
             file_name: "file.pdf".to_string(),
             file_size: None,
+            modified_time: None,
             thumbnail_data: None,
             local_path: None,
             download_status: DownloadStatus::Pending,
@@ -1324,6 +1343,7 @@ mod tests {
             is_favorite: false,
             last_opened: None,
             imported_at: 1735689600, // 2025-01-01 00:00:00 UTC
+            updated_at: 1735689600,
         };
 
         let bookshelf_item: BookshelfItem = local_item.into();

@@ -23,6 +23,7 @@ tauri-plugin-fs = "2"
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tauri-plugin-shell = "2"
 rusqlite = "0.32"
+chrono = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 lopdf = "0.38"

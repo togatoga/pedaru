@@ -266,6 +266,20 @@ The SQLite database is initialized in `src-tauri/src/lib.rs` using `tauri-plugin
 - Indexed queries on file_path for fast lookups
 - LRU cleanup keeps only 50 most recent sessions
 
+**Migration Development:**
+When modifying database migrations, always back up the existing database before testing:
+```bash
+# macOS
+cp ~/Library/Application\ Support/pedaru/pedaru.db ~/Library/Application\ Support/pedaru/pedaru.db.backup
+
+# Linux
+cp ~/.config/pedaru/pedaru.db ~/.config/pedaru/pedaru.db.backup
+
+# Windows (PowerShell)
+Copy-Item "$env:APPDATA\pedaru\pedaru.db" "$env:APPDATA\pedaru\pedaru.db.backup"
+```
+This allows you to restore the original database if a migration fails or causes issues.
+
 **Database Operations:**
 All database operations are performed through Tauri commands implemented in Rust. The frontend calls `invoke()` with command names like `save_session`, `load_session`, etc. See `src/lib/database.ts` for the frontend wrapper and `src-tauri/src/session.rs` for the Rust implementation.
 
