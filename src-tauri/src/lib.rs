@@ -14,6 +14,7 @@ use tauri_plugin_sql::Builder as SqlBuilder;
 pub mod bookshelf;
 pub mod db;
 mod db_schema;
+pub mod download_queue;
 pub mod encoding;
 pub mod error;
 pub mod gemini;
@@ -65,8 +66,10 @@ fn get_pdf_info_impl(path: &str) -> error::Result<PdfInfo> {
 
     // Get file size
     let file_size = std::fs::metadata(path).ok().map(|m| m.len());
+    eprintln!("[Pedaru] File size: {:?}", file_size);
 
     // Load document from file
+    eprintln!("[Pedaru] Loading PDF document...");
     let doc = Document::load(path).map_err(|source| PdfError::LoadFailed {
         path: path.to_string(),
         source,
@@ -78,6 +81,7 @@ fn get_pdf_info_impl(path: &str) -> error::Result<PdfInfo> {
     let mut creation_date = None;
     let mut mod_date = None;
 
+    eprintln!("[Pedaru] Extracting metadata...");
     if let Ok(lopdf::Object::Reference(ref_id)) = doc.trailer.get(b"Info")
         && let Ok(info_dict) = doc.get_dictionary(*ref_id)
     {
@@ -94,9 +98,15 @@ fn get_pdf_info_impl(path: &str) -> error::Result<PdfInfo> {
             .and_then(decode_pdf_string)
             .and_then(|s| parse_pdf_date(&s));
     }
+    eprintln!("[Pedaru] Metadata extracted");
 
+    eprintln!("[Pedaru] Extracting TOC...");
     let toc = extract_toc(&doc);
+    eprintln!("[Pedaru] TOC extracted, {} entries", toc.len());
+
+    eprintln!("[Pedaru] Getting page count...");
     let page_count = Some(doc.get_pages().len() as u32);
+    eprintln!("[Pedaru] Page count: {:?}", page_count);
 
     Ok(PdfInfo {
         title,
@@ -358,10 +368,6 @@ async fn download_bookshelf_item(
     // Register the download FIRST (before any async work)
     bookshelf::register_download(&drive_file_id);
 
-    // Update status to downloading
-    bookshelf::update_download_status(&app, &drive_file_id, "downloading", 0.0, None)
-        .map_err(|e| e.into_tauri_error())?;
-
     // Get downloads directory
     let downloads_dir = bookshelf::get_downloads_dir(&app).map_err(|e| {
         bookshelf::unregister_download(&drive_file_id);
@@ -378,14 +384,10 @@ async fn download_bookshelf_item(
     match result {
         Ok(()) => {
             let path_str = dest_path.to_string_lossy().to_string();
-            bookshelf::update_download_status(
-                &app,
-                &drive_file_id,
-                "completed",
-                100.0,
-                Some(&path_str),
-            )
-            .map_err(|e| e.into_tauri_error())?;
+
+            // Update local_path in bookshelf_cloud
+            bookshelf::update_cloud_local_path(&app, &drive_file_id, &path_str)
+                .map_err(|e| e.into_tauri_error())?;
 
             // Extract and save PDF metadata (title and author)
             let _ = bookshelf::extract_and_save_pdf_metadata(&app, &path_str, &drive_file_id);
@@ -393,15 +395,7 @@ async fn download_bookshelf_item(
             Ok(path_str)
         }
         Err(e) => {
-            // Check if it was cancelled
             let error_str = e.into_tauri_error();
-            if error_str.contains("cancelled") {
-                bookshelf::update_download_status(&app, &drive_file_id, "pending", 0.0, None)
-                    .map_err(|e| e.into_tauri_error())?;
-            } else {
-                bookshelf::update_download_status(&app, &drive_file_id, "error", 0.0, None)
-                    .map_err(|e| e.into_tauri_error())?;
-            }
             Err(error_str)
         }
     }
@@ -445,6 +439,220 @@ fn update_local_thumbnail(
 #[tauri::command(rename_all = "camelCase")]
 fn cancel_bookshelf_download(drive_file_id: String) -> Result<bool, String> {
     Ok(bookshelf::cancel_download(&drive_file_id))
+}
+
+// ============================================================================
+// Download Queue Commands
+// ============================================================================
+
+/// Add an item to the download queue
+#[tauri::command(rename_all = "camelCase")]
+fn add_to_download_queue(
+    app: tauri::AppHandle,
+    drive_file_id: String,
+    file_name: String,
+    priority: Option<i32>,
+) -> Result<i64, String> {
+    download_queue::add_to_queue(&app, &drive_file_id, &file_name, priority.unwrap_or(0))
+        .map_err(|e| e.into_tauri_error())
+}
+
+/// Add all pending cloud items to the download queue
+#[tauri::command]
+fn add_all_to_download_queue(app: tauri::AppHandle) -> Result<i32, String> {
+    download_queue::add_all_pending_to_queue(&app).map_err(|e| e.into_tauri_error())
+}
+
+/// Get the current download queue state
+#[tauri::command]
+fn get_download_queue_state(app: tauri::AppHandle) -> Result<download_queue::QueueState, String> {
+    download_queue::get_queue_state(&app).map_err(|e| e.into_tauri_error())
+}
+
+/// Start the download worker
+#[tauri::command]
+async fn start_download_worker(app: tauri::AppHandle) -> Result<(), String> {
+    // Clear stop flag
+    download_queue::clear_stop_flag();
+
+    // Try to acquire lock (Mutex-based, in-process exclusion)
+    if !download_queue::try_acquire_worker_lock() {
+        return Err("Another download worker is already running".to_string());
+    }
+
+    // Spawn the worker task
+    let app_clone = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = run_download_worker_loop(&app_clone).await {
+            eprintln!("[Pedaru] Download worker error: {}", e);
+        }
+        // Always release lock when done
+        download_queue::release_worker_lock();
+        // Emit final state
+        if let Ok(state) = download_queue::get_queue_state(&app_clone) {
+            let _ = app_clone.emit("download-queue-changed", state);
+        }
+    });
+
+    Ok(())
+}
+
+/// Internal worker loop
+async fn run_download_worker_loop(app: &tauri::AppHandle) -> Result<(), String> {
+    loop {
+        // Check stop flag
+        if download_queue::should_stop_worker() {
+            eprintln!("[Pedaru] Download worker stop requested");
+            break;
+        }
+
+        // Get next item
+        let item = download_queue::get_next_queued_item(app).map_err(|e| e.into_tauri_error())?;
+
+        let item = match item {
+            Some(item) => item,
+            None => {
+                eprintln!("[Pedaru] Download queue empty, worker stopping");
+                break;
+            }
+        };
+
+        eprintln!(
+            "[Pedaru] Processing queue item: {} ({})",
+            item.file_name, item.drive_file_id
+        );
+
+        // Update status to processing
+        download_queue::update_queue_status(app, &item.drive_file_id, "processing", None)
+            .map_err(|e| e.into_tauri_error())?;
+
+        // Emit state change
+        if let Ok(state) = download_queue::get_queue_state(app) {
+            let _ = app.emit("download-queue-changed", state);
+        }
+
+        // Perform download
+        let result =
+            download_bookshelf_item_internal(app, &item.drive_file_id, &item.file_name).await;
+
+        match result {
+            Ok(_) => {
+                download_queue::update_queue_status(app, &item.drive_file_id, "completed", None)
+                    .map_err(|e| e.into_tauri_error())?;
+            }
+            Err(e) => {
+                if e.contains("cancelled") {
+                    download_queue::update_queue_status(
+                        app,
+                        &item.drive_file_id,
+                        "cancelled",
+                        None,
+                    )
+                    .map_err(|e| e.into_tauri_error())?;
+                } else {
+                    download_queue::update_queue_status(
+                        app,
+                        &item.drive_file_id,
+                        "error",
+                        Some(&e),
+                    )
+                    .map_err(|e| e.into_tauri_error())?;
+                }
+            }
+        }
+
+        // Emit state change
+        if let Ok(state) = download_queue::get_queue_state(app) {
+            let _ = app.emit("download-queue-changed", state);
+        }
+    }
+
+    Ok(())
+}
+
+/// Internal download function (shared between direct download and queue worker)
+async fn download_bookshelf_item_internal(
+    app: &tauri::AppHandle,
+    drive_file_id: &str,
+    file_name: &str,
+) -> Result<String, String> {
+    // Register the download
+    bookshelf::register_download(drive_file_id);
+
+    // Get downloads directory
+    let downloads_dir = bookshelf::get_downloads_dir(app).map_err(|e| {
+        bookshelf::unregister_download(drive_file_id);
+        e.into_tauri_error()
+    })?;
+    let dest_path = downloads_dir.join(file_name);
+
+    // Download file
+    let result = google_drive::download_file(app, drive_file_id, &dest_path).await;
+
+    // Unregister the download
+    bookshelf::unregister_download(drive_file_id);
+
+    match result {
+        Ok(()) => {
+            let path_str = dest_path.to_string_lossy().to_string();
+
+            // Update local_path in bookshelf_cloud
+            bookshelf::update_cloud_local_path(app, drive_file_id, &path_str)
+                .map_err(|e| e.into_tauri_error())?;
+
+            // Extract and save PDF metadata
+            let _ = bookshelf::extract_and_save_pdf_metadata(app, &path_str, drive_file_id);
+
+            Ok(path_str)
+        }
+        Err(e) => {
+            let error_str = e.into_tauri_error();
+            Err(error_str)
+        }
+    }
+}
+
+/// Stop the download worker
+#[tauri::command]
+fn stop_download_worker(app: tauri::AppHandle) -> Result<(), String> {
+    eprintln!("[Pedaru] stop_download_worker called");
+    download_queue::request_stop_worker();
+
+    // Also cancel the currently processing download
+    match download_queue::get_processing_item(&app) {
+        Ok(Some(item)) => {
+            eprintln!("[Pedaru] Cancelling processing item: {}", item.drive_file_id);
+            let cancelled = bookshelf::cancel_download(&item.drive_file_id);
+            eprintln!("[Pedaru] Cancel result: {}", cancelled);
+        }
+        Ok(None) => {
+            eprintln!("[Pedaru] No processing item found");
+        }
+        Err(e) => {
+            eprintln!("[Pedaru] Error getting processing item: {:?}", e);
+        }
+    }
+
+    Ok(())
+}
+
+/// Cancel a queued download (remove from queue)
+#[tauri::command(rename_all = "camelCase")]
+fn cancel_queued_download(app: tauri::AppHandle, drive_file_id: String) -> Result<bool, String> {
+    // If it's currently processing, cancel the download too
+    if let Ok(Some(item)) = download_queue::get_processing_item(&app)
+        && item.drive_file_id == drive_file_id
+    {
+        bookshelf::cancel_download(&drive_file_id);
+    }
+
+    download_queue::remove_from_queue(&app, &drive_file_id).map_err(|e| e.into_tauri_error())
+}
+
+/// Clear all queued downloads
+#[tauri::command]
+fn clear_download_queue(app: tauri::AppHandle) -> Result<i32, String> {
+    download_queue::clear_queue(&app).map_err(|e| e.into_tauri_error())
 }
 
 /// Import local PDF files to bookshelf
@@ -872,6 +1080,14 @@ pub fn run() {
             update_bookshelf_thumbnail,
             update_local_thumbnail,
             cancel_bookshelf_download,
+            // Download queue commands
+            add_to_download_queue,
+            add_all_to_download_queue,
+            get_download_queue_state,
+            start_download_worker,
+            stop_download_worker,
+            cancel_queued_download,
+            clear_download_queue,
             // Local import commands
             import_local_files,
             import_local_directory,
@@ -894,9 +1110,9 @@ pub fn run() {
             let menu = build_app_menu(app.handle()).map_err(|e| e.into_tauri_error())?;
             app.set_menu(menu)?;
 
-            // Reset any stale "downloading" statuses from previous sessions
-            if let Err(e) = bookshelf::reset_stale_downloads(app.handle()) {
-                eprintln!("[Pedaru] Failed to reset stale downloads: {}", e);
+            // Reset any items stuck in "processing" status in download queue
+            if let Err(e) = download_queue::reset_processing_items(app.handle()) {
+                eprintln!("[Pedaru] Failed to reset processing queue items: {}", e);
             }
 
             Ok(())

@@ -2,11 +2,12 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getSourceTypeFromIsCloud, itemMatches } from "@/lib/bookshelfUtils";
 import type {
   BookshelfItem,
   DownloadProgress,
+  DownloadQueueState,
   ImportResult,
   SyncResult,
 } from "@/types";
@@ -20,6 +21,7 @@ export function useBookshelf() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [queueState, setQueueState] = useState<DownloadQueueState | null>(null);
 
   // Load items on mount
   useEffect(() => {
@@ -73,6 +75,89 @@ export function useBookshelf() {
       );
     };
 
+    setupListener();
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, []);
+
+  // Track previous queue state to detect completed downloads
+  const prevQueueStateRef = useRef<DownloadQueueState | null>(null);
+
+  // Load queue state on mount and listen for changes
+  useEffect(() => {
+    let unlisten: UnlistenFn | null = null;
+
+    const loadQueueState = async () => {
+      try {
+        const state = await invoke<DownloadQueueState>("get_download_queue_state");
+        setQueueState(state);
+        prevQueueStateRef.current = state;
+      } catch (err) {
+        console.error("Failed to load queue state:", err);
+      }
+    };
+
+    const setupListener = async () => {
+      unlisten = await listen<DownloadQueueState>(
+        "download-queue-changed",
+        async (event) => {
+          const newState = event.payload;
+          const prevState = prevQueueStateRef.current;
+
+          setQueueState(newState);
+          prevQueueStateRef.current = newState;
+
+          // Detect when a download completes:
+          // - Previous state had a currentItem with status "processing"
+          // - New state has no currentItem OR different currentItem
+          // This means the previous item finished (completed, cancelled, or error)
+          if (
+            prevState?.currentItem?.status === "processing" &&
+            (!newState.currentItem ||
+              newState.currentItem.driveFileId !== prevState.currentItem.driveFileId)
+          ) {
+            // Reload items to get updated localPath, but preserve queued status
+            try {
+              const bookshelfItems = await invoke<BookshelfItem[]>("get_bookshelf_items");
+
+              // If queue is still running, preserve queued status for pending items
+              if (newState.isRunning || newState.pendingCount > 0) {
+                setItems((prevItems) => {
+                  // Build a set of currently queued drive file IDs
+                  const queuedIds = new Set(
+                    prevItems
+                      .filter((item) => item.downloadStatus === "queued" && item.driveFileId)
+                      .map((item) => item.driveFileId),
+                  );
+
+                  // Update items but preserve queued status
+                  return bookshelfItems.map((item) => {
+                    if (
+                      item.driveFileId &&
+                      queuedIds.has(item.driveFileId) &&
+                      item.downloadStatus === "pending"
+                    ) {
+                      return { ...item, downloadStatus: "queued" as const };
+                    }
+                    return item;
+                  });
+                });
+              } else {
+                setItems(bookshelfItems);
+              }
+            } catch (err) {
+              console.error("Failed to reload items after download:", err);
+            }
+          }
+        },
+      );
+    };
+
+    loadQueueState();
     setupListener();
 
     return () => {
@@ -496,12 +581,91 @@ export function useBookshelf() {
     return items.filter((item) => item.downloadStatus === "pending");
   }, [items]);
 
+  /**
+   * Add all pending items to download queue and start worker
+   */
+  const downloadAllQueued = useCallback(async (): Promise<number> => {
+    try {
+      const count = await invoke<number>("add_all_to_download_queue");
+
+      // Immediately update UI to show items as queued
+      setItems((prevItems) =>
+        prevItems.map((item) =>
+          item.sourceType === "google_drive" &&
+          (item.downloadStatus === "pending" || item.downloadStatus === "error")
+            ? { ...item, downloadStatus: "queued" as const, downloadProgress: 0 }
+            : item,
+        ),
+      );
+
+      // Always try to start worker (it will handle already-running case)
+      try {
+        await invoke("start_download_worker");
+      } catch (workerErr) {
+        // Worker may already be running, which is fine
+        console.log("Worker start:", workerErr);
+      }
+
+      return count;
+    } catch (err) {
+      console.error("Failed to start download queue:", err);
+      setError(String(err));
+      return 0;
+    }
+  }, []);
+
+  /**
+   * Stop the download worker
+   */
+  const stopDownloadQueue = useCallback(async (): Promise<void> => {
+    try {
+      await invoke("stop_download_worker");
+      // Immediately reset queued/downloading items to pending
+      setItems((prevItems) =>
+        prevItems.map((item) =>
+          item.downloadStatus === "queued" || item.downloadStatus === "downloading"
+            ? { ...item, downloadStatus: "pending" as const, downloadProgress: 0 }
+            : item,
+        ),
+      );
+    } catch (err) {
+      console.error("Failed to stop download queue:", err);
+    }
+  }, []);
+
+  /**
+   * Cancel a queued download
+   */
+  const cancelQueuedDownload = useCallback(
+    async (driveFileId: string): Promise<boolean> => {
+      try {
+        const result = await invoke<boolean>("cancel_queued_download", { driveFileId });
+        if (result) {
+          // Immediately update UI to show item as pending
+          setItems((prevItems) =>
+            prevItems.map((item) =>
+              item.driveFileId === driveFileId
+                ? { ...item, downloadStatus: "pending" as const, downloadProgress: 0 }
+                : item,
+            ),
+          );
+        }
+        return result;
+      } catch (err) {
+        console.error("Failed to cancel queued download:", err);
+        return false;
+      }
+    },
+    [],
+  );
+
   return {
     // State
     items,
     isLoading,
     isSyncing,
     error,
+    queueState,
 
     // Actions
     loadItems,
@@ -517,6 +681,11 @@ export function useBookshelf() {
     importLocalDirectory,
     deleteItem,
     toggleFavorite,
+
+    // Queue actions
+    downloadAllQueued,
+    stopDownloadQueue,
+    cancelQueuedDownload,
 
     // Getters
     getItemsNeedingThumbnails,

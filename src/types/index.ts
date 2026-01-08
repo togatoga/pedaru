@@ -187,7 +187,7 @@ export interface SyncResult {
 /**
  * Download status of a bookshelf item
  */
-export type DownloadStatus = "pending" | "downloading" | "completed" | "error";
+export type DownloadStatus = "pending" | "queued" | "downloading" | "completed" | "error";
 
 /**
  * Source type for bookshelf items
@@ -271,6 +271,45 @@ export interface DownloadProgress {
   progress: number;
   downloadedBytes: number;
   totalBytes: number;
+}
+
+// ============================================
+// Download Queue Types
+// ============================================
+
+/**
+ * Status of a queued download item
+ */
+export type QueueStatus =
+  | "queued"
+  | "processing"
+  | "completed"
+  | "error"
+  | "cancelled";
+
+/**
+ * Queued download item
+ */
+export interface QueuedDownload {
+  id: number;
+  driveFileId: string;
+  fileName: string;
+  priority: number;
+  status: QueueStatus;
+  errorMessage?: string;
+  downloadProgress: number;
+  queuedAt: number;
+  startedAt?: number;
+  completedAt?: number;
+}
+
+/**
+ * Download queue state
+ */
+export interface DownloadQueueState {
+  isRunning: boolean;
+  currentItem?: QueuedDownload;
+  pendingCount: number;
 }
 
 // ============================================

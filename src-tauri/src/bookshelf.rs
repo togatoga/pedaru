@@ -28,42 +28,11 @@ fn timestamp_to_iso(timestamp: i64) -> String {
 // Types - Cloud Items (Google Drive)
 // ============================================================================
 
-/// Download status for cloud items
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum DownloadStatus {
-    #[default]
-    Pending,
-    Downloading,
-    Completed,
-    Error,
-}
-
-impl std::fmt::Display for DownloadStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DownloadStatus::Pending => write!(f, "pending"),
-            DownloadStatus::Downloading => write!(f, "downloading"),
-            DownloadStatus::Completed => write!(f, "completed"),
-            DownloadStatus::Error => write!(f, "error"),
-        }
-    }
-}
-
-impl std::str::FromStr for DownloadStatus {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "pending" => Ok(DownloadStatus::Pending),
-            "downloading" => Ok(DownloadStatus::Downloading),
-            "completed" => Ok(DownloadStatus::Completed),
-            "error" => Ok(DownloadStatus::Error),
-            _ => Err(format!("Unknown download status: {}", s)),
-        }
-    }
-}
-
 /// Cloud bookshelf item (from Google Drive)
+/// Download status is derived from:
+///   - local_path IS NOT NULL → completed
+///   - download_queue status → downloading/queued/error
+///   - Otherwise → pending
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CloudItem {
@@ -75,8 +44,6 @@ pub struct CloudItem {
     pub modified_time: Option<String>,
     pub thumbnail_data: Option<String>,
     pub local_path: Option<String>,
-    pub download_status: DownloadStatus,
-    pub download_progress: f64,
     pub pdf_title: Option<String>,
     pub pdf_author: Option<String>,
     pub is_favorite: bool,
@@ -325,8 +292,8 @@ pub fn get_cloud_items(app: &AppHandle) -> Result<Vec<CloudItem>, PedaruError> {
     let mut stmt = conn
         .prepare(
             "SELECT id, drive_file_id, drive_folder_id, file_name, file_size,
-                    drive_modified_time, thumbnail_data, local_path, download_status,
-                    download_progress, pdf_title, pdf_author, is_favorite, last_opened, created_at
+                    drive_modified_time, thumbnail_data, local_path,
+                    pdf_title, pdf_author, is_favorite, last_opened, created_at
              FROM bookshelf_cloud
              ORDER BY last_opened IS NULL, last_opened DESC, file_name ASC",
         )
@@ -334,8 +301,6 @@ pub fn get_cloud_items(app: &AppHandle) -> Result<Vec<CloudItem>, PedaruError> {
 
     let items = stmt
         .query_map([], |row| {
-            let status_str: String = row.get(8)?;
-            let download_status = status_str.parse().unwrap_or_default();
             Ok(CloudItem {
                 id: row.get(0)?,
                 drive_file_id: row.get(1)?,
@@ -345,13 +310,11 @@ pub fn get_cloud_items(app: &AppHandle) -> Result<Vec<CloudItem>, PedaruError> {
                 modified_time: row.get(5)?,
                 thumbnail_data: row.get(6)?,
                 local_path: row.get(7)?,
-                download_status,
-                download_progress: row.get(9)?,
-                pdf_title: row.get(10)?,
-                pdf_author: row.get(11)?,
-                is_favorite: row.get::<_, i64>(12)? != 0,
-                last_opened: row.get(13)?,
-                created_at: row.get(14)?,
+                pdf_title: row.get(8)?,
+                pdf_author: row.get(9)?,
+                is_favorite: row.get::<_, i64>(10)? != 0,
+                last_opened: row.get(11)?,
+                created_at: row.get(12)?,
             })
         })
         .db_err()?
@@ -361,23 +324,19 @@ pub fn get_cloud_items(app: &AppHandle) -> Result<Vec<CloudItem>, PedaruError> {
     Ok(items)
 }
 
-/// Update download status for cloud item
-pub fn update_download_status(
+/// Update local_path for cloud item (called when download completes)
+pub fn update_cloud_local_path(
     app: &AppHandle,
     drive_file_id: &str,
-    status: &str,
-    progress: f64,
-    local_path: Option<&str>,
+    local_path: &str,
 ) -> Result<(), PedaruError> {
     let conn = open_db(app)?;
     conn.execute(
         "UPDATE bookshelf_cloud SET
-           download_status = ?1,
-           download_progress = ?2,
-           local_path = COALESCE(?3, local_path),
-           updated_at = ?4
-         WHERE drive_file_id = ?5",
-        rusqlite::params![status, progress, local_path, now_timestamp(), drive_file_id],
+           local_path = ?1,
+           updated_at = ?2
+         WHERE drive_file_id = ?3",
+        rusqlite::params![local_path, now_timestamp(), drive_file_id],
     )
     .db_err()?;
     Ok(())
@@ -441,12 +400,10 @@ pub fn delete_cloud_local_copy(app: &AppHandle, drive_file_id: &str) -> Result<(
         }
     }
 
-    // Update database
+    // Update database - just clear local_path
     conn.execute(
         "UPDATE bookshelf_cloud SET
            local_path = NULL,
-           download_status = 'pending',
-           download_progress = 0,
            updated_at = ?1
          WHERE drive_file_id = ?2",
         rusqlite::params![now_timestamp(), drive_file_id],
@@ -457,6 +414,7 @@ pub fn delete_cloud_local_copy(app: &AppHandle, drive_file_id: &str) -> Result<(
 }
 
 /// Reset download status for cloud item without deleting the file
+/// Clears local_path and thumbnail_data
 pub fn reset_cloud_download_status(
     app: &AppHandle,
     drive_file_id: &str,
@@ -466,8 +424,6 @@ pub fn reset_cloud_download_status(
     conn.execute(
         "UPDATE bookshelf_cloud SET
            local_path = NULL,
-           download_status = 'pending',
-           download_progress = 0,
            thumbnail_data = NULL,
            updated_at = ?1
          WHERE drive_file_id = ?2",
@@ -478,26 +434,15 @@ pub fn reset_cloud_download_status(
     Ok(())
 }
 
-/// Reset stale "downloading" statuses to "pending" on app startup
-pub fn reset_stale_downloads(app: &AppHandle) -> Result<(), PedaruError> {
-    let conn = open_db(app)?;
-    conn.execute(
-        "UPDATE bookshelf_cloud SET download_status = 'pending', download_progress = 0 WHERE download_status = 'downloading'",
-        [],
-    )
-    .db_err()?;
-    Ok(())
-}
-
-/// Verify that local files exist for completed cloud downloads
-/// Resets status to "pending" for items where the file no longer exists
+/// Verify that local files exist for downloaded cloud items
+/// Clears local_path for items where the file no longer exists
 pub fn verify_cloud_files(app: &AppHandle) -> Result<i32, PedaruError> {
     let conn = open_db(app)?;
 
     let mut stmt = conn
         .prepare(
             "SELECT drive_file_id, local_path FROM bookshelf_cloud
-             WHERE download_status = 'completed' AND local_path IS NOT NULL",
+             WHERE local_path IS NOT NULL",
         )
         .db_err()?;
 
@@ -513,13 +458,11 @@ pub fn verify_cloud_files(app: &AppHandle) -> Result<i32, PedaruError> {
         let path = std::path::Path::new(&local_path);
         if !path.exists() {
             eprintln!(
-                "[Pedaru] Cloud file missing, resetting status: {}",
+                "[Pedaru] Cloud file missing, clearing local_path: {}",
                 local_path
             );
             conn.execute(
                 "UPDATE bookshelf_cloud SET
-                   download_status = 'pending',
-                   download_progress = 0,
                    local_path = NULL,
                    thumbnail_data = NULL,
                    updated_at = ?1
@@ -542,7 +485,7 @@ pub fn verify_cloud_files(app: &AppHandle) -> Result<i32, PedaruError> {
 }
 
 /// Remove cloud items from inactive (removed) folders
-/// Only removes items that are not downloaded (pending status)
+/// Only removes items that are not downloaded (local_path IS NULL)
 /// Returns the number of items removed
 pub fn remove_items_from_inactive_folders(app: &AppHandle) -> Result<i32, PedaruError> {
     let conn = open_db(app)?;
@@ -560,10 +503,7 @@ pub fn remove_items_from_inactive_folders(app: &AppHandle) -> Result<i32, Pedaru
     if active_folder_ids.is_empty() {
         // No active folders - remove all non-downloaded cloud items
         let count = conn
-            .execute(
-                "DELETE FROM bookshelf_cloud WHERE download_status != 'completed'",
-                [],
-            )
+            .execute("DELETE FROM bookshelf_cloud WHERE local_path IS NULL", [])
             .db_err()?;
         eprintln!("[Pedaru] Removed {} cloud items (no active folders)", count);
         return Ok(count as i32);
@@ -577,7 +517,7 @@ pub fn remove_items_from_inactive_folders(app: &AppHandle) -> Result<i32, Pedaru
 
     // Delete items from inactive folders that are not downloaded
     let query = format!(
-        "DELETE FROM bookshelf_cloud WHERE drive_folder_id NOT IN ({}) AND download_status != 'completed'",
+        "DELETE FROM bookshelf_cloud WHERE drive_folder_id NOT IN ({}) AND local_path IS NULL",
         in_clause
     );
 
@@ -1091,6 +1031,18 @@ pub struct BookshelfItem {
 
 impl From<CloudItem> for BookshelfItem {
     fn from(item: CloudItem) -> Self {
+        // Derive download status from local_path presence
+        let download_status = if item.local_path.is_some() {
+            "completed".to_string()
+        } else {
+            "pending".to_string()
+        };
+        let download_progress = if item.local_path.is_some() {
+            100.0
+        } else {
+            0.0
+        };
+
         BookshelfItem {
             id: item.id,
             drive_file_id: Some(item.drive_file_id),
@@ -1100,8 +1052,8 @@ impl From<CloudItem> for BookshelfItem {
             modified_time: item.modified_time,
             thumbnail_data: item.thumbnail_data,
             local_path: item.local_path,
-            download_status: item.download_status.to_string(),
-            download_progress: item.download_progress,
+            download_status,
+            download_progress,
             pdf_title: item.pdf_title,
             pdf_author: item.pdf_author,
             source_type: "google_drive".to_string(),
@@ -1257,8 +1209,6 @@ mod tests {
             modified_time: Some("2024-01-01T00:00:00Z".to_string()),
             thumbnail_data: None,
             local_path: Some("/path/to/test.pdf".to_string()),
-            download_status: DownloadStatus::Completed,
-            download_progress: 100.0,
             pdf_title: Some("Test PDF".to_string()),
             pdf_author: Some("Author".to_string()),
             is_favorite: false,
@@ -1272,6 +1222,9 @@ mod tests {
         assert_eq!(bookshelf_item.created_at, 1704067200);
         assert_ne!(bookshelf_item.created_at, 0);
         assert_eq!(bookshelf_item.source_type, "google_drive");
+        // Verify download status is derived from local_path
+        assert_eq!(bookshelf_item.download_status, "completed");
+        assert_eq!(bookshelf_item.download_progress, 100.0);
     }
 
     #[test]
@@ -1311,8 +1264,6 @@ mod tests {
             modified_time: None,
             thumbnail_data: None,
             local_path: None,
-            download_status: DownloadStatus::Pending,
-            download_progress: 0.0,
             pdf_title: None,
             pdf_author: None,
             is_favorite: false,
@@ -1326,6 +1277,9 @@ mod tests {
         // The created_at should match what was set in the CloudItem
         assert!(bookshelf_item.created_at > 0);
         assert_eq!(bookshelf_item.created_at, 1735689600);
+        // Verify download status is derived from local_path (None = pending)
+        assert_eq!(bookshelf_item.download_status, "pending");
+        assert_eq!(bookshelf_item.download_progress, 0.0);
     }
 
     #[test]

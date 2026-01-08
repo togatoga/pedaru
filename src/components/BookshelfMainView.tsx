@@ -70,6 +70,7 @@ export default function BookshelfMainView({
     isLoading: bookshelfLoading,
     isSyncing,
     error: bookshelfError,
+    queueState,
     sync,
     downloadItem,
     cancelDownload,
@@ -83,6 +84,9 @@ export default function BookshelfMainView({
     importLocalDirectory,
     deleteItem,
     toggleFavorite,
+    downloadAllQueued,
+    stopDownloadQueue,
+    cancelQueuedDownload,
   } = useBookshelf();
 
   const [showSettings, setShowSettings] = useState(false);
@@ -100,11 +104,8 @@ export default function BookshelfMainView({
   const [browserViewMode, setBrowserViewMode] = useState<"grid" | "list">(
     "grid",
   );
-  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentDownloadIndex, setCurrentDownloadIndex] = useState(0);
-  const [totalDownloads, setTotalDownloads] = useState(0);
   const [filterMode, setFilterMode] = useState<
     "all" | "pending" | "downloaded"
   >("all");
@@ -525,7 +526,7 @@ export default function BookshelfMainView({
     [],
   );
 
-  // Get downloadable items count (only cloud files can be downloaded)
+  // Get downloadable items count (only cloud files that are not queued/downloading can be downloaded)
   const downloadableItems = useMemo(() => {
     return items.filter(
       (item) =>
@@ -534,6 +535,11 @@ export default function BookshelfMainView({
     );
   }, [items]);
   const downloadableCount = downloadableItems.length;
+
+  // Check if any items are queued (for showing stop button instead of download all)
+  const hasQueuedItems = useMemo(() => {
+    return items.some((item) => item.downloadStatus === "queued");
+  }, [items]);
 
   // Handle sort column click
   const handleSort = useCallback(
@@ -671,20 +677,25 @@ export default function BookshelfMainView({
   const handleDownloadAll = useCallback(async () => {
     if (downloadableItems.length === 0) return;
 
-    setIsDownloadingAll(true);
-    setTotalDownloads(downloadableItems.length);
-    setCurrentDownloadIndex(0);
-    try {
-      for (let i = 0; i < downloadableItems.length; i++) {
-        setCurrentDownloadIndex(i + 1);
-        await downloadItem(downloadableItems[i]);
+    // Check auth status first (triggers Keychain access)
+    if (!hasCheckedAuth) {
+      const status = await checkAuthStatus();
+      if (!status?.authenticated) {
+        setShowSettings(true);
+        return;
       }
-    } finally {
-      setIsDownloadingAll(false);
-      setCurrentDownloadIndex(0);
-      setTotalDownloads(0);
+    } else if (!authStatus.authenticated) {
+      setShowSettings(true);
+      return;
     }
-  }, [downloadableItems, downloadItem]);
+
+    // Use the queue-based download
+    await downloadAllQueued();
+  }, [downloadableItems.length, hasCheckedAuth, checkAuthStatus, authStatus.authenticated, downloadAllQueued]);
+
+  const handleStopDownloadAll = useCallback(async () => {
+    await stopDownloadQueue();
+  }, [stopDownloadQueue]);
 
   // Format file size
   const formatFileSize = (bytes?: number) => {
@@ -723,6 +734,7 @@ export default function BookshelfMainView({
   const renderBookItem = (item: BookshelfItemType) => {
     const isDownloaded = item.downloadStatus === "completed" && item.localPath;
     const isDownloading = item.downloadStatus === "downloading";
+    const isQueued = item.downloadStatus === "queued";
     const hasError = item.downloadStatus === "error";
     const displayName = item.pdfTitle || item.fileName;
 
@@ -768,23 +780,29 @@ export default function BookshelfMainView({
             <FileText className="w-16 h-16 text-text-tertiary" />
           )}
 
-          {isDownloading && (
+          {(isDownloading || isQueued) && (
             <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center">
               <Loader2 className="w-10 h-10 text-white animate-spin" />
               <span className="text-white text-base mt-2">
-                {item.downloadProgress.toFixed(0)}%
+                {isQueued ? "Queued" : `${item.downloadProgress.toFixed(0)}%`}
               </span>
-              <div className="w-3/4 h-1.5 bg-white/30 rounded-full mt-2">
-                <div
-                  className="h-full bg-accent rounded-full transition-all duration-200"
-                  style={{ width: `${item.downloadProgress}%` }}
-                />
-              </div>
+              {isDownloading && (
+                <div className="w-3/4 h-1.5 bg-white/30 rounded-full mt-2">
+                  <div
+                    className="h-full bg-accent rounded-full transition-all duration-200"
+                    style={{ width: `${item.downloadProgress}%` }}
+                  />
+                </div>
+              )}
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleCancel(item);
+                  if (isQueued) {
+                    cancelQueuedDownload(item.driveFileId || "");
+                  } else {
+                    handleCancel(item);
+                  }
                 }}
                 className="mt-3 px-4 py-1.5 bg-red-500/80 hover:bg-red-500 text-white text-sm rounded transition-colors flex items-center gap-1"
               >
@@ -1809,45 +1827,65 @@ export default function BookshelfMainView({
             </div>
           </div>
 
-          {/* Download progress */}
-          {(isDownloadingAll || downloadingItem) && (
+          {/* Download progress (queue-based) */}
+          {(queueState?.isRunning || hasQueuedItems || (downloadingItem && downloadingItem.downloadProgress > 0)) && (
             <div className="px-6 py-3 bg-accent/10 border-b border-bg-tertiary shrink-0">
               <div className="flex items-center gap-3 text-sm text-text-primary">
                 <Loader2 className="w-4 h-4 text-accent animate-spin shrink-0" />
                 <span className="truncate flex-1">
-                  {downloadingItem
-                    ? downloadingItem.pdfTitle || downloadingItem.fileName
-                    : "Starting..."}
+                  {queueState?.currentItem?.fileName ||
+                    downloadingItem?.pdfTitle ||
+                    downloadingItem?.fileName ||
+                    "Starting..."}
                 </span>
+                {(queueState?.isRunning || hasQueuedItems) ? (
+                  <>
+                    <span className="text-text-tertiary shrink-0">
+                      {queueState?.pendingCount && queueState.pendingCount > 0
+                        ? `${queueState.pendingCount} remaining`
+                        : null}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleStopDownloadAll}
+                      className="px-3 py-1 bg-red-500/80 hover:bg-red-500 text-white text-xs rounded transition-colors flex items-center gap-1"
+                    >
+                      <X className="w-3 h-3" />
+                      Stop
+                    </button>
+                  </>
+                ) : downloadingItem ? (
+                  <span className="text-text-tertiary shrink-0">
+                    {downloadingItem.downloadProgress.toFixed(0)}%
+                  </span>
+                ) : null}
               </div>
-              {isDownloadingAll && totalDownloads > 0 && (
-                <div className="mt-2 flex items-center gap-3">
+              {downloadingItem && (
+                <div className="flex items-center gap-3 mt-2">
                   <div className="flex-1 h-2 bg-bg-tertiary rounded-full overflow-hidden">
                     <div
                       className="h-full bg-accent transition-all duration-300"
                       style={{
-                        width: `${(currentDownloadIndex / totalDownloads) * 100}%`,
+                        width: `${downloadingItem.downloadProgress}%`,
                       }}
                     />
                   </div>
-                  <span className="text-sm text-text-tertiary shrink-0">
-                    {currentDownloadIndex}/{totalDownloads}
-                  </span>
                 </div>
               )}
             </div>
           )}
 
-          {/* Download All button (only for cloud files, hidden when viewing local only) */}
-          {authStatus.authenticated &&
-            downloadableCount > 0 &&
-            !isDownloadingAll &&
+          {/* Download All button (only for cloud files, hidden when downloading/queued or viewing local only) */}
+          {downloadableCount > 0 &&
+            !queueState?.isRunning &&
+            !hasQueuedItems &&
+            !(downloadingItem && downloadingItem.downloadProgress > 0) &&
             sourceFilter !== "local" && (
               <div className="px-6 py-3 border-b border-bg-tertiary shrink-0">
                 <button
                   type="button"
                   onClick={handleDownloadAll}
-                  disabled={isDownloadingAll}
+                  disabled={queueState?.isRunning}
                   className="px-6 py-2 bg-accent text-white rounded-lg font-medium hover:bg-accent/80 transition-colors flex items-center gap-2 disabled:opacity-50"
                 >
                   <Download className="w-5 h-5" />
@@ -1975,6 +2013,7 @@ export default function BookshelfMainView({
                     const isDownloaded =
                       item.downloadStatus === "completed" && item.localPath;
                     const isDownloading = item.downloadStatus === "downloading";
+                    const isQueued = item.downloadStatus === "queued";
                     const hasError = item.downloadStatus === "error";
                     const displayName = item.pdfTitle || item.fileName;
 
@@ -2039,6 +2078,11 @@ export default function BookshelfMainView({
                                 {item.downloadProgress.toFixed(0)}%
                               </span>
                             </div>
+                          ) : isQueued ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-accent">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Queued
+                            </span>
                           ) : isDownloaded ? (
                             <span className="inline-flex items-center gap-1 text-xs text-green-500">
                               <Check className="w-3 h-3" />
@@ -2085,12 +2129,16 @@ export default function BookshelfMainView({
                             >
                               <Info className="w-4 h-4" />
                             </button>
-                            {isDownloading && (
+                            {(isDownloading || isQueued) && (
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleCancel(item);
+                                  if (isQueued) {
+                                    cancelQueuedDownload(item.driveFileId || "");
+                                  } else {
+                                    handleCancel(item);
+                                  }
                                 }}
                                 className="p-1.5 hover:bg-bg-hover rounded transition-colors"
                                 title="Cancel"
@@ -2126,6 +2174,7 @@ export default function BookshelfMainView({
                             )}
                             {!isDownloaded &&
                               !isDownloading &&
+                              !isQueued &&
                               authStatus.authenticated &&
                               item.sourceType !== "local" && (
                                 <button
