@@ -483,7 +483,9 @@ export default function BookshelfMainView({
         // Set new key with default order
         setSortKey(key);
         // Date columns default to descending (newest first)
-        setSortOrder(key === "createdAt" || key === "modifiedTime" ? "desc" : "asc");
+        setSortOrder(
+          key === "createdAt" || key === "modifiedTime" ? "desc" : "asc",
+        );
       }
     },
     [sortKey],
@@ -551,8 +553,10 @@ export default function BookshelfMainView({
           // Parse ISO date strings, put items without modifiedTime at the end
           const timeA = a.modifiedTime ? new Date(a.modifiedTime).getTime() : 0;
           const timeB = b.modifiedTime ? new Date(b.modifiedTime).getTime() : 0;
-          if (!a.modifiedTime && b.modifiedTime) return sortOrder === "asc" ? 1 : -1;
-          if (a.modifiedTime && !b.modifiedTime) return sortOrder === "asc" ? -1 : 1;
+          if (!a.modifiedTime && b.modifiedTime)
+            return sortOrder === "asc" ? 1 : -1;
+          if (a.modifiedTime && !b.modifiedTime)
+            return sortOrder === "asc" ? -1 : 1;
           comparison = timeA - timeB;
           break;
         }
