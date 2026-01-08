@@ -182,19 +182,14 @@ mod tests {
         let info = PdfInfo {
             title: Some("Test PDF".to_string()),
             author: Some("Test Author".to_string()),
-            subject: Some("Test Subject".to_string()),
-            creator: Some("Test Creator".to_string()),
-            producer: Some("Test Producer".to_string()),
             creation_date: Some("2024-01-01".to_string()),
             mod_date: Some("2024-06-01".to_string()),
-            keywords: Some("test, pdf".to_string()),
             file_size: Some(1024),
             page_count: Some(10),
             toc: vec![],
         };
         assert_eq!(info.title, Some("Test PDF".to_string()));
         assert_eq!(info.author, Some("Test Author".to_string()));
-        assert_eq!(info.subject, Some("Test Subject".to_string()));
         assert_eq!(info.file_size, Some(1024));
         assert_eq!(info.page_count, Some(10));
         assert!(info.toc.is_empty());
