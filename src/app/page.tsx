@@ -3,6 +3,7 @@
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useRef, useState } from "react";
+import FooterSlider from "@/components/FooterSlider";
 import MainSidebar from "@/components/MainSidebar";
 import MainWindowHeader from "@/components/MainWindowHeader";
 import OverlayContainer from "@/components/OverlayContainer";
@@ -26,7 +27,10 @@ import { useWindowManagement } from "@/hooks/useWindowManagement";
 import { useWindowSync } from "@/hooks/useWindowSync";
 import { useTauriEventListener } from "@/lib/eventUtils";
 import { getTabLabel } from "@/lib/formatUtils";
-import { getChapterForPage as getChapter } from "@/lib/pdfUtils";
+import {
+  getChapterForPage as getChapter,
+  getTocBreadcrumb,
+} from "@/lib/pdfUtils";
 import { resetZoom, zoomIn, zoomOut } from "@/lib/zoomConfig";
 import type { TabState, WindowState } from "@/types";
 
@@ -276,6 +280,17 @@ export default function Home() {
 
   // Settings modal state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  // Slider preview state (for showing TOC breadcrumb during sliding)
+  const [sliderPreviewPage, setSliderPreviewPage] = useState<number | null>(
+    null,
+  );
+
+  // Get TOC breadcrumb for current or preview page
+  const currentBreadcrumb = getTocBreadcrumb(
+    pdfInfo,
+    sliderPreviewPage ?? currentPage,
+  );
 
   // Context menu (extracted to hook)
   const {
@@ -800,6 +815,33 @@ export default function Home() {
           }}
         />
       </div>
+
+      {/* Footer slider - only shown in main window when header is visible and PDF is loaded */}
+      {!isStandaloneMode && showHeader && totalPages > 0 && (
+        <FooterSlider
+          currentPage={currentPage}
+          totalPages={totalPages}
+          tocBreadcrumb={currentBreadcrumb}
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          onPageChange={(page) => {
+            setSliderPreviewPage(null);
+            goToPage(page);
+          }}
+          onPagePreview={(page) => {
+            setSliderPreviewPage(page);
+            goToPageWithoutHistory(page);
+          }}
+          onSlideStart={() => setSliderPreviewPage(currentPage)}
+          onSlideEnd={() => setSliderPreviewPage(null)}
+          onFirstPage={() => goToPage(1)}
+          onPrevPage={goToPrevPage}
+          onNextPage={goToNextPage}
+          onLastPage={() => goToPage(totalPages)}
+          onGoBack={goBack}
+          onGoForward={goForward}
+        />
+      )}
 
       {/* Overlay components (popups, modals, context menus) */}
       <OverlayContainer
