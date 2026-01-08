@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
+import { getSourceTypeFromIsCloud, itemMatches } from "@/lib/bookshelfUtils";
 import type {
   BookshelfItem,
   DownloadProgress,
@@ -331,14 +332,18 @@ export function useBookshelf() {
   );
 
   /**
-   * Delete a bookshelf item (removes from database and deletes the copied file)
+   * Delete a local bookshelf item (removes from database and deletes the copied file)
+   * Note: This only works for local items (sourceType === "local")
    */
   const deleteItem = useCallback(async (itemId: number): Promise<boolean> => {
     try {
       await invoke("delete_bookshelf_item", { itemId });
 
-      // Remove from local state
-      setItems((prevItems) => prevItems.filter((item) => item.id !== itemId));
+      // Remove from local state - must match both id and sourceType since
+      // cloud and local items can have the same id (from different tables)
+      setItems((prevItems) =>
+        prevItems.filter((item) => !itemMatches(item, itemId, "local")),
+      );
 
       return true;
     } catch (err) {
@@ -361,10 +366,14 @@ export function useBookshelf() {
           isCloud,
         });
 
-        // Update local state
+        // Update local state - must match both id and sourceType since
+        // cloud and local items can have the same id (from different tables)
+        const expectedSourceType = getSourceTypeFromIsCloud(isCloud);
         setItems((prevItems) =>
           prevItems.map((item) =>
-            item.id === itemId ? { ...item, isFavorite: newStatus } : item,
+            itemMatches(item, itemId, expectedSourceType)
+              ? { ...item, isFavorite: newStatus }
+              : item,
           ),
         );
 
@@ -415,10 +424,13 @@ export function useBookshelf() {
       try {
         await invoke("update_local_thumbnail", { itemId, thumbnailData });
 
-        // Update local state
+        // Update local state - must match both id and sourceType since
+        // cloud and local items can have the same id (from different tables)
         setItems((prevItems) =>
           prevItems.map((item) =>
-            item.id === itemId ? { ...item, thumbnailData } : item,
+            itemMatches(item, itemId, "local")
+              ? { ...item, thumbnailData }
+              : item,
           ),
         );
 

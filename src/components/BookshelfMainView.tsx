@@ -2,6 +2,9 @@
 
 import {
   AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Check,
   ChevronRight,
   Cloud,
@@ -29,6 +32,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBookshelf } from "@/hooks/useBookshelf";
 import { useGoogleAuth } from "@/hooks/useGoogleAuth";
+import { filterBySource, getItemKey } from "@/lib/bookshelfUtils";
 import { generateThumbnailsInBackground } from "@/lib/thumbnailGenerator";
 import type { BookshelfItem as BookshelfItemType, DriveItem } from "@/types";
 import type { BookshelfMainViewProps } from "@/types/components";
@@ -105,6 +109,10 @@ export default function BookshelfMainView({
     null,
   );
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [sortKey, setSortKey] = useState<
+    "title" | "author" | "createdAt" | "modifiedTime" | "fileSize"
+  >("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Credentials input (for first-time setup)
   const [clientId, setClientId] = useState("");
@@ -465,6 +473,24 @@ export default function BookshelfMainView({
   }, [items]);
   const downloadableCount = downloadableItems.length;
 
+  // Handle sort column click
+  const handleSort = useCallback(
+    (key: "title" | "author" | "createdAt" | "modifiedTime" | "fileSize") => {
+      if (sortKey === key) {
+        // Toggle order if same key
+        setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+      } else {
+        // Set new key with default order
+        setSortKey(key);
+        // Date columns default to descending (newest first)
+        setSortOrder(
+          key === "createdAt" || key === "modifiedTime" ? "desc" : "asc",
+        );
+      }
+    },
+    [sortKey],
+  );
+
   // Filter items by search query, download status, source type, and favorites
   const filteredItems = useMemo(() => {
     let filtered = items;
@@ -474,13 +500,8 @@ export default function BookshelfMainView({
       filtered = filtered.filter((item) => item.isFavorite);
     }
 
-    // Source type filter
-    if (sourceFilter === "local") {
-      filtered = filtered.filter((item) => item.sourceType === "local");
-    } else if (sourceFilter === "cloud") {
-      filtered = filtered.filter((item) => item.sourceType === "google_drive");
-    }
-    // When sourceFilter is null, show all items
+    // Source type filter (using utility to prevent ID collision bugs)
+    filtered = filterBySource(filtered, sourceFilter);
 
     // Download status filter
     if (filterMode === "pending") {
@@ -504,8 +525,62 @@ export default function BookshelfMainView({
       });
     }
 
-    return filtered;
-  }, [items, searchQuery, filterMode, sourceFilter, showFavoritesOnly]);
+    // Sort items
+    const sorted = [...filtered].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortKey) {
+        case "title": {
+          const titleA = (a.pdfTitle || a.fileName || "").toLowerCase();
+          const titleB = (b.pdfTitle || b.fileName || "").toLowerCase();
+          comparison = titleA.localeCompare(titleB, "ja");
+          break;
+        }
+        case "author": {
+          const authorA = (a.pdfAuthor || "").toLowerCase();
+          const authorB = (b.pdfAuthor || "").toLowerCase();
+          // Put empty authors at the end
+          if (!authorA && authorB) return sortOrder === "asc" ? 1 : -1;
+          if (authorA && !authorB) return sortOrder === "asc" ? -1 : 1;
+          comparison = authorA.localeCompare(authorB, "ja");
+          break;
+        }
+        case "createdAt": {
+          comparison = a.createdAt - b.createdAt;
+          break;
+        }
+        case "modifiedTime": {
+          // Parse ISO date strings, put items without modifiedTime at the end
+          const timeA = a.modifiedTime ? new Date(a.modifiedTime).getTime() : 0;
+          const timeB = b.modifiedTime ? new Date(b.modifiedTime).getTime() : 0;
+          if (!a.modifiedTime && b.modifiedTime)
+            return sortOrder === "asc" ? 1 : -1;
+          if (a.modifiedTime && !b.modifiedTime)
+            return sortOrder === "asc" ? -1 : 1;
+          comparison = timeA - timeB;
+          break;
+        }
+        case "fileSize": {
+          const sizeA = a.fileSize || 0;
+          const sizeB = b.fileSize || 0;
+          comparison = sizeA - sizeB;
+          break;
+        }
+      }
+
+      return sortOrder === "asc" ? comparison : -comparison;
+    });
+
+    return sorted;
+  }, [
+    items,
+    searchQuery,
+    filterMode,
+    sourceFilter,
+    showFavoritesOnly,
+    sortKey,
+    sortOrder,
+  ]);
 
   const downloadedCount = useMemo(() => {
     return items.filter((item) => item.downloadStatus === "completed").length;
@@ -557,9 +632,22 @@ export default function BookshelfMainView({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  // Format date with time
+  // Format date with time (from Unix timestamp)
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
+    return date.toLocaleString("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // Format date from ISO string
+  const formatIsoDate = (isoString?: string) => {
+    if (!isoString) return "-";
+    const date = new Date(isoString);
     return date.toLocaleString("ja-JP", {
       year: "numeric",
       month: "2-digit",
@@ -587,7 +675,7 @@ export default function BookshelfMainView({
       <div
         role={isDownloaded ? "button" : undefined}
         tabIndex={isDownloaded ? 0 : undefined}
-        key={item.id}
+        key={getItemKey(item)}
         className={`
           relative group rounded-lg overflow-hidden
           bg-bg-tertiary hover:bg-bg-secondary
@@ -1715,13 +1803,97 @@ export default function BookshelfMainView({
             // Table view
             <div className="flex-1 min-h-0 overflow-y-auto">
               <table className="w-full">
-                <thead className="sticky top-0 bg-bg-primary border-b border-bg-tertiary">
+                <thead className="sticky top-0 bg-bg-primary border-b border-bg-tertiary z-10">
                   <tr className="text-left text-sm text-text-tertiary">
-                    <th className="px-6 py-3 font-medium">Title</th>
-                    <th className="px-4 py-3 font-medium">Author</th>
-                    <th className="px-4 py-3 font-medium w-28">Added</th>
-                    <th className="px-4 py-3 font-medium w-24 text-right">
-                      Size
+                    <th className="px-6 py-3 font-medium">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("title")}
+                        className="flex items-center gap-1 hover:text-text-primary transition-colors"
+                      >
+                        Title
+                        {sortKey === "title" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("author")}
+                        className="flex items-center gap-1 hover:text-text-primary transition-colors"
+                      >
+                        Author
+                        {sortKey === "author" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium w-36">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("modifiedTime")}
+                        className="flex items-center gap-1 hover:text-text-primary transition-colors"
+                      >
+                        Modified
+                        {sortKey === "modifiedTime" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium w-36">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("createdAt")}
+                        className="flex items-center gap-1 hover:text-text-primary transition-colors"
+                      >
+                        Imported
+                        {sortKey === "createdAt" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium w-24">
+                      <button
+                        type="button"
+                        onClick={() => handleSort("fileSize")}
+                        className="flex items-center gap-1 hover:text-text-primary transition-colors ml-auto"
+                      >
+                        Size
+                        {sortKey === "fileSize" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+                        )}
+                      </button>
                     </th>
                     <th className="px-4 py-3 font-medium w-28">Status</th>
                     <th className="px-4 py-3 font-medium w-32">Actions</th>
@@ -1737,7 +1909,7 @@ export default function BookshelfMainView({
 
                     return (
                       <tr
-                        key={item.id}
+                        key={getItemKey(item)}
                         className={`hover:bg-bg-tertiary transition-colors ${isDownloaded ? "cursor-pointer" : ""}`}
                         onClick={() => isDownloaded && handleOpenPdf(item)}
                       >
@@ -1773,6 +1945,9 @@ export default function BookshelfMainView({
                           title={item.pdfAuthor || ""}
                         >
                           {item.pdfAuthor || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-text-tertiary">
+                          {formatIsoDate(item.modifiedTime)}
                         </td>
                         <td className="px-4 py-3 text-sm text-text-tertiary">
                           {formatDate(item.createdAt)}

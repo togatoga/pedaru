@@ -240,6 +240,7 @@ export interface BookshelfItem {
   driveFolderId?: string;
   fileName: string;
   fileSize?: number;
+  modifiedTime?: string;
   thumbnailData?: string;
   localPath?: string;
   downloadStatus: DownloadStatus;
