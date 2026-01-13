@@ -834,18 +834,27 @@ pub fn run() {
     }
 
     // Initialize SQLite database with migrations
-    let migrations = db_schema::get_migrations();
+    // Set SKIP_MIGRATIONS=1 to skip migrations during development
+    let skip_migrations = std::env::var("SKIP_MIGRATIONS")
+        .map(|v| v == "1" || v.to_lowercase() == "true")
+        .unwrap_or(false);
+
+    let sql_plugin = if skip_migrations {
+        eprintln!("SKIP_MIGRATIONS is set, skipping database migrations");
+        SqlBuilder::default().build()
+    } else {
+        let migrations = db_schema::get_migrations();
+        SqlBuilder::default()
+            .add_migrations("sqlite:pedaru.db", migrations)
+            .build()
+    };
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
-        .plugin(
-            SqlBuilder::default()
-                .add_migrations("sqlite:pedaru.db", migrations)
-                .build(),
-        )
+        .plugin(sql_plugin)
         .invoke_handler(tauri::generate_handler![
             get_pdf_info,
             read_pdf_file,
