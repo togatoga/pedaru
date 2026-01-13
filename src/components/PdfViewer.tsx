@@ -504,7 +504,7 @@ export default function PdfViewer({
               <p>Failed to load PDF</p>
             </div>
           }
-          className={`flex justify-center items-center ${viewMode === "two-column" ? "gap-4" : ""}`}
+          className="flex justify-center items-center"
         >
           {/* Left/Single Page */}
           <PageWithCustomTextLayer
