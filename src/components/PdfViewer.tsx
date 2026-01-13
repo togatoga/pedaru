@@ -59,7 +59,7 @@ function PageWithCustomTextLayer({
 
     return () => {
       cancelled = true;
-      setPdfPage(null);
+      // Don't set pdfPage to null here - keep showing old page until new one loads
     };
   }, [pdfDocument, pageNumber]);
 
@@ -68,11 +68,7 @@ function PageWithCustomTextLayer({
       <Page
         pageNumber={pageNumber}
         scale={scale}
-        loading={
-          <div className="flex items-center justify-center p-20">
-            <Loader2 className="w-8 h-8 animate-spin text-accent" />
-          </div>
-        }
+        loading={null}
         className="shadow-2xl"
         renderTextLayer={false}
         renderAnnotationLayer={true}
