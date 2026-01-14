@@ -31,6 +31,7 @@ import {
   getChapterForPage as getChapter,
   getTocBreadcrumb,
 } from "@/lib/pdfUtils";
+import { isMacOS as checkIsMacOS } from "@/lib/platform";
 import { resetZoom, zoomIn, zoomOut } from "@/lib/zoomConfig";
 import type { TabState, WindowState } from "@/types";
 
@@ -688,10 +689,32 @@ export default function Home() {
     ? isTocOpen || showHistory || showBookmarks
     : isTocOpen || showHistory || showBookmarks || showWindows;
 
+  // Check if macOS for drag region (only needed in standalone mode)
+  const [isMacOS, setIsMacOS] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMacOS(checkIsMacOS());
+    setIsMounted(true);
+  }, []);
+
   return (
     <main className="flex flex-col h-screen bg-bg-primary relative group">
+      {/* macOS standalone mode: Draggable header bar for window dragging */}
+      {isMounted && isStandaloneMode && isMacOS && (
+        <div
+          data-tauri-drag-region
+          className="flex items-center justify-center px-4 py-1.5 bg-bg-secondary border-b border-bg-tertiary cursor-grab active:cursor-grabbing select-none shrink-0"
+        >
+          <div className="flex gap-1 pointer-events-none">
+            <div className="w-1.5 h-1.5 rounded-full bg-text-tertiary/50" />
+            <div className="w-1.5 h-1.5 rounded-full bg-text-tertiary/50" />
+            <div className="w-1.5 h-1.5 rounded-full bg-text-tertiary/50" />
+          </div>
+        </div>
+      )}
+
       {/* Main window header (Header + TabBar) */}
-      {!isStandaloneMode && (
+      {isMounted && !isStandaloneMode && (
         <MainWindowHeader
           showHeader={showHeader}
           fileName={fileName}
@@ -866,7 +889,7 @@ export default function Home() {
       </div>
 
       {/* Footer slider - only shown in main window when header is visible and PDF is loaded */}
-      {!isStandaloneMode && showHeader && totalPages > 0 && (
+      {isMounted && !isStandaloneMode && showHeader && totalPages > 0 && (
         <FooterSlider
           currentPage={currentPage}
           totalPages={totalPages}

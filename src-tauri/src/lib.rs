@@ -773,16 +773,24 @@ fn handle_opened_event(app: &tauri::AppHandle, urls: &[tauri::Url]) {
                         .map(|n: &std::ffi::OsStr| n.to_string_lossy().to_string())
                         .unwrap_or_else(|| "PDF".to_string());
 
-                    if let Err(e) = tauri::WebviewWindowBuilder::new(
+                    let mut builder = tauri::WebviewWindowBuilder::new(
                         app,
                         &window_label,
                         tauri::WebviewUrl::App(window_url.into()),
                     )
                     .title(&file_name)
                     .inner_size(1200.0, 800.0)
-                    .min_inner_size(800.0, 600.0)
-                    .build()
+                    .min_inner_size(800.0, 600.0);
+
+                    // macOS: Use overlay title bar style
+                    #[cfg(target_os = "macos")]
                     {
+                        builder = builder
+                            .title_bar_style(tauri::TitleBarStyle::Overlay)
+                            .hidden_title(true);
+                    }
+
+                    if let Err(e) = builder.build() {
                         eprintln!("[Pedaru] Failed to create window: {:?}", e);
                     }
                 }
@@ -854,6 +862,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_os::init())
         .plugin(sql_plugin)
         .invoke_handler(tauri::generate_handler![
             get_pdf_info,
