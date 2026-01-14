@@ -11,6 +11,7 @@ import {
   useRef,
 } from "react";
 import { getTabLabel, getWindowTitle } from "@/lib/formatUtils";
+import { isMacOS } from "@/lib/platform";
 import type { OpenWindow, PdfInfo, Tab, ViewMode, WindowState } from "./types";
 
 /**
@@ -113,6 +114,10 @@ export function useWindowManagement(
           height: 1100,
           resizable: true,
           center: true,
+          ...(isMacOS() && {
+            titleBarStyle: "overlay",
+            hiddenTitle: true,
+          }),
         });
 
         // Wait for window to be created before adding to openWindows

@@ -19,6 +19,8 @@ import {
   ZoomOut,
 } from "lucide-react";
 import Image from "next/image";
+import { useEffect, useState } from "react";
+import { isMacOS as checkIsMacOS } from "@/lib/platform";
 import type { HeaderProps } from "@/types/components";
 
 export default function Header({
@@ -57,9 +59,30 @@ export default function Header({
   onCloseAllWindows,
 }: HeaderProps) {
   const isPdfLoaded = totalPages > 0;
+  const [isMacOS, setIsMacOS] = useState(false);
+
+  useEffect(() => {
+    setIsMacOS(checkIsMacOS());
+  }, []);
+
+  const handleMouseDown = async (e: React.MouseEvent<HTMLElement>) => {
+    if (e.buttons === 1) {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        await getCurrentWindow().startDragging();
+      } catch (error) {
+        console.error("Failed to start dragging:", error);
+      }
+    }
+  };
 
   return (
-    <header className="flex items-center justify-between h-14 px-4 bg-bg-secondary border-b border-bg-tertiary flex-shrink-0">
+    // biome-ignore lint/a11y/noStaticElementInteractions: Window drag region
+    <header
+      className="flex items-center justify-between h-14 px-4 bg-bg-secondary border-b border-bg-tertiary flex-shrink-0"
+      style={{ paddingLeft: isMacOS ? "80px" : "16px" }}
+      onMouseDown={handleMouseDown}
+    >
       {/* Left section */}
       <div className="flex items-center gap-3">
         <button

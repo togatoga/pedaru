@@ -31,6 +31,7 @@ import {
   getChapterForPage as getChapter,
   getTocBreadcrumb,
 } from "@/lib/pdfUtils";
+import { isMacOS as checkIsMacOS } from "@/lib/platform";
 import { resetZoom, zoomIn, zoomOut } from "@/lib/zoomConfig";
 import type { TabState, WindowState } from "@/types";
 
@@ -688,8 +689,31 @@ export default function Home() {
     ? isTocOpen || showHistory || showBookmarks
     : isTocOpen || showHistory || showBookmarks || showWindows;
 
+  // Check if macOS for drag region (only needed in standalone mode)
+  const [isMacOS, setIsMacOS] = useState(false);
+  useEffect(() => {
+    setIsMacOS(checkIsMacOS());
+  }, []);
+
   return (
     <main className="flex flex-col h-screen bg-bg-primary relative group">
+      {/* macOS standalone mode: Drag region at top for window dragging */}
+      {isStandaloneMode && isMacOS && (
+        // biome-ignore lint/a11y/noStaticElementInteractions: Window drag region
+        <div
+          className="absolute top-0 left-0 right-0 h-8 z-0"
+          onMouseDown={async (e) => {
+            if (e.buttons === 1) {
+              try {
+                await getCurrentWebviewWindow().startDragging();
+              } catch (error) {
+                console.error("Failed to start dragging:", error);
+              }
+            }
+          }}
+        />
+      )}
+
       {/* Main window header (Header + TabBar) */}
       {!isStandaloneMode && (
         <MainWindowHeader

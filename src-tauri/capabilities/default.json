@@ -9,11 +9,13 @@
     "core:window:allow-close",
     "core:window:allow-destroy",
     "core:window:allow-set-title",
+    "core:window:allow-start-dragging",
     "core:webview:allow-create-webview",
     "core:webview:allow-create-webview-window",
     "opener:default",
     "dialog:default",
     "shell:allow-open",
+    "os:default",
     "fs:default",
     {
       "identifier": "fs:allow-read-file",
