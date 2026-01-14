@@ -242,7 +242,11 @@ export function usePdfViewerState(): PdfViewerState {
   const [zoom, setZoom] = useState(1.0);
   const [viewMode, setViewMode] = useState<ViewMode>("single");
   const [isLoading, setIsLoading] = useState(false);
-  const [isStandaloneMode, setIsStandaloneMode] = useState(false);
+  const [isStandaloneMode, setIsStandaloneMode] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    return params.get("standalone") === "true";
+  });
 
   // ============================================
   // UI State
