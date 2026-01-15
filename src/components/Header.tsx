@@ -26,7 +26,6 @@ import type { HeaderProps } from "@/types/components";
 export default function Header({
   fileName,
   pdfTitle,
-  currentPage,
   totalPages,
   zoom,
   viewMode,
@@ -42,9 +41,6 @@ export default function Header({
   bookmarkCount,
   thumbnailUrl,
   onOpenFile,
-  onPrevPage,
-  onNextPage,
-  onPageChange,
   onZoomIn,
   onZoomOut,
   onToggleToc,
@@ -126,7 +122,7 @@ export default function Header({
               </div>
             )}
             <span
-              className="text-text-secondary text-sm truncate max-w-[200px]"
+              className="text-text-secondary text-sm truncate max-w-[400px]"
               title={pdfTitle || fileName || undefined}
             >
               {pdfTitle || fileName}
@@ -189,41 +185,6 @@ export default function Header({
             <span className="text-red-400 text-xs">No results</span>
           )}
         </div>
-      </div>
-
-      {/* Center section - Page navigation */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onPrevPage}
-          disabled={!isPdfLoaded || currentPage <= 1}
-          className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-
-        <div className="flex items-center gap-2 text-text-primary">
-          <input
-            type="number"
-            value={currentPage}
-            onChange={(e) => onPageChange(parseInt(e.target.value, 10) || 1)}
-            disabled={!isPdfLoaded}
-            min={1}
-            max={totalPages}
-            className="w-14 px-2 py-1 bg-bg-tertiary border border-bg-hover rounded text-center text-sm focus:outline-none focus:border-accent disabled:opacity-40"
-          />
-          <span className="text-text-secondary">/</span>
-          <span className="text-text-secondary">{totalPages || 0}</span>
-        </div>
-
-        <button
-          type="button"
-          onClick={onNextPage}
-          disabled={!isPdfLoaded || currentPage >= totalPages}
-          className="p-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
       </div>
 
       {/* Right section - Zoom and TOC */}

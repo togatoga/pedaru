@@ -11,7 +11,6 @@ export interface MainWindowHeaderProps {
   // Header props
   fileName: string | null;
   pdfTitle: string | null;
-  currentPage: number;
   totalPages: number;
   zoom: number;
   viewMode: ViewMode;
@@ -28,9 +27,6 @@ export interface MainWindowHeaderProps {
   thumbnailUrl: string | null;
   // Header handlers
   onOpenFile: () => void;
-  onPrevPage: () => void;
-  onNextPage: () => void;
-  onPageChange: (page: number) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onToggleToc: () => void;
@@ -68,7 +64,6 @@ export default function MainWindowHeader({
   // Header props
   fileName,
   pdfTitle,
-  currentPage,
   totalPages,
   zoom,
   viewMode,
@@ -84,9 +79,6 @@ export default function MainWindowHeader({
   bookmarkCount,
   thumbnailUrl,
   onOpenFile,
-  onPrevPage,
-  onNextPage,
-  onPageChange,
   onZoomIn,
   onZoomOut,
   onToggleToc,
@@ -122,7 +114,6 @@ export default function MainWindowHeader({
       <Header
         fileName={fileName}
         pdfTitle={pdfTitle}
-        currentPage={currentPage}
         totalPages={totalPages}
         zoom={zoom}
         viewMode={viewMode}
@@ -134,9 +125,6 @@ export default function MainWindowHeader({
         searchResultCount={searchResultCount}
         currentSearchIndex={currentSearchIndex}
         onOpenFile={onOpenFile}
-        onPrevPage={onPrevPage}
-        onNextPage={onNextPage}
-        onPageChange={onPageChange}
         onZoomIn={onZoomIn}
         onZoomOut={onZoomOut}
         onToggleToc={onToggleToc}

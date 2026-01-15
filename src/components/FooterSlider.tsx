@@ -31,6 +31,7 @@ export function FooterSlider({
   const [isSliding, setIsSliding] = useState(false);
   const [sliderPage, setSliderPage] = useState(currentPage);
   const [tooltipPosition, setTooltipPosition] = useState(0);
+  const [inputValue, setInputValue] = useState(currentPage.toString());
   const sliderRef = useRef<HTMLInputElement>(null);
   const sliderContainerRef = useRef<HTMLDivElement>(null);
 
@@ -40,6 +41,11 @@ export function FooterSlider({
       setSliderPage(currentPage);
     }
   }, [currentPage, isSliding]);
+
+  // Sync input value with current page
+  useEffect(() => {
+    setInputValue(currentPage.toString());
+  }, [currentPage]);
 
   // Update tooltip position based on slider value
   const updateTooltipPosition = useCallback(
@@ -165,11 +171,35 @@ export function FooterSlider({
           </button>
         </div>
 
-        {/* Page number display */}
+        {/* Page number display - editable input */}
         <div className="flex items-center gap-1 min-w-[70px] justify-center">
-          <span className="text-sm text-neutral-300 tabular-nums">
-            {displayPage}
-          </span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={inputValue}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Allow empty string or numbers only
+              if (value === "" || /^\d+$/.test(value)) {
+                setInputValue(value);
+              }
+            }}
+            onBlur={() => {
+              const page = Number.parseInt(inputValue, 10);
+              if (!Number.isNaN(page) && page >= 1 && page <= totalPages) {
+                onPageChange(page);
+              } else {
+                // Reset to current page if invalid
+                setInputValue(currentPage.toString());
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.currentTarget.blur();
+              }
+            }}
+            className="w-12 px-1 py-0.5 bg-neutral-800 border border-neutral-700 rounded text-center text-sm text-neutral-300 tabular-nums focus:outline-none focus:border-neutral-500 hover:border-neutral-600 transition-colors"
+          />
           <span className="text-sm text-neutral-500">/</span>
           <span className="text-sm text-neutral-500 tabular-nums">
             {totalPages}

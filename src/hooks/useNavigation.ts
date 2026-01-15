@@ -225,20 +225,34 @@ export function useNavigation(
 
   /**
    * Navigate to previous page
-   * Respects view mode (2 pages in two-column mode)
+   * Respects view mode and spread boundaries in two-column mode
    */
   const goToPrevPage = useCallback(() => {
-    const step = viewMode === "two-column" ? 2 : 1;
-    goToPage(currentPage - step);
+    if (viewMode === "two-column") {
+      // Two-column mode: move to previous spread (always starts with odd page)
+      // If on odd page, go back 2 pages to previous spread
+      // If on even page, go back 1 page to the start of current spread
+      const newPage = currentPage % 2 === 1 ? currentPage - 2 : currentPage - 1;
+      goToPage(Math.max(1, newPage));
+    } else {
+      goToPage(currentPage - 1);
+    }
   }, [currentPage, viewMode, goToPage]);
 
   /**
    * Navigate to next page
-   * Respects view mode (2 pages in two-column mode)
+   * Respects view mode and spread boundaries in two-column mode
    */
   const goToNextPage = useCallback(() => {
-    const step = viewMode === "two-column" ? 2 : 1;
-    goToPage(currentPage + step);
+    if (viewMode === "two-column") {
+      // Two-column mode: move to next spread (always starts with odd page)
+      // If on odd page, go forward 2 pages to next spread
+      // If on even page, go forward 1 page to the start of next spread
+      const newPage = currentPage % 2 === 1 ? currentPage + 2 : currentPage + 1;
+      goToPage(newPage);
+    } else {
+      goToPage(currentPage + 1);
+    }
   }, [currentPage, viewMode, goToPage]);
 
   // History navigation helpers

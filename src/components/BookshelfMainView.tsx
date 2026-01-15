@@ -9,7 +9,6 @@ import {
   ChevronRight,
   Cloud,
   Download,
-  ExternalLink,
   FilePlus,
   FileText,
   FolderOpen,
@@ -862,30 +861,17 @@ export default function BookshelfMainView({
             <Info className="w-4 h-4" />
           </button>
           {isDownloaded ? (
-            <>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleOpenPdf(item);
-                }}
-                className="p-2 bg-accent text-white rounded hover:bg-accent/80 transition-colors"
-                title="Open"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteItem(item);
-                }}
-                className="p-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-                title="Delete"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteItem(item);
+              }}
+              className="p-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+              title="Delete"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           ) : !isDownloading &&
             authStatus.authenticated &&
             item.sourceType !== "local" ? (
@@ -2099,30 +2085,17 @@ export default function BookshelfMainView({
                               </button>
                             )}
                             {isDownloaded && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenPdf(item);
-                                  }}
-                                  className="p-1.5 hover:bg-bg-hover rounded transition-colors"
-                                  title="Open"
-                                >
-                                  <ExternalLink className="w-4 h-4 text-text-secondary" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteItem(item);
-                                  }}
-                                  className="p-1.5 hover:bg-bg-hover rounded transition-colors"
-                                  title="Delete"
-                                >
-                                  <Trash2 className="w-4 h-4 text-text-secondary hover:text-red-400" />
-                                </button>
-                              </>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteItem(item);
+                                }}
+                                className="p-1.5 hover:bg-bg-hover rounded transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4 text-text-secondary hover:text-red-400" />
+                              </button>
                             )}
                             {!isDownloaded &&
                               !isDownloading &&
