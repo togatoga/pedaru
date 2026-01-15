@@ -719,7 +719,6 @@ export default function Home() {
           showHeader={showHeader}
           fileName={fileName}
           pdfTitle={pdfInfo?.title || null}
-          currentPage={currentPage}
           totalPages={totalPages}
           zoom={zoom}
           viewMode={viewMode}
@@ -735,9 +734,6 @@ export default function Home() {
           bookmarkCount={bookmarks.length}
           thumbnailUrl={thumbnailUrl}
           onOpenFile={handleOpenFile}
-          onPrevPage={goToPrevPage}
-          onNextPage={goToNextPage}
-          onPageChange={goToPage}
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
           onToggleToc={() => setIsTocOpen(!isTocOpen)}

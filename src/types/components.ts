@@ -23,7 +23,6 @@ import type { TocEntry } from "./pdf";
 export interface HeaderProps {
   fileName: string | null;
   pdfTitle: string | null;
-  currentPage: number;
   totalPages: number;
   zoom: number;
   viewMode: ViewMode;
@@ -39,9 +38,6 @@ export interface HeaderProps {
   bookmarkCount: number;
   thumbnailUrl: string | null;
   onOpenFile: () => void;
-  onPrevPage: () => void;
-  onNextPage: () => void;
-  onPageChange: (page: number) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onToggleToc: () => void;
