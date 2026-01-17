@@ -62,6 +62,8 @@ export default function Header({
   }, []);
 
   const handleMouseDown = async (e: React.MouseEvent<HTMLElement>) => {
+    // Window dragging is only supported on macOS with titleBarStyle: "Overlay"
+    if (!isMacOS) return;
     if (e.buttons === 1) {
       try {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
