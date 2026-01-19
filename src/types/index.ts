@@ -5,6 +5,8 @@
 
 // Re-export PDF-related types
 export type { PdfInfo, TocEntry } from "./pdf";
+// Import for internal use
+import type { PdfInfo } from "./pdf";
 
 // ============================================
 // View Mode
@@ -49,11 +51,23 @@ export interface SearchResult {
 }
 
 // ============================================
+// History Types
+// ============================================
+
+/**
+ * Represents an entry in the page navigation history
+ */
+export interface HistoryEntry {
+  page: number;
+  timestamp: string;
+}
+
+// ============================================
 // Tab Types
 // ============================================
 
 /**
- * Tab state for database storage
+ * Tab state for database storage (legacy - page-based tabs)
  */
 export interface TabState {
   page: number;
@@ -61,12 +75,47 @@ export interface TabState {
 }
 
 /**
- * Represents an active tab in the main window
+ * Represents an active tab in the main window (legacy - page-based tabs)
  */
 export interface Tab {
   id: number;
   page: number;
   label: string;
+}
+
+/**
+ * File tab state for database storage
+ * Each tab represents a complete PDF file with its own state
+ */
+export interface FileTabState {
+  filePath: string;
+  fileName: string;
+  page: number;
+  zoom: number;
+  viewMode: ViewMode;
+  bookmarks: Bookmark[];
+  pageHistory: HistoryEntry[];
+  historyIndex: number;
+}
+
+/**
+ * Active file tab in memory
+ * Includes runtime data not persisted to database
+ */
+export interface FileTab {
+  id: number;
+  filePath: string;
+  fileName: string;
+  page: number;
+  zoom: number;
+  viewMode: ViewMode;
+  bookmarks: Bookmark[];
+  pageHistory: HistoryEntry[];
+  historyIndex: number;
+  // Runtime-only fields
+  fileData: Uint8Array | null;
+  pdfInfo: PdfInfo | null;
+  isLoading: boolean;
 }
 
 // ============================================
@@ -94,23 +143,11 @@ export interface OpenWindow {
 }
 
 // ============================================
-// History Types
-// ============================================
-
-/**
- * Represents an entry in the page navigation history
- */
-export interface HistoryEntry {
-  page: number;
-  timestamp: string;
-}
-
-// ============================================
 // Session Types
 // ============================================
 
 /**
- * Complete session state for a PDF document
+ * Complete session state for a PDF document (legacy single-file format)
  */
 export interface PdfSessionState {
   filePath?: string;
@@ -125,6 +162,15 @@ export interface PdfSessionState {
   bookmarks: BookmarkState[];
   pageHistory?: HistoryEntry[];
   historyIndex?: number;
+}
+
+/**
+ * Workspace state with multiple file tabs
+ */
+export interface WorkspaceState {
+  lastOpened: number;
+  activeTabIndex: number;
+  tabs: FileTabState[];
 }
 
 // ============================================
