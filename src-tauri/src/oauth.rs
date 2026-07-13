@@ -18,6 +18,7 @@ use std::thread;
 use tauri::AppHandle;
 use tiny_http::{Response, Server};
 
+use crate::db;
 use crate::error::{OAuthError, PedaruError};
 use crate::secrets;
 use crate::secure_string::SecureString;
@@ -170,11 +171,7 @@ pub fn save_tokens(
 
     // Calculate and store token expiry
     if let Some(expires) = expires_in {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
-        let expiry = now + expires;
+        let expiry = db::now_timestamp() + expires;
         secrets::store_secret(app, secrets::keys::GOOGLE_TOKEN_EXPIRY, &expiry.to_string())?;
     }
 
@@ -238,6 +235,13 @@ pub fn start_auth_flow(app: &AppHandle) -> Result<String, PedaruError> {
     Ok(auth_url)
 }
 
+/// Build an HTML response for the OAuth callback page
+fn html_response(body: impl Into<String>) -> Response<std::io::Cursor<Vec<u8>>> {
+    Response::from_string(body).with_header(
+        tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html"[..]).unwrap(),
+    )
+}
+
 /// Run local HTTP server to receive OAuth callback
 fn run_callback_server(app: &AppHandle) -> Result<(), PedaruError> {
     let server = Server::http("127.0.0.1:8585")
@@ -282,17 +286,13 @@ fn run_callback_server(app: &AppHandle) -> Result<(), PedaruError> {
                         // Exchange code for tokens
                         if let Err(e) = exchange_code_for_tokens(app, &code) {
                             eprintln!("Token exchange failed: {}", e);
-                            let response = Response::from_string(
-                                "<html><body><h1>Authentication Failed</h1><p>Please try again.</p></body></html>"
-                            ).with_header(
-                                tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html"[..]).unwrap()
+                            let response = html_response(
+                                "<html><body><h1>Authentication Failed</h1><p>Please try again.</p></body></html>",
                             );
                             let _ = request.respond(response);
                         } else {
-                            let response = Response::from_string(
-                                "<html><body><h1>Authentication Successful!</h1><p>You can close this window and return to Pedaru.</p><script>setTimeout(() => window.close(), 2000);</script></body></html>"
-                            ).with_header(
-                                tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html"[..]).unwrap()
+                            let response = html_response(
+                                "<html><body><h1>Authentication Successful!</h1><p>You can close this window and return to Pedaru.</p><script>setTimeout(() => window.close(), 2000);</script></body></html>",
                             );
                             let _ = request.respond(response);
                         }
@@ -301,23 +301,17 @@ fn run_callback_server(app: &AppHandle) -> Result<(), PedaruError> {
                             "State mismatch! Expected: {:?}, Received: {:?}",
                             expected_state, received_state
                         );
-                        let response = Response::from_string(
-                            "<html><body><h1>Authentication Failed</h1><p>State verification failed.</p></body></html>"
-                        ).with_header(
-                            tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html"[..]).unwrap()
+                        let response = html_response(
+                            "<html><body><h1>Authentication Failed</h1><p>State verification failed.</p></body></html>",
                         );
                         let _ = request.respond(response);
                     }
                 } else if let Some(error) = params.get("error") {
                     eprintln!("OAuth error: {}", error);
-                    let response = Response::from_string(format!(
+                    let response = html_response(format!(
                         "<html><body><h1>Authentication Failed</h1><p>Error: {}</p></body></html>",
                         error
-                    ))
-                    .with_header(
-                        tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html"[..])
-                            .unwrap(),
-                    );
+                    ));
                     let _ = request.respond(response);
                 }
             }
@@ -450,10 +444,7 @@ pub async fn get_valid_access_token(app: &AppHandle) -> Result<String, PedaruErr
     ))?;
 
     // Check if token is expired (with 5 minute buffer)
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64;
+    let now = db::now_timestamp();
 
     if let Some(expiry) = auth_state.token_expiry
         && now >= expiry - 300

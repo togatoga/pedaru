@@ -8,6 +8,7 @@ import type {
   BookshelfItem,
   DownloadProgress,
   ImportResult,
+  SourceType,
   SyncResult,
 } from "@/types";
 
@@ -20,6 +21,39 @@ export function useBookshelf() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  /**
+   * Apply a partial update to the item with the given Drive file ID
+   */
+  const patchItemByDriveId = useCallback(
+    (
+      driveFileId: BookshelfItem["driveFileId"],
+      patch: Partial<BookshelfItem>,
+    ) => {
+      setItems((prevItems) =>
+        prevItems.map((item) =>
+          item.driveFileId === driveFileId ? { ...item, ...patch } : item,
+        ),
+      );
+    },
+    [],
+  );
+
+  /**
+   * Apply a partial update to the item with the given ID and source type.
+   * Both must match since cloud and local items can have the same id
+   * (from different tables).
+   */
+  const patchItemById = useCallback(
+    (itemId: number, sourceType: SourceType, patch: Partial<BookshelfItem>) => {
+      setItems((prevItems) =>
+        prevItems.map((item) =>
+          itemMatches(item, itemId, sourceType) ? { ...item, ...patch } : item,
+        ),
+      );
+    },
+    [],
+  );
 
   // Load items on mount
   useEffect(() => {
@@ -57,18 +91,10 @@ export function useBookshelf() {
         (event) => {
           const { driveFileId, progress } = event.payload;
 
-          setItems((prevItems) =>
-            prevItems.map((item) =>
-              item.driveFileId === driveFileId
-                ? {
-                    ...item,
-                    downloadProgress: progress,
-                    downloadStatus:
-                      progress >= 100 ? "completed" : "downloading",
-                  }
-                : item,
-            ),
-          );
+          patchItemByDriveId(driveFileId, {
+            downloadProgress: progress,
+            downloadStatus: progress >= 100 ? "completed" : "downloading",
+          });
         },
       );
     };
@@ -80,7 +106,7 @@ export function useBookshelf() {
         unlisten();
       }
     };
-  }, []);
+  }, [patchItemByDriveId]);
 
   /**
    * Load all bookshelf items from database
@@ -129,56 +155,36 @@ export function useBookshelf() {
       try {
         setError(null);
 
-        // Update local state to show downloading
-        setItems((prevItems) =>
-          prevItems.map((i) =>
-            i.driveFileId === item.driveFileId
-              ? {
-                  ...i,
-                  downloadStatus: "downloading" as const,
-                  downloadProgress: 0,
-                }
-              : i,
-          ),
-        );
+        patchItemByDriveId(item.driveFileId, {
+          downloadStatus: "downloading",
+          downloadProgress: 0,
+        });
 
         const localPath = await invoke<string>("download_bookshelf_item", {
           driveFileId: item.driveFileId,
           fileName: item.fileName,
         });
 
-        // Update local state with completed download
-        setItems((prevItems) =>
-          prevItems.map((i) =>
-            i.driveFileId === item.driveFileId
-              ? {
-                  ...i,
-                  downloadStatus: "completed" as const,
-                  downloadProgress: 100,
-                  localPath,
-                }
-              : i,
-          ),
-        );
+        patchItemByDriveId(item.driveFileId, {
+          downloadStatus: "completed",
+          downloadProgress: 100,
+          localPath,
+        });
 
         return localPath;
       } catch (err) {
         console.error("Failed to download item:", err);
         setError(String(err));
 
-        // Update local state to show error
-        setItems((prevItems) =>
-          prevItems.map((i) =>
-            i.driveFileId === item.driveFileId
-              ? { ...i, downloadStatus: "error" as const, downloadProgress: 0 }
-              : i,
-          ),
-        );
+        patchItemByDriveId(item.driveFileId, {
+          downloadStatus: "error",
+          downloadProgress: 0,
+        });
 
         return null;
       }
     },
-    [],
+    [patchItemByDriveId],
   );
 
   /**
@@ -186,43 +192,29 @@ export function useBookshelf() {
    */
   const cancelDownload = useCallback(
     async (driveFileId: string): Promise<boolean> => {
+      const markPending = () =>
+        patchItemByDriveId(driveFileId, {
+          downloadStatus: "pending",
+          downloadProgress: 0,
+        });
+
       try {
         const cancelled = await invoke<boolean>("cancel_bookshelf_download", {
           driveFileId,
         });
 
         if (cancelled) {
-          setItems((prevItems) =>
-            prevItems.map((item) =>
-              item.driveFileId === driveFileId
-                ? {
-                    ...item,
-                    downloadStatus: "pending" as const,
-                    downloadProgress: 0,
-                  }
-                : item,
-            ),
-          );
+          markPending();
         }
 
         return cancelled;
       } catch (err) {
         console.error("Failed to cancel download:", err);
-        setItems((prevItems) =>
-          prevItems.map((item) =>
-            item.driveFileId === driveFileId
-              ? {
-                  ...item,
-                  downloadStatus: "pending" as const,
-                  downloadProgress: 0,
-                }
-              : item,
-          ),
-        );
+        markPending();
         return false;
       }
     },
-    [],
+    [patchItemByDriveId],
   );
 
   /**
@@ -233,19 +225,11 @@ export function useBookshelf() {
       try {
         await invoke("delete_local_copy", { driveFileId });
 
-        // Update local state
-        setItems((prevItems) =>
-          prevItems.map((item) =>
-            item.driveFileId === driveFileId
-              ? {
-                  ...item,
-                  downloadStatus: "pending" as const,
-                  downloadProgress: 0,
-                  localPath: undefined,
-                }
-              : item,
-          ),
-        );
+        patchItemByDriveId(driveFileId, {
+          downloadStatus: "pending",
+          downloadProgress: 0,
+          localPath: undefined,
+        });
 
         return true;
       } catch (err) {
@@ -254,7 +238,7 @@ export function useBookshelf() {
         return false;
       }
     },
-    [],
+    [patchItemByDriveId],
   );
 
   /**
@@ -265,20 +249,12 @@ export function useBookshelf() {
       try {
         await invoke("reset_download_status", { driveFileId });
 
-        // Update local state
-        setItems((prevItems) =>
-          prevItems.map((item) =>
-            item.driveFileId === driveFileId
-              ? {
-                  ...item,
-                  downloadStatus: "pending" as const,
-                  downloadProgress: 0,
-                  localPath: undefined,
-                  thumbnailData: undefined,
-                }
-              : item,
-          ),
-        );
+        patchItemByDriveId(driveFileId, {
+          downloadStatus: "pending",
+          downloadProgress: 0,
+          localPath: undefined,
+          thumbnailData: undefined,
+        });
 
         return true;
       } catch (err) {
@@ -286,7 +262,7 @@ export function useBookshelf() {
         return false;
       }
     },
-    [],
+    [patchItemByDriveId],
   );
 
   /**
@@ -366,16 +342,9 @@ export function useBookshelf() {
           isCloud,
         });
 
-        // Update local state - must match both id and sourceType since
-        // cloud and local items can have the same id (from different tables)
-        const expectedSourceType = getSourceTypeFromIsCloud(isCloud);
-        setItems((prevItems) =>
-          prevItems.map((item) =>
-            itemMatches(item, itemId, expectedSourceType)
-              ? { ...item, isFavorite: newStatus }
-              : item,
-          ),
-        );
+        patchItemById(itemId, getSourceTypeFromIsCloud(isCloud), {
+          isFavorite: newStatus,
+        });
 
         return newStatus;
       } catch (err) {
@@ -384,7 +353,7 @@ export function useBookshelf() {
         return false;
       }
     },
-    [],
+    [patchItemById],
   );
 
   /**
@@ -398,14 +367,7 @@ export function useBookshelf() {
           thumbnailData,
         });
 
-        // Update local state
-        setItems((prevItems) =>
-          prevItems.map((item) =>
-            item.driveFileId === driveFileId
-              ? { ...item, thumbnailData }
-              : item,
-          ),
-        );
+        patchItemByDriveId(driveFileId, { thumbnailData });
 
         return true;
       } catch (err) {
@@ -413,7 +375,7 @@ export function useBookshelf() {
         return false;
       }
     },
-    [],
+    [patchItemByDriveId],
   );
 
   /**
@@ -424,15 +386,7 @@ export function useBookshelf() {
       try {
         await invoke("update_local_thumbnail", { itemId, thumbnailData });
 
-        // Update local state - must match both id and sourceType since
-        // cloud and local items can have the same id (from different tables)
-        setItems((prevItems) =>
-          prevItems.map((item) =>
-            itemMatches(item, itemId, "local")
-              ? { ...item, thumbnailData }
-              : item,
-          ),
-        );
+        patchItemById(itemId, "local", { thumbnailData });
 
         return true;
       } catch (err) {
@@ -440,7 +394,7 @@ export function useBookshelf() {
         return false;
       }
     },
-    [],
+    [patchItemById],
   );
 
   /**
@@ -480,22 +434,6 @@ export function useBookshelf() {
     );
   }, [items]);
 
-  /**
-   * Get downloaded items
-   */
-  const getDownloadedItems = useCallback(() => {
-    return items.filter(
-      (item) => item.downloadStatus === "completed" && item.localPath,
-    );
-  }, [items]);
-
-  /**
-   * Get pending items
-   */
-  const getPendingItems = useCallback(() => {
-    return items.filter((item) => item.downloadStatus === "pending");
-  }, [items]);
-
   return {
     // State
     items,
@@ -520,7 +458,5 @@ export function useBookshelf() {
 
     // Getters
     getItemsNeedingThumbnails,
-    getDownloadedItems,
-    getPendingItems,
   };
 }

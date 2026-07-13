@@ -6,21 +6,17 @@ import {
   ArrowUp,
   ArrowUpDown,
   Check,
-  ChevronRight,
   Cloud,
   Download,
   FilePlus,
   FileText,
   FolderOpen,
-  FolderPlus,
   Grid,
   HardDrive,
   Info,
   Library,
   List,
   Loader2,
-  LogIn,
-  LogOut,
   Plus,
   RefreshCw,
   Search,
@@ -31,13 +27,85 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BookDetailModal from "@/components/BookDetailModal";
+import BookshelfSettings from "@/components/bookshelf/BookshelfSettings";
+import DriveFileBrowser from "@/components/bookshelf/DriveFileBrowser";
+import DriveFolderBrowser from "@/components/bookshelf/DriveFolderBrowser";
 import { useBookshelf } from "@/hooks/useBookshelf";
 import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 import { filterBySource, getItemKey } from "@/lib/bookshelfUtils";
+import { formatDate, formatFileSize, formatIsoDate } from "@/lib/formatUtils";
 import { generateThumbnailsInBackground } from "@/lib/thumbnailGenerator";
 import type { BookshelfItem as BookshelfItemType, DriveItem } from "@/types";
 import type { BookshelfMainViewProps } from "@/types/components";
 import type { PdfInfo } from "@/types/pdf";
+
+type SortKey = "title" | "author" | "createdAt" | "modifiedTime" | "fileSize";
+
+const SORTABLE_COLUMNS: {
+  key: SortKey;
+  label: string;
+  className: string;
+  buttonClassName?: string;
+}[] = [
+  { key: "title", label: "Title", className: "px-6 py-3 font-medium" },
+  { key: "author", label: "Author", className: "px-4 py-3 font-medium" },
+  {
+    key: "modifiedTime",
+    label: "Modified",
+    className: "px-4 py-3 font-medium w-36",
+  },
+  {
+    key: "createdAt",
+    label: "Imported",
+    className: "px-4 py-3 font-medium w-36",
+  },
+  {
+    key: "fileSize",
+    label: "Size",
+    className: "px-4 py-3 font-medium w-24",
+    buttonClassName: "ml-auto",
+  },
+];
+
+// Sortable column header with sort direction indicator
+function SortableHeader({
+  label,
+  sortKey,
+  activeKey,
+  order,
+  onSort,
+  className,
+  buttonClassName,
+}: {
+  label: string;
+  sortKey: SortKey;
+  activeKey: SortKey;
+  order: "asc" | "desc";
+  onSort: (key: SortKey) => void;
+  className: string;
+  buttonClassName?: string;
+}) {
+  return (
+    <th className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`flex items-center gap-1 hover:text-text-primary transition-colors${buttonClassName ? ` ${buttonClassName}` : ""}`}
+      >
+        {label}
+        {activeKey === sortKey ? (
+          order === "asc" ? (
+            <ArrowUp className="w-3.5 h-3.5" />
+          ) : (
+            <ArrowDown className="w-3.5 h-3.5" />
+          )
+        ) : (
+          <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+        )}
+      </button>
+    </th>
+  );
+}
 
 /**
  * Main view bookshelf component for full-screen book selection
@@ -85,20 +153,14 @@ export default function BookshelfMainView({
   } = useBookshelf();
 
   const [showSettings, setShowSettings] = useState(false);
+  // Credentials input (for first-time setup); lives here so unsaved input
+  // survives closing and reopening the settings screen
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
   const [showFolderBrowser, setShowFolderBrowser] = useState(false);
   const [showCloudFileBrowser, setShowCloudFileBrowser] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [browseItems, setBrowseItems] = useState<DriveItem[]>([]);
-  const [selectedFiles, setSelectedFiles] = useState<DriveItem[]>([]);
-  const [folderPath, setFolderPath] = useState<
-    Array<{ id: string; name: string }>
-  >([]);
-  const [isBrowsing, setIsBrowsing] = useState(false);
-  const [browserViewMode, setBrowserViewMode] = useState<"grid" | "list">(
-    "grid",
-  );
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
@@ -111,9 +173,7 @@ export default function BookshelfMainView({
     null,
   );
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const [sortKey, setSortKey] = useState<
-    "title" | "author" | "createdAt" | "modifiedTime" | "fileSize"
-  >("createdAt");
+  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Book detail modal state
@@ -123,10 +183,6 @@ export default function BookshelfMainView({
   const [selectedBookPdfInfo, setSelectedBookPdfInfo] =
     useState<PdfInfo | null>(null);
   const [isTocLoading, setIsTocLoading] = useState(false);
-
-  // Credentials input (for first-time setup)
-  const [clientId, setClientId] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
 
   // Track items that have been queued for thumbnail generation
   const thumbnailQueueRef = useRef<Set<string>>(new Set());
@@ -182,128 +238,34 @@ export default function BookshelfMainView({
     })();
   }, [getItemsNeedingThumbnails, updateThumbnail, updateLocalThumbnail]);
 
-  // Browse folders only (for folder sync in settings)
-  const browseFoldersOnly = useCallback(
-    async (folderId: string | null) => {
-      setIsBrowsing(true);
-      try {
-        const folders = await listDriveFolders(folderId || undefined);
-        // Convert DriveFolder to DriveItem format
-        const items: DriveItem[] = folders.map((f) => ({
-          id: f.id,
-          name: f.name,
-          mimeType: "application/vnd.google-apps.folder",
-          modifiedTime: f.modifiedTime,
-          isFolder: true,
-        }));
-        setBrowseItems(items);
-        setCurrentFolderId(folderId);
-      } catch (err) {
-        console.error("Failed to browse folders:", err);
-      } finally {
-        setIsBrowsing(false);
-      }
-    },
-    [listDriveFolders],
-  );
-
-  // Browse files and folders (for file import)
-  const browseFilesAndFolders = useCallback(
-    async (folderId: string | null) => {
-      setIsBrowsing(true);
-      try {
-        const items = await listDriveItems(folderId || undefined);
-        setBrowseItems(items);
-        setCurrentFolderId(folderId);
-        setSelectedFiles([]); // Clear selection when navigating
-      } catch (err) {
-        console.error("Failed to browse items:", err);
-      } finally {
-        setIsBrowsing(false);
-      }
-    },
-    [listDriveItems],
-  );
-
-  const navigateToFolderForSync = useCallback(
-    (item: DriveItem) => {
-      setFolderPath((prev) => [...prev, { id: item.id, name: item.name }]);
-      browseFoldersOnly(item.id);
-    },
-    [browseFoldersOnly],
-  );
-
-  const navigateToFolderForImport = useCallback(
-    (item: DriveItem) => {
-      setFolderPath((prev) => [...prev, { id: item.id, name: item.name }]);
-      browseFilesAndFolders(item.id);
-    },
-    [browseFilesAndFolders],
-  );
-
-  const toggleFileSelection = useCallback((file: DriveItem) => {
-    setSelectedFiles((prev) => {
-      const isSelected = prev.some((f) => f.id === file.id);
-      if (isSelected) {
-        return prev.filter((f) => f.id !== file.id);
-      } else {
-        return [...prev, file];
-      }
-    });
-  }, []);
-
-  const navigateBackForSync = useCallback(
-    (index: number) => {
-      const newPath = folderPath.slice(0, index);
-      setFolderPath(newPath);
-      browseFoldersOnly(
-        newPath.length > 0 ? newPath[newPath.length - 1].id : null,
-      );
-    },
-    [folderPath, browseFoldersOnly],
-  );
-
-  const navigateBackForImport = useCallback(
-    (index: number) => {
-      const newPath = folderPath.slice(0, index);
-      setFolderPath(newPath);
-      browseFilesAndFolders(
-        newPath.length > 0 ? newPath[newPath.length - 1].id : null,
-      );
-    },
-    [folderPath, browseFilesAndFolders],
-  );
-
-  const handleAddCurrentFolder = useCallback(async () => {
-    if (folderPath.length > 0) {
-      const currentFolder = folderPath[folderPath.length - 1];
-      await addSyncFolder(currentFolder.id, currentFolder.name);
+  const handleAddSyncFolder = useCallback(
+    async (folderId: string, folderName: string) => {
+      await addSyncFolder(folderId, folderName);
       setShowFolderBrowser(false);
-      setFolderPath([]);
+      setShowCloudFileBrowser(false);
       // Trigger sync immediately after adding folder
       await sync();
-    }
-  }, [folderPath, addSyncFolder, sync]);
+    },
+    [addSyncFolder, sync],
+  );
 
-  const handleImportSelectedFiles = useCallback(async () => {
-    if (selectedFiles.length === 0) return;
-
-    setIsImporting(true);
-    try {
-      const parentFolderId = currentFolderId || undefined;
-      const count = await importDriveFiles(selectedFiles, parentFolderId);
-      console.log(`Imported ${count} files from Google Drive`);
-      setShowCloudFileBrowser(false);
-      setFolderPath([]);
-      setSelectedFiles([]);
-      // Trigger sync immediately after importing files
-      await sync();
-    } catch (error) {
-      console.error("Failed to import files:", error);
-    } finally {
-      setIsImporting(false);
-    }
-  }, [selectedFiles, currentFolderId, importDriveFiles, sync]);
+  const handleImportDriveFiles = useCallback(
+    async (files: DriveItem[], parentFolderId?: string) => {
+      setIsImporting(true);
+      try {
+        const count = await importDriveFiles(files, parentFolderId);
+        console.log(`Imported ${count} files from Google Drive`);
+        setShowCloudFileBrowser(false);
+        // Trigger sync immediately after importing files
+        await sync();
+      } catch (error) {
+        console.error("Failed to import files:", error);
+      } finally {
+        setIsImporting(false);
+      }
+    },
+    [importDriveFiles, sync],
+  );
 
   const handleOpenPdf = useCallback(
     async (item: BookshelfItemType) => {
@@ -359,13 +321,6 @@ export default function BookshelfMainView({
       await downloadItem(item);
     },
     [hasCheckedAuth, checkAuthStatus, downloadItem],
-  );
-
-  const _handleDelete = useCallback(
-    async (item: BookshelfItemType) => {
-      await deleteLocalCopy(item.driveFileId || "");
-    },
-    [deleteLocalCopy],
   );
 
   const handleCancel = useCallback(
@@ -536,7 +491,7 @@ export default function BookshelfMainView({
 
   // Handle sort column click
   const handleSort = useCallback(
-    (key: "title" | "author" | "createdAt" | "modifiedTime" | "fileSize") => {
+    (key: SortKey) => {
       if (sortKey === key) {
         // Toggle order if same key
         setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -684,39 +639,6 @@ export default function BookshelfMainView({
       setTotalDownloads(0);
     }
   }, [downloadableItems, downloadItem]);
-
-  // Format file size
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return "-";
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  // Format date with time (from Unix timestamp)
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp * 1000);
-    return date.toLocaleString("ja-JP", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  // Format date from ISO string
-  const formatIsoDate = (isoString?: string) => {
-    if (!isoString) return "-";
-    const date = new Date(isoString);
-    return date.toLocaleString("ja-JP", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   // Render a single book item
   const renderBookItem = (item: BookshelfItemType) => {
@@ -895,605 +817,52 @@ export default function BookshelfMainView({
   // Settings modal
   if (showSettings) {
     return (
-      <div className="h-full flex flex-col bg-bg-primary">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-bg-tertiary">
-          <div className="flex items-center gap-3">
-            <Settings className="w-5 h-5 text-accent" />
-            <span className="text-lg font-medium text-text-primary">
-              Bookshelf Settings
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowSettings(false)}
-            className="p-2 hover:bg-bg-tertiary rounded"
-          >
-            <X className="w-5 h-5 text-text-secondary" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
-          {!authStatus.configured && (
-            <div className="space-y-4 pb-6 border-b border-bg-tertiary">
-              <p className="text-text-secondary">
-                Set up OAuth credentials to connect to Google Drive.
-              </p>
-              <div>
-                <label
-                  htmlFor="bookshelf-client-id"
-                  className="block text-sm text-text-tertiary mb-2"
-                >
-                  Client ID
-                </label>
-                <input
-                  id="bookshelf-client-id"
-                  type="text"
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  className="w-full px-3 py-2 bg-bg-secondary border border-bg-tertiary rounded focus:outline-none focus:border-accent"
-                  placeholder="xxxx.apps.googleusercontent.com"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="bookshelf-client-secret"
-                  className="block text-sm text-text-tertiary mb-2"
-                >
-                  Client Secret
-                </label>
-                <input
-                  id="bookshelf-client-secret"
-                  type="password"
-                  value={clientSecret}
-                  onChange={(e) => setClientSecret(e.target.value)}
-                  className="w-full px-3 py-2 bg-bg-secondary border border-bg-tertiary rounded focus:outline-none focus:border-accent"
-                  placeholder="GOCSPX-xxxx"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={handleSaveCredentials}
-                disabled={!clientId || !clientSecret || authLoading}
-                className="w-full px-4 py-2 bg-accent text-white rounded font-medium disabled:opacity-50 hover:bg-accent/80 transition-colors"
-              >
-                {authLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin mx-auto" />
-                ) : (
-                  "Save Credentials"
-                )}
-              </button>
-            </div>
-          )}
-
-          {(authStatus.configured || hasCheckedAuth) && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <span className="text-text-primary">
-                  {authStatus.authenticated
-                    ? "Connected to Google"
-                    : "Not connected"}
-                </span>
-                <button
-                  type="button"
-                  onClick={authStatus.authenticated ? logout : login}
-                  disabled={authLoading}
-                  className={`px-4 py-2 rounded flex items-center gap-2 ${
-                    authStatus.authenticated
-                      ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                      : "bg-accent text-white hover:bg-accent/80"
-                  }`}
-                >
-                  {authLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : authStatus.authenticated ? (
-                    <>
-                      <LogOut className="w-5 h-5" />
-                      Logout
-                    </>
-                  ) : (
-                    <>
-                      <LogIn className="w-5 h-5" />
-                      Login
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {(authStatus.authenticated || hasCheckedAuth) && (
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm text-text-tertiary">
-                      Synced Folders
-                    </span>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        // Ensure auth is checked before browsing folders
-                        if (!hasCheckedAuth) {
-                          const status = await checkAuthStatus();
-                          if (!status?.authenticated) {
-                            return;
-                          }
-                        } else if (!authStatus.authenticated) {
-                          return;
-                        }
-                        setShowSettings(false); // Close settings first
-                        setShowFolderBrowser(true);
-                        browseFoldersOnly(null);
-                      }}
-                      className="text-sm text-accent hover:underline flex items-center gap-1"
-                    >
-                      <FolderPlus className="w-4 h-4" />
-                      Add Folder
-                    </button>
-                  </div>
-                  {syncedFolders.length === 0 ? (
-                    <p className="text-text-tertiary mb-4">No synced folders</p>
-                  ) : (
-                    <ul className="space-y-2 mb-4">
-                      {syncedFolders.map((folder, index) => (
-                        <li
-                          key={folder.folderId || `synced-${index}`}
-                          className="flex items-center justify-between py-2 px-3 bg-bg-tertiary rounded"
-                        >
-                          <span className="text-text-primary truncate">
-                            {folder.folderName}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => removeSyncFolder(folder.folderId)}
-                            className="text-text-tertiary hover:text-red-400"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleSync}
-                    disabled={isSyncing}
-                    className="w-full px-4 py-2 bg-accent text-white rounded font-medium hover:bg-accent/80 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    <RefreshCw
-                      className={`w-5 h-5 ${isSyncing ? "animate-spin" : ""}`}
-                    />
-                    {isSyncing ? "Syncing..." : "Sync Now"}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      <BookshelfSettings
+        authStatus={authStatus}
+        authLoading={authLoading}
+        hasCheckedAuth={hasCheckedAuth}
+        syncedFolders={syncedFolders}
+        isSyncing={isSyncing}
+        clientId={clientId}
+        clientSecret={clientSecret}
+        onClientIdChange={setClientId}
+        onClientSecretChange={setClientSecret}
+        onSaveCredentials={handleSaveCredentials}
+        checkAuthStatus={checkAuthStatus}
+        login={login}
+        logout={logout}
+        removeSyncFolder={removeSyncFolder}
+        onSync={handleSync}
+        onBrowseFolders={() => {
+          setShowSettings(false); // Close settings first
+          setShowFolderBrowser(true);
+        }}
+        onClose={() => setShowSettings(false)}
+      />
     );
   }
 
   // Folder browser modal (for folder sync - shows only folders)
   if (showFolderBrowser) {
-    const folders = browseItems.filter((item) => item.isFolder);
-
     return (
-      <div className="h-full flex flex-col bg-bg-primary">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-bg-tertiary">
-          <div className="flex items-center gap-3">
-            <FolderPlus className="w-5 h-5 text-accent" />
-            <span className="text-lg font-medium text-text-primary">
-              Select Folder to Sync
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setShowFolderBrowser(false);
-              setFolderPath([]);
-            }}
-            className="p-2 hover:bg-bg-tertiary rounded"
-          >
-            <X className="w-5 h-5 text-text-secondary" />
-          </button>
-        </div>
-
-        <div className="px-6 py-3 border-b border-bg-tertiary flex items-center gap-2 text-sm flex-wrap">
-          <button
-            type="button"
-            onClick={() => navigateBackForSync(0)}
-            className="text-accent hover:underline"
-          >
-            My Drive
-          </button>
-          {folderPath.map((folder, index) => (
-            <span
-              key={folder.id || `path-${index}`}
-              className="flex items-center gap-2"
-            >
-              <ChevronRight className="w-4 h-4 text-text-tertiary" />
-              <button
-                type="button"
-                onClick={() => navigateBackForSync(index + 1)}
-                className="text-accent hover:underline"
-              >
-                {folder.name}
-              </button>
-            </span>
-          ))}
-        </div>
-
-        <div className="flex-1 overflow-auto p-6">
-          {isBrowsing ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-accent animate-spin" />
-            </div>
-          ) : folders.length === 0 ? (
-            <div className="text-center py-12 text-text-tertiary">
-              No folders found
-            </div>
-          ) : (
-            <ul className="space-y-2">
-              {folders.map((folder, index) => (
-                <li key={folder.id || `folder-${index}`}>
-                  <button
-                    type="button"
-                    onClick={() => navigateToFolderForSync(folder)}
-                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary rounded-lg text-left"
-                  >
-                    <FolderOpen className="w-5 h-5 text-accent" />
-                    <span className="text-text-primary truncate flex-1">
-                      {folder.name}
-                    </span>
-                    <ChevronRight className="w-5 h-5 text-text-tertiary" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {folderPath.length > 0 && (
-          <div className="p-6 border-t border-bg-tertiary">
-            <button
-              type="button"
-              onClick={handleAddCurrentFolder}
-              className="w-full px-4 py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent/80 transition-colors flex items-center justify-center gap-2"
-            >
-              <FolderPlus className="w-5 h-5" />
-              Sync This Folder
-            </button>
-          </div>
-        )}
-      </div>
+      <DriveFolderBrowser
+        listDriveFolders={listDriveFolders}
+        onSyncFolder={handleAddSyncFolder}
+        onClose={() => setShowFolderBrowser(false)}
+      />
     );
   }
 
   // Cloud file browser modal (for file import - shows files with thumbnails)
   if (showCloudFileBrowser) {
-    const folders = browseItems.filter((item) => item.isFolder);
-    const files = browseItems.filter((item) => !item.isFolder);
-
     return (
-      <div className="h-full flex flex-col bg-bg-primary">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-bg-tertiary">
-          <div className="flex items-center gap-3">
-            <Cloud className="w-5 h-5 text-accent" />
-            <span className="text-lg font-medium text-text-primary">
-              Import from Google Drive
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                setBrowserViewMode(browserViewMode === "grid" ? "list" : "grid")
-              }
-              className="p-2 hover:bg-bg-tertiary rounded transition-colors"
-              title={browserViewMode === "grid" ? "List view" : "Grid view"}
-            >
-              {browserViewMode === "grid" ? (
-                <List className="w-5 h-5 text-text-secondary" />
-              ) : (
-                <Grid className="w-5 h-5 text-text-secondary" />
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowCloudFileBrowser(false);
-                setFolderPath([]);
-                setSelectedFiles([]);
-              }}
-              className="p-2 hover:bg-bg-tertiary rounded"
-            >
-              <X className="w-5 h-5 text-text-secondary" />
-            </button>
-          </div>
-        </div>
-
-        <div className="px-6 py-3 border-b border-bg-tertiary flex items-center gap-2 text-sm flex-wrap">
-          <button
-            type="button"
-            onClick={() => navigateBackForImport(0)}
-            className="text-accent hover:underline"
-          >
-            My Drive
-          </button>
-          {folderPath.map((folder, index) => (
-            <span
-              key={folder.id || `path-${index}`}
-              className="flex items-center gap-2"
-            >
-              <ChevronRight className="w-4 h-4 text-text-tertiary" />
-              <button
-                type="button"
-                onClick={() => navigateBackForImport(index + 1)}
-                className="text-accent hover:underline"
-              >
-                {folder.name}
-              </button>
-            </span>
-          ))}
-        </div>
-
-        <div className="flex-1 overflow-auto p-6">
-          {isBrowsing ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-accent animate-spin" />
-            </div>
-          ) : browseItems.length === 0 ? (
-            <div className="text-center py-12 text-text-tertiary">
-              No folders or PDF files found
-            </div>
-          ) : browserViewMode === "grid" ? (
-            /* Grid view */
-            <div className="space-y-6">
-              {/* Folders section - grid */}
-              {folders.length > 0 && (
-                <div>
-                  <h3 className="text-xs uppercase text-text-tertiary mb-3 px-1">
-                    Folders
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                    {folders.map((folder, index) => (
-                      <button
-                        type="button"
-                        key={folder.id || `folder-${index}`}
-                        onClick={() => navigateToFolderForImport(folder)}
-                        className="p-4 bg-bg-tertiary hover:bg-bg-secondary rounded-lg flex flex-col items-center gap-2 transition-colors"
-                      >
-                        <FolderOpen className="w-12 h-12 text-accent" />
-                        <span className="text-text-primary text-sm truncate w-full text-center">
-                          {folder.name}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Files section - grid with thumbnails */}
-              {files.length > 0 && (
-                <div>
-                  <h3 className="text-xs uppercase text-text-tertiary mb-3 px-1">
-                    PDF Files ({files.length})
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                    {files.map((file, index) => {
-                      const isSelected = selectedFiles.some(
-                        (f) => f.id === file.id,
-                      );
-                      return (
-                        <button
-                          type="button"
-                          key={file.id || `file-${index}`}
-                          onClick={() => toggleFileSelection(file)}
-                          className={`relative rounded-lg overflow-hidden transition-all ${
-                            isSelected
-                              ? "ring-2 ring-accent ring-offset-2 ring-offset-bg-primary"
-                              : "hover:ring-1 hover:ring-text-tertiary"
-                          }`}
-                        >
-                          <div className="aspect-[3/4] bg-bg-tertiary flex items-center justify-center">
-                            {file.thumbnailLink ? (
-                              // biome-ignore lint/performance/noImgElement: external Google Drive thumbnail URL
-                              <img
-                                src={file.thumbnailLink}
-                                alt={file.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  // Fallback to icon if thumbnail fails to load
-                                  e.currentTarget.style.display = "none";
-                                  e.currentTarget.nextElementSibling?.classList.remove(
-                                    "hidden",
-                                  );
-                                }}
-                              />
-                            ) : null}
-                            <FileText
-                              className={`w-12 h-12 text-text-tertiary ${file.thumbnailLink ? "hidden" : ""}`}
-                            />
-                          </div>
-                          <div className="p-2 bg-bg-secondary">
-                            <p className="text-xs text-text-primary truncate">
-                              {file.name}
-                            </p>
-                            {file.size && (
-                              <p className="text-xs text-text-tertiary">
-                                {(
-                                  parseInt(file.size, 10) /
-                                  (1024 * 1024)
-                                ).toFixed(1)}{" "}
-                                MB
-                              </p>
-                            )}
-                          </div>
-                          {/* Selection indicator */}
-                          <div
-                            className={`absolute top-2 left-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                              isSelected
-                                ? "bg-accent border-accent"
-                                : "bg-black/30 border-white/50"
-                            }`}
-                          >
-                            {isSelected && (
-                              <Check className="w-3 h-3 text-white" />
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            /* List view */
-            <div className="space-y-4">
-              {/* Folders section - list */}
-              {folders.length > 0 && (
-                <div>
-                  <h3 className="text-xs uppercase text-text-tertiary mb-2 px-2">
-                    Folders
-                  </h3>
-                  <ul className="space-y-1">
-                    {folders.map((folder, index) => (
-                      <li key={folder.id || `folder-${index}`}>
-                        <button
-                          type="button"
-                          onClick={() => navigateToFolderForImport(folder)}
-                          className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary rounded-lg text-left"
-                        >
-                          <FolderOpen className="w-5 h-5 text-accent" />
-                          <span className="text-text-primary truncate flex-1">
-                            {folder.name}
-                          </span>
-                          <ChevronRight className="w-5 h-5 text-text-tertiary" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Files section - list with thumbnails */}
-              {files.length > 0 && (
-                <div>
-                  <h3 className="text-xs uppercase text-text-tertiary mb-2 px-2">
-                    PDF Files ({files.length})
-                  </h3>
-                  <ul className="space-y-1">
-                    {files.map((file, index) => {
-                      const isSelected = selectedFiles.some(
-                        (f) => f.id === file.id,
-                      );
-                      return (
-                        <li key={file.id || `file-${index}`}>
-                          <button
-                            type="button"
-                            onClick={() => toggleFileSelection(file)}
-                            className={`w-full px-4 py-2 flex items-center gap-3 rounded-lg text-left transition-colors ${
-                              isSelected
-                                ? "bg-accent/20 border border-accent"
-                                : "hover:bg-bg-tertiary border border-transparent"
-                            }`}
-                          >
-                            <div
-                              className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
-                                isSelected
-                                  ? "bg-accent border-accent"
-                                  : "border-text-tertiary"
-                              }`}
-                            >
-                              {isSelected && (
-                                <Check className="w-3 h-3 text-white" />
-                              )}
-                            </div>
-                            {/* Thumbnail */}
-                            <div className="w-10 h-14 bg-bg-tertiary rounded overflow-hidden flex items-center justify-center shrink-0">
-                              {file.thumbnailLink ? (
-                                // biome-ignore lint/performance/noImgElement: external Google Drive thumbnail URL
-                                <img
-                                  src={file.thumbnailLink}
-                                  alt={file.name}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = "none";
-                                    e.currentTarget.nextElementSibling?.classList.remove(
-                                      "hidden",
-                                    );
-                                  }}
-                                />
-                              ) : null}
-                              <FileText
-                                className={`w-5 h-5 text-text-tertiary ${file.thumbnailLink ? "hidden" : ""}`}
-                              />
-                            </div>
-                            <span className="text-text-primary truncate flex-1">
-                              {file.name}
-                            </span>
-                            {file.size && (
-                              <span className="text-xs text-text-tertiary shrink-0">
-                                {(
-                                  parseInt(file.size, 10) /
-                                  (1024 * 1024)
-                                ).toFixed(1)}{" "}
-                                MB
-                              </span>
-                            )}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Action buttons */}
-        {(selectedFiles.length > 0 || folderPath.length > 0) && (
-          <div className="p-6 border-t border-bg-tertiary space-y-3">
-            {selectedFiles.length > 0 && (
-              <button
-                type="button"
-                onClick={handleImportSelectedFiles}
-                disabled={isImporting}
-                className="w-full px-4 py-3 bg-accent text-white rounded-lg font-medium hover:bg-accent/80 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {isImporting ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Download className="w-5 h-5" />
-                )}
-                Import {selectedFiles.length} File
-                {selectedFiles.length > 1 ? "s" : ""}
-              </button>
-            )}
-            {folderPath.length > 0 && (
-              <button
-                type="button"
-                onClick={async () => {
-                  const currentFolder = folderPath[folderPath.length - 1];
-                  await addSyncFolder(currentFolder.id, currentFolder.name);
-                  setShowCloudFileBrowser(false);
-                  setFolderPath([]);
-                  setSelectedFiles([]);
-                  await sync();
-                }}
-                disabled={isImporting}
-                className={`w-full px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${
-                  selectedFiles.length > 0
-                    ? "bg-bg-tertiary text-text-primary hover:bg-bg-secondary"
-                    : "bg-accent text-white hover:bg-accent/80"
-                }`}
-              >
-                <FolderPlus className="w-5 h-5" />
-                Sync This Folder
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+      <DriveFileBrowser
+        listDriveItems={listDriveItems}
+        isImporting={isImporting}
+        onImport={handleImportDriveFiles}
+        onSyncFolder={handleAddSyncFolder}
+        onClose={() => setShowCloudFileBrowser(false)}
+      />
     );
   }
 
@@ -1583,7 +952,6 @@ export default function BookshelfMainView({
                         return;
                       }
                       setShowCloudFileBrowser(true);
-                      browseFilesAndFolders(null);
                     }}
                     className="w-full px-4 py-3 flex items-center gap-3 hover:bg-bg-tertiary text-left border-t border-bg-tertiary"
                   >
@@ -1862,96 +1230,18 @@ export default function BookshelfMainView({
               <table className="w-full">
                 <thead className="sticky top-0 bg-bg-primary border-b border-bg-tertiary z-10">
                   <tr className="text-left text-sm text-text-tertiary">
-                    <th className="px-6 py-3 font-medium">
-                      <button
-                        type="button"
-                        onClick={() => handleSort("title")}
-                        className="flex items-center gap-1 hover:text-text-primary transition-colors"
-                      >
-                        Title
-                        {sortKey === "title" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
-                        )}
-                      </button>
-                    </th>
-                    <th className="px-4 py-3 font-medium">
-                      <button
-                        type="button"
-                        onClick={() => handleSort("author")}
-                        className="flex items-center gap-1 hover:text-text-primary transition-colors"
-                      >
-                        Author
-                        {sortKey === "author" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
-                        )}
-                      </button>
-                    </th>
-                    <th className="px-4 py-3 font-medium w-36">
-                      <button
-                        type="button"
-                        onClick={() => handleSort("modifiedTime")}
-                        className="flex items-center gap-1 hover:text-text-primary transition-colors"
-                      >
-                        Modified
-                        {sortKey === "modifiedTime" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
-                        )}
-                      </button>
-                    </th>
-                    <th className="px-4 py-3 font-medium w-36">
-                      <button
-                        type="button"
-                        onClick={() => handleSort("createdAt")}
-                        className="flex items-center gap-1 hover:text-text-primary transition-colors"
-                      >
-                        Imported
-                        {sortKey === "createdAt" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
-                        )}
-                      </button>
-                    </th>
-                    <th className="px-4 py-3 font-medium w-24">
-                      <button
-                        type="button"
-                        onClick={() => handleSort("fileSize")}
-                        className="flex items-center gap-1 hover:text-text-primary transition-colors ml-auto"
-                      >
-                        Size
-                        {sortKey === "fileSize" ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5" />
-                          ) : (
-                            <ArrowDown className="w-3.5 h-3.5" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
-                        )}
-                      </button>
-                    </th>
+                    {SORTABLE_COLUMNS.map((column) => (
+                      <SortableHeader
+                        key={column.key}
+                        label={column.label}
+                        sortKey={column.key}
+                        activeKey={sortKey}
+                        order={sortOrder}
+                        onSort={handleSort}
+                        className={column.className}
+                        buttonClassName={column.buttonClassName}
+                      />
+                    ))}
                     <th className="px-4 py-3 font-medium w-28">Status</th>
                     <th className="px-4 py-3 font-medium w-32">Actions</th>
                   </tr>
@@ -2010,7 +1300,7 @@ export default function BookshelfMainView({
                           {formatDate(item.createdAt)}
                         </td>
                         <td className="px-4 py-3 text-sm text-text-tertiary text-right">
-                          {formatFileSize(item.fileSize)}
+                          {item.fileSize ? formatFileSize(item.fileSize) : "-"}
                         </td>
                         <td className="px-4 py-3">
                           {isDownloading ? (

@@ -2,83 +2,18 @@
 
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import {
-  AlertCircle,
-  BookOpen,
-  ChevronDown,
-  ChevronUp,
-  Cpu,
-  ExternalLink,
-  GripHorizontal,
-  Languages,
-  Loader2,
-  MessageSquare,
-  Settings,
-  Sparkles,
-  X,
-} from "lucide-react";
+import { ExternalLink, GripHorizontal, Languages, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
 import {
   explainDirectly,
-  GEMINI_MODELS,
   getGeminiSettings,
   isGeminiConfigured,
   translateWithGemini,
 } from "@/lib/settings";
 import type { GeminiSettings, TranslationResponse } from "@/types";
 import type { TranslationPopupProps } from "@/types/components";
-
-// Custom components for ReactMarkdown to render ***text*** with yellow highlight
-const markdownComponents = {
-  // ***text*** renders as <strong><em>text</em></strong>
-  // We style strong > em with yellow highlight
-  strong: ({ children }: { children?: React.ReactNode }) => (
-    <strong className="font-bold">{children}</strong>
-  ),
-  em: ({ children }: { children?: React.ReactNode }) => (
-    <mark className="bg-yellow-500/30 text-yellow-200 font-bold px-0.5 rounded not-italic">
-      {children}
-    </mark>
-  ),
-  p: ({ children }: { children?: React.ReactNode }) => <span>{children}</span>,
-};
-
-// Collapsible section component
-function CollapsibleSection({
-  title,
-  icon: Icon,
-  children,
-  defaultOpen = true,
-}: {
-  title: string;
-  icon: React.ElementType;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-}) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-
-  return (
-    <div className="border border-bg-tertiary rounded-lg overflow-hidden mb-2">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 flex items-center justify-between bg-bg-tertiary/50 hover:bg-bg-tertiary transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4 text-accent" />
-          <span className="text-sm font-medium text-text-primary">{title}</span>
-        </div>
-        {isOpen ? (
-          <ChevronUp className="w-4 h-4 text-text-tertiary" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-text-tertiary" />
-        )}
-      </button>
-      {isOpen && <div className="px-3 py-2 bg-bg-primary/30">{children}</div>}
-    </div>
-  );
-}
+import { TranslationBody } from "./translation/TranslationBody";
+import { useExplanation } from "./translation/useExplanation";
 
 export default function TranslationPopup({
   selection,
@@ -90,18 +25,19 @@ export default function TranslationPopup({
 }: TranslationPopupProps) {
   const [translationResponse, setTranslationResponse] =
     useState<TranslationResponse | null>(null);
-  const [explanationSummary, setExplanationSummary] = useState<string | null>(
-    null,
-  );
-  const [explanationPoints, setExplanationPoints] = useState<string[] | null>(
-    null,
-  );
+  const {
+    explanationSummary,
+    setExplanationSummary,
+    explanationPoints,
+    setExplanationPoints,
+    isExplaining,
+    error,
+    setError,
+    explain,
+  } = useExplanation();
   const [isLoading, setIsLoading] = useState(true);
-  const [isExplaining, setIsExplaining] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
-  const [showContext, setShowContext] = useState(false);
   const [geminiSettings, setGeminiSettingsState] =
     useState<GeminiSettings | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
@@ -305,38 +241,29 @@ export default function TranslationPopup({
     return () => {
       cancelled = true;
     };
-  }, [selection, autoExplain]);
+  }, [
+    selection,
+    autoExplain,
+    setError,
+    setExplanationSummary,
+    setExplanationPoints,
+  ]);
 
   // Handle "解説" button click - get more detailed explanation
   const handleExplain = useCallback(() => {
     if (!translationResponse || isExplaining || !geminiSettings) return;
 
-    setIsExplaining(true);
-    setError(null);
-
-    // Use setTimeout to allow React to re-render before the blocking API call
-    setTimeout(async () => {
-      try {
-        const result = await explainDirectly(
-          selection.selectedText,
-          selection.contextBefore,
-          selection.contextAfter,
-          geminiSettings.explanationModel,
-        );
-
-        // Update the explanation summary and points, keep the original translation
-        setExplanationSummary(result.summary);
-        setExplanationPoints(result.points);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setIsExplaining(false);
-      }
-    }, 0);
+    explain(
+      selection.selectedText,
+      selection.contextBefore,
+      selection.contextAfter,
+      geminiSettings.explanationModel,
+    );
   }, [
     translationResponse,
     isExplaining,
     geminiSettings,
+    explain,
     selection.selectedText,
     selection.contextBefore,
     selection.contextAfter,
@@ -455,261 +382,24 @@ export default function TranslationPopup({
         </div>
       </div>
 
-      {/* Context (collapsible, for debugging) */}
-      <div className="border-b border-bg-tertiary">
-        <button
-          type="button"
-          onClick={() => setShowContext(!showContext)}
-          className="w-full px-3 py-1.5 flex items-center justify-between text-xs text-text-tertiary hover:text-text-secondary transition-colors"
-        >
-          <span>Context (debug)</span>
-          {showContext ? (
-            <ChevronUp className="w-3 h-3" />
-          ) : (
-            <ChevronDown className="w-3 h-3" />
-          )}
-        </button>
-        {showContext && (
-          <div className="px-3 pb-2 space-y-2">
-            <div>
-              <span className="text-xs text-text-tertiary">Before:</span>
-              <p className="text-xs text-text-tertiary font-mono whitespace-pre-wrap max-h-[75px] overflow-y-auto bg-bg-primary p-2 rounded">
-                {selection.contextBefore || "(no context)"}
-              </p>
-            </div>
-            <div>
-              <span className="text-xs text-text-tertiary">After:</span>
-              <p className="text-xs text-text-tertiary font-mono whitespace-pre-wrap max-h-[75px] overflow-y-auto bg-bg-primary p-2 rounded">
-                {selection.contextAfter || "(no context)"}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-3 py-3">
-        {!isConfigured && (
-          <div className="flex flex-col items-center justify-center py-4 text-center">
-            <AlertCircle className="w-8 h-8 text-yellow-500 mb-2" />
-            <p className="text-sm text-text-primary mb-2">
-              API Key Not Configured
-            </p>
-            <p className="text-xs text-text-tertiary mb-3">
-              Please set your Gemini API key in Settings to use translation.
-            </p>
-            {onOpenSettings && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenSettings();
-                }}
-                className="flex items-center gap-2 px-3 py-1.5 bg-accent text-white text-xs rounded hover:bg-accent/90 transition-colors"
-              >
-                <Settings className="w-3 h-3" />
-                Open Settings
-              </button>
-            )}
-          </div>
-        )}
-
-        {isConfigured && isLoading && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-accent" />
-            <span className="ml-2 text-sm text-text-secondary">
-              Translating...
-            </span>
-          </div>
-        )}
-
-        {isConfigured && error && (
-          <div className="flex flex-col items-center py-4 text-center">
-            <AlertCircle className="w-6 h-6 text-red-400 mb-2" />
-            <p className="text-sm text-red-400">{error}</p>
-          </div>
-        )}
-
-        {isConfigured && translationResponse && (
-          <div className="space-y-2">
-            {/* Original Text Section */}
-            <CollapsibleSection
-              title="原文"
-              icon={Languages}
-              defaultOpen={false}
-            >
-              <p className="text-text-primary text-sm leading-relaxed font-mono whitespace-pre-wrap">
-                {selection.selectedText}
-              </p>
-            </CollapsibleSection>
-
-            {/* In autoExplain mode with explanation loaded: show only explanation */}
-            {autoExplain &&
-            (explanationSummary ||
-              (explanationPoints && explanationPoints.length > 0)) ? (
-              <CollapsibleSection
-                title="解説"
-                icon={Sparkles}
-                defaultOpen={true}
-              >
-                <div className="space-y-3">
-                  {/* Summary */}
-                  {explanationSummary && (
-                    <div className="text-text-primary text-sm font-medium bg-accent/10 p-2 rounded border-l-2 border-accent">
-                      <ReactMarkdown components={markdownComponents}>
-                        {explanationSummary}
-                      </ReactMarkdown>
-                    </div>
-                  )}
-                  {/* Points */}
-                  {explanationPoints && explanationPoints.length > 0 && (
-                    <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
-                      {explanationPoints.map((point, index) => (
-                        <li key={`explanation-${index}-${point.slice(0, 20)}`}>
-                          <ReactMarkdown components={markdownComponents}>
-                            {point}
-                          </ReactMarkdown>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </CollapsibleSection>
-            ) : (
-              <>
-                {/* Translation Section */}
-                <CollapsibleSection
-                  title="翻訳"
-                  icon={MessageSquare}
-                  defaultOpen={true}
-                >
-                  <p className="text-text-primary text-sm leading-relaxed">
-                    {translationResponse.translation ||
-                      "(翻訳結果がありません)"}
-                  </p>
-                </CollapsibleSection>
-
-                {/* Points Section */}
-                <CollapsibleSection
-                  title="翻訳のポイント"
-                  icon={BookOpen}
-                  defaultOpen={true}
-                >
-                  {translationResponse.points &&
-                  translationResponse.points.length > 0 ? (
-                    <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
-                      {translationResponse.points.map((point, index) => (
-                        <li key={`point-${index}-${point.slice(0, 20)}`}>
-                          <ReactMarkdown components={markdownComponents}>
-                            {point}
-                          </ReactMarkdown>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-text-tertiary text-sm">
-                      (ポイントがありません)
-                    </p>
-                  )}
-                </CollapsibleSection>
-
-                {/* Explanation Section (shown after clicking 解説 button in translation mode) */}
-                {(explanationSummary ||
-                  (explanationPoints && explanationPoints.length > 0)) && (
-                  <CollapsibleSection
-                    title="解説"
-                    icon={Sparkles}
-                    defaultOpen={true}
-                  >
-                    <div className="space-y-3">
-                      {/* Summary */}
-                      {explanationSummary && (
-                        <div className="text-text-primary text-sm font-medium bg-accent/10 p-2 rounded border-l-2 border-accent">
-                          <ReactMarkdown components={markdownComponents}>
-                            {explanationSummary}
-                          </ReactMarkdown>
-                        </div>
-                      )}
-                      {/* Points */}
-                      {explanationPoints && explanationPoints.length > 0 && (
-                        <ul className="text-text-primary text-sm list-disc list-inside space-y-2">
-                          {explanationPoints.map((point, index) => (
-                            <li
-                              key={`exp-point-${index}-${point.slice(0, 20)}`}
-                            >
-                              <ReactMarkdown components={markdownComponents}>
-                                {point}
-                              </ReactMarkdown>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </CollapsibleSection>
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Footer with model info and action buttons */}
-      {isConfigured && translationResponse && !isLoading && (
-        <div className="px-3 py-2 border-t border-bg-tertiary bg-bg-tertiary/30 flex items-center justify-between gap-2">
-          {/* Model indicators */}
-          <div className="flex items-center gap-3 text-xs text-text-tertiary">
-            {/* Show translation model only when not in autoExplain mode */}
-            {!autoExplain && geminiSettings && (
-              <div className="flex items-center gap-1.5">
-                <Cpu className="w-3 h-3" />
-                <span>
-                  翻訳:{" "}
-                  {GEMINI_MODELS.find((m) => m.id === geminiSettings.model)
-                    ?.name || geminiSettings.model}
-                </span>
-              </div>
-            )}
-            {/* Show explanation model when explanation is loaded or in autoExplain mode */}
-            {(explanationPoints || autoExplain) && geminiSettings && (
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="w-3 h-3" />
-                <span>
-                  解説:{" "}
-                  {GEMINI_MODELS.find(
-                    (m) => m.id === geminiSettings.explanationModel,
-                  )?.name || geminiSettings.explanationModel}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Action buttons - hide in autoExplain mode or after explanation is loaded */}
-          {!autoExplain && !explanationPoints && (
-            <button
-              type="button"
-              onClick={handleExplain}
-              disabled={isExplaining}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition-colors ${
-                isExplaining
-                  ? "bg-accent/40 text-accent cursor-wait"
-                  : "bg-accent/20 text-accent hover:bg-accent/30"
-              }`}
-            >
-              {isExplaining ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  解説生成中...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3 h-3" />
-                  解説
-                </>
-              )}
-            </button>
-          )}
-        </div>
-      )}
+      <TranslationBody
+        variant="popup"
+        selectedText={selection.selectedText}
+        contextBefore={selection.contextBefore}
+        contextAfter={selection.contextAfter}
+        translationResponse={translationResponse}
+        explanationSummary={explanationSummary}
+        explanationPoints={explanationPoints}
+        error={error}
+        isExplaining={isExplaining}
+        geminiSettings={geminiSettings}
+        onExplain={handleExplain}
+        autoExplain={autoExplain}
+        isConfigured={isConfigured}
+        isLoading={isLoading}
+        onClose={onClose}
+        onOpenSettings={onOpenSettings}
+      />
     </div>
   );
 }
