@@ -3,7 +3,7 @@
 //! This module provides functionality to translate text using Google's Gemini API.
 
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 
 use crate::error::{GeminiError, PedaruError};
@@ -304,29 +304,43 @@ async fn call_gemini_api(
     Ok(text)
 }
 
-/// Parse JSON response from Gemini, with fallback for markdown code blocks
-fn parse_translation_response(text: &str) -> Result<TranslationResponse, PedaruError> {
-    eprintln!("[Gemini] Raw API response: {}", text);
-
-    // Try to parse directly first
-    if let Ok(response) = serde_json::from_str::<TranslationResponse>(text) {
-        eprintln!("[Gemini] Parsed directly: {:?}", response);
-        return Ok(response);
-    }
-
-    // Try to extract JSON from markdown code block
-    let cleaned = text
-        .trim()
+/// Strip a markdown code block (```json ... ```) wrapping a response
+fn strip_code_fences(text: &str) -> &str {
+    text.trim()
         .trim_start_matches("```json")
         .trim_start_matches("```")
         .trim_end_matches("```")
-        .trim();
+        .trim()
+}
 
+/// Parse JSON response from Gemini, with fallback for markdown code blocks
+///
+/// The response is expected to contain a scalar string field (`scalar_key`)
+/// and a "points" array of strings. If all parsing fails, the raw text is
+/// returned as the scalar field.
+fn parse_gemini_response<T>(
+    text: &str,
+    scalar_key: &str,
+    build: impl Fn(String, Vec<String>) -> T,
+) -> T
+where
+    T: DeserializeOwned + std::fmt::Debug,
+{
+    eprintln!("[Gemini] Raw API response: {}", text);
+
+    // Try to parse directly first
+    if let Ok(response) = serde_json::from_str::<T>(text) {
+        eprintln!("[Gemini] Parsed directly: {:?}", response);
+        return response;
+    }
+
+    // Try to extract JSON from markdown code block
+    let cleaned = strip_code_fences(text);
     eprintln!("[Gemini] Cleaned text: {}", cleaned);
 
-    if let Ok(response) = serde_json::from_str::<TranslationResponse>(cleaned) {
+    if let Ok(response) = serde_json::from_str::<T>(cleaned) {
         eprintln!("[Gemini] Parsed from cleaned: {:?}", response);
-        return Ok(response);
+        return response;
     }
 
     // Try to parse as a more flexible JSON structure
@@ -342,8 +356,8 @@ fn parse_translation_response(text: &str) -> Result<TranslationResponse, PedaruE
         };
 
         if let Some(obj) = obj {
-            let translation = obj
-                .get("translation")
+            let scalar = obj
+                .get(scalar_key)
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
@@ -358,87 +372,22 @@ fn parse_translation_response(text: &str) -> Result<TranslationResponse, PedaruE
                 })
                 .unwrap_or_default();
 
-            let response = TranslationResponse {
-                translation,
-                points,
-            };
+            let response = build(scalar, points);
             eprintln!("[Gemini] Flexible parse result: {:?}", response);
-            return Ok(response);
+            return response;
         }
     }
 
     eprintln!("[Gemini] All parsing failed, returning raw text");
-    // If all parsing fails, return the raw text as translation
-    Ok(TranslationResponse {
-        translation: text.to_string(),
-        points: vec![],
-    })
+    build(text.to_string(), vec![])
 }
 
-/// Parse JSON response for explanation, with fallback for markdown code blocks
-fn parse_explanation_response(text: &str) -> Result<ExplanationResponse, PedaruError> {
-    eprintln!("[Gemini] Raw API response (explanation): {}", text);
-
-    // Try to parse directly first
-    if let Ok(response) = serde_json::from_str::<ExplanationResponse>(text) {
-        eprintln!("[Gemini] Parsed directly: {:?}", response);
-        return Ok(response);
-    }
-
-    // Try to extract JSON from markdown code block
-    let cleaned = text
-        .trim()
-        .trim_start_matches("```json")
-        .trim_start_matches("```")
-        .trim_end_matches("```")
-        .trim();
-
-    eprintln!("[Gemini] Cleaned text: {}", cleaned);
-
-    if let Ok(response) = serde_json::from_str::<ExplanationResponse>(cleaned) {
-        eprintln!("[Gemini] Parsed from cleaned: {:?}", response);
-        return Ok(response);
-    }
-
-    // Try to parse as a more flexible JSON structure
-    if let Ok(value) = serde_json::from_str::<Value>(cleaned) {
-        eprintln!("[Gemini] Parsed as Value: {:?}", value);
-
-        // Handle both object and array responses
-        let obj = if value.is_array() {
-            value.as_array().and_then(|arr| arr.first()).cloned()
-        } else {
-            Some(value)
-        };
-
-        if let Some(obj) = obj {
-            let summary = obj
-                .get("summary")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-
-            let points = obj
-                .get("points")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                        .collect()
-                })
-                .unwrap_or_default();
-
-            let response = ExplanationResponse { summary, points };
-            eprintln!("[Gemini] Flexible parse result: {:?}", response);
-            return Ok(response);
-        }
-    }
-
-    eprintln!("[Gemini] All parsing failed, returning raw text");
-    Ok(ExplanationResponse {
-        summary: text.to_string(),
-        points: vec![],
-    })
+/// Fill in the prompt template placeholders with the selected text and context
+fn build_prompt(template: &str, text: &str, context_before: &str, context_after: &str) -> String {
+    template
+        .replace("{text}", text)
+        .replace("{context_before}", context_before)
+        .replace("{context_after}", context_after)
 }
 
 /// Translate text using Gemini API
@@ -451,10 +400,7 @@ pub async fn translate_text(
     context_before: &str,
     context_after: &str,
 ) -> Result<TranslationResponse, PedaruError> {
-    let prompt = TRANSLATION_PROMPT
-        .replace("{text}", text)
-        .replace("{context_before}", context_before)
-        .replace("{context_after}", context_after);
+    let prompt = build_prompt(TRANSLATION_PROMPT, text, context_before, context_after);
 
     let response_text = call_gemini_api(
         api_key,
@@ -463,7 +409,14 @@ pub async fn translate_text(
         Some(TRANSLATION_SYSTEM_INSTRUCTION),
     )
     .await?;
-    parse_translation_response(&response_text)
+    Ok(parse_gemini_response(
+        &response_text,
+        "translation",
+        |translation, points| TranslationResponse {
+            translation,
+            points,
+        },
+    ))
 }
 
 /// Get explanation of text
@@ -477,10 +430,7 @@ pub async fn explain_text(
     context_before: &str,
     context_after: &str,
 ) -> Result<ExplanationResponse, PedaruError> {
-    let prompt = EXPLANATION_PROMPT
-        .replace("{text}", text)
-        .replace("{context_before}", context_before)
-        .replace("{context_after}", context_after);
+    let prompt = build_prompt(EXPLANATION_PROMPT, text, context_before, context_after);
 
     let response_text = call_gemini_api(
         api_key,
@@ -489,5 +439,9 @@ pub async fn explain_text(
         Some(EXPLANATION_SYSTEM_INSTRUCTION),
     )
     .await?;
-    parse_explanation_response(&response_text)
+    Ok(parse_gemini_response(
+        &response_text,
+        "summary",
+        |summary, points| ExplanationResponse { summary, points },
+    ))
 }
