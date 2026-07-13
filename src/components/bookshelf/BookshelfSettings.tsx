@@ -9,7 +9,6 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import { useCallback, useState } from "react";
 import type { AuthStatus, StoredFolder } from "@/types";
 
 interface BookshelfSettingsProps {
@@ -18,8 +17,14 @@ interface BookshelfSettingsProps {
   hasCheckedAuth: boolean;
   syncedFolders: StoredFolder[];
   isSyncing: boolean;
+  // Credentials draft state lives in the parent so unsaved input survives
+  // closing and reopening this screen
+  clientId: string;
+  clientSecret: string;
+  onClientIdChange: (value: string) => void;
+  onClientSecretChange: (value: string) => void;
+  onSaveCredentials: () => void;
   checkAuthStatus: () => Promise<AuthStatus | null>;
-  saveCredentials: (clientId: string, clientSecret: string) => Promise<boolean>;
   login: () => void;
   logout: () => void;
   removeSyncFolder: (folderId: string) => Promise<boolean>;
@@ -37,8 +42,12 @@ export default function BookshelfSettings({
   hasCheckedAuth,
   syncedFolders,
   isSyncing,
+  clientId,
+  clientSecret,
+  onClientIdChange,
+  onClientSecretChange,
+  onSaveCredentials,
   checkAuthStatus,
-  saveCredentials,
   login,
   logout,
   removeSyncFolder,
@@ -46,17 +55,6 @@ export default function BookshelfSettings({
   onBrowseFolders,
   onClose,
 }: BookshelfSettingsProps) {
-  // Credentials input (for first-time setup)
-  const [clientId, setClientId] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
-
-  const handleSaveCredentials = useCallback(async () => {
-    if (clientId && clientSecret) {
-      await saveCredentials(clientId, clientSecret);
-      setClientId("");
-      setClientSecret("");
-    }
-  }, [clientId, clientSecret, saveCredentials]);
 
   return (
     <div className="h-full flex flex-col bg-bg-primary">
@@ -93,7 +91,7 @@ export default function BookshelfSettings({
                 id="bookshelf-client-id"
                 type="text"
                 value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
+                onChange={(e) => onClientIdChange(e.target.value)}
                 className="w-full px-3 py-2 bg-bg-secondary border border-bg-tertiary rounded focus:outline-none focus:border-accent"
                 placeholder="xxxx.apps.googleusercontent.com"
               />
@@ -109,14 +107,14 @@ export default function BookshelfSettings({
                 id="bookshelf-client-secret"
                 type="password"
                 value={clientSecret}
-                onChange={(e) => setClientSecret(e.target.value)}
+                onChange={(e) => onClientSecretChange(e.target.value)}
                 className="w-full px-3 py-2 bg-bg-secondary border border-bg-tertiary rounded focus:outline-none focus:border-accent"
                 placeholder="GOCSPX-xxxx"
               />
             </div>
             <button
               type="button"
-              onClick={handleSaveCredentials}
+              onClick={onSaveCredentials}
               disabled={!clientId || !clientSecret || authLoading}
               className="w-full px-4 py-2 bg-accent text-white rounded font-medium disabled:opacity-50 hover:bg-accent/80 transition-colors"
             >

@@ -20,16 +20,8 @@ export function formatDateTime(timestamp: number): string {
   return `${year}/${month}/${day} ${hours}:${minutes}`;
 }
 
-const DATE_TIME_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-};
-
 /**
- * Formats a Unix timestamp (in seconds) as a localized date/time string
+ * Formats a Unix timestamp (in seconds) as a date/time string
  * @param timestamp - Unix timestamp in seconds
  * @returns Formatted date string
  *
@@ -37,14 +29,11 @@ const DATE_TIME_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
  * formatDate(1703123456) // "2023/12/21 10:30"
  */
 export function formatDate(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleString(
-    "ja-JP",
-    DATE_TIME_FORMAT_OPTIONS,
-  );
+  return formatDateTime(timestamp * 1000);
 }
 
 /**
- * Formats an ISO date string as a localized date/time string
+ * Formats an ISO date string as a date/time string
  * @param isoString - ISO 8601 date string
  * @returns Formatted date string, or "-" if the input is missing
  *
@@ -54,7 +43,7 @@ export function formatDate(timestamp: number): string {
  */
 export function formatIsoDate(isoString?: string): string {
   if (!isoString) return "-";
-  return new Date(isoString).toLocaleString("ja-JP", DATE_TIME_FORMAT_OPTIONS);
+  return formatDateTime(new Date(isoString).getTime());
 }
 
 /**

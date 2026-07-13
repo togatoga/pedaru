@@ -153,6 +153,10 @@ export default function BookshelfMainView({
   } = useBookshelf();
 
   const [showSettings, setShowSettings] = useState(false);
+  // Credentials input (for first-time setup); lives here so unsaved input
+  // survives closing and reopening the settings screen
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
   const [showFolderBrowser, setShowFolderBrowser] = useState(false);
   const [showCloudFileBrowser, setShowCloudFileBrowser] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -325,6 +329,14 @@ export default function BookshelfMainView({
     },
     [cancelDownload],
   );
+
+  const handleSaveCredentials = useCallback(async () => {
+    if (clientId && clientSecret) {
+      await saveCredentials(clientId, clientSecret);
+      setClientId("");
+      setClientSecret("");
+    }
+  }, [clientId, clientSecret, saveCredentials]);
 
   // Handle sync with auth check (triggers Keychain access only when syncing)
   const handleSync = useCallback(async () => {
@@ -811,8 +823,12 @@ export default function BookshelfMainView({
         hasCheckedAuth={hasCheckedAuth}
         syncedFolders={syncedFolders}
         isSyncing={isSyncing}
+        clientId={clientId}
+        clientSecret={clientSecret}
+        onClientIdChange={setClientId}
+        onClientSecretChange={setClientSecret}
+        onSaveCredentials={handleSaveCredentials}
         checkAuthStatus={checkAuthStatus}
-        saveCredentials={saveCredentials}
         login={login}
         logout={logout}
         removeSyncFolder={removeSyncFolder}
