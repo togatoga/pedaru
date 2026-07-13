@@ -34,6 +34,9 @@ pub enum PedaruError {
 
     #[error("Secrets storage error: {0}")]
     Secrets(String),
+
+    #[error("File already imported: {0}")]
+    AlreadyImported(String),
 }
 
 /// PDF-specific errors (loading, parsing, metadata extraction)

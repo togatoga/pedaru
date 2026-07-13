@@ -32,7 +32,7 @@ pub use types::{PdfInfo, RecentFile, TocEntry};
 
 // Re-export functions for use in commands
 use encoding::decode_pdf_string;
-use error::{IntoTauriError, IoError, MenuError, PdfError};
+use error::{GoogleDriveError, IntoTauriError, IoError, MenuError, PdfError, PedaruError};
 use menu::{build_app_menu, decode_file_path_from_menu_id};
 use pdf::extract_toc;
 
@@ -257,13 +257,12 @@ fn import_drive_files(
             continue; // Skip folders, only import files
         }
         let file_size: Option<i64> = file.size.as_ref().and_then(|s| s.parse().ok());
-        bookshelf::upsert_item(
+        bookshelf::upsert_cloud_item(
             &app,
             &file.id,
             &folder_id,
             &file.name,
             file_size,
-            &file.mime_type,
             file.modified_time.as_deref(),
         )
         .map_err(|e| e.into_tauri_error())?;
@@ -310,13 +309,12 @@ async fn sync_bookshelf(app: tauri::AppHandle) -> Result<bookshelf::SyncResult, 
 
         for file in &files {
             let file_size: Option<i64> = file.size.as_ref().and_then(|s| s.parse().ok());
-            bookshelf::upsert_item(
+            bookshelf::upsert_cloud_item(
                 &app,
                 &file.id,
                 &folder.folder_id,
                 &file.name,
                 file_size,
-                &file.mime_type,
                 file.modified_time.as_deref(),
             )
             .map_err(|e| e.into_tauri_error())?;
@@ -348,6 +346,38 @@ fn get_bookshelf_items(app: tauri::AppHandle) -> Result<Vec<bookshelf::Bookshelf
     bookshelf::get_items(&app).map_err(|e| e.into_tauri_error())
 }
 
+/// Mark a download as completed and extract PDF metadata
+fn finish_completed_download(
+    app: &tauri::AppHandle,
+    drive_file_id: &str,
+    dest_path: &std::path::Path,
+) -> Result<String, String> {
+    let path_str = dest_path.to_string_lossy().to_string();
+    bookshelf::update_download_status(app, drive_file_id, "completed", 100.0, Some(&path_str))
+        .map_err(|e| e.into_tauri_error())?;
+
+    // Extract and save PDF metadata (title and author)
+    let _ = bookshelf::extract_and_save_cloud_metadata(app, &path_str, drive_file_id);
+
+    Ok(path_str)
+}
+
+/// Record a failed download: cancelled downloads go back to "pending",
+/// everything else is marked as "error"
+fn finish_failed_download(
+    app: &tauri::AppHandle,
+    drive_file_id: &str,
+    error: PedaruError,
+) -> Result<String, String> {
+    let status = match &error {
+        PedaruError::GoogleDrive(GoogleDriveError::DownloadCancelled(_)) => "pending",
+        _ => "error",
+    };
+    bookshelf::update_download_status(app, drive_file_id, status, 0.0, None)
+        .map_err(|e| e.into_tauri_error())?;
+    Err(error.into_tauri_error())
+}
+
 /// Download a bookshelf item
 #[tauri::command(rename_all = "camelCase")]
 async fn download_bookshelf_item(
@@ -376,47 +406,21 @@ async fn download_bookshelf_item(
     bookshelf::unregister_download(&drive_file_id);
 
     match result {
-        Ok(()) => {
-            let path_str = dest_path.to_string_lossy().to_string();
-            bookshelf::update_download_status(
-                &app,
-                &drive_file_id,
-                "completed",
-                100.0,
-                Some(&path_str),
-            )
-            .map_err(|e| e.into_tauri_error())?;
-
-            // Extract and save PDF metadata (title and author)
-            let _ = bookshelf::extract_and_save_pdf_metadata(&app, &path_str, &drive_file_id);
-
-            Ok(path_str)
-        }
-        Err(e) => {
-            // Check if it was cancelled
-            let error_str = e.into_tauri_error();
-            if error_str.contains("cancelled") {
-                bookshelf::update_download_status(&app, &drive_file_id, "pending", 0.0, None)
-                    .map_err(|e| e.into_tauri_error())?;
-            } else {
-                bookshelf::update_download_status(&app, &drive_file_id, "error", 0.0, None)
-                    .map_err(|e| e.into_tauri_error())?;
-            }
-            Err(error_str)
-        }
+        Ok(()) => finish_completed_download(&app, &drive_file_id, &dest_path),
+        Err(e) => finish_failed_download(&app, &drive_file_id, e),
     }
 }
 
 /// Delete local copy of a bookshelf item
 #[tauri::command(rename_all = "camelCase")]
 fn delete_local_copy(app: tauri::AppHandle, drive_file_id: String) -> Result<(), String> {
-    bookshelf::delete_local_copy(&app, &drive_file_id).map_err(|e| e.into_tauri_error())
+    bookshelf::delete_cloud_local_copy(&app, &drive_file_id).map_err(|e| e.into_tauri_error())
 }
 
 /// Reset download status without deleting the file (for missing files)
 #[tauri::command(rename_all = "camelCase")]
 fn reset_download_status(app: tauri::AppHandle, drive_file_id: String) -> Result<(), String> {
-    bookshelf::reset_download_status(&app, &drive_file_id).map_err(|e| e.into_tauri_error())
+    bookshelf::reset_cloud_download_status(&app, &drive_file_id).map_err(|e| e.into_tauri_error())
 }
 
 /// Update bookshelf item thumbnail (cloud items)
@@ -426,7 +430,7 @@ fn update_bookshelf_thumbnail(
     drive_file_id: String,
     thumbnail_data: String,
 ) -> Result<(), String> {
-    bookshelf::update_thumbnail(&app, &drive_file_id, &thumbnail_data)
+    bookshelf::update_cloud_thumbnail(&app, &drive_file_id, &thumbnail_data)
         .map_err(|e| e.into_tauri_error())
 }
 
@@ -464,14 +468,12 @@ fn import_local_files(
                 // Extract and save PDF metadata
                 let _ = bookshelf::extract_and_save_local_metadata(&app, &item.file_path, item.id);
             }
+            Err(PedaruError::AlreadyImported(_)) => {
+                skipped_count += 1;
+            }
             Err(e) => {
-                let error_str = format!("{:?}", e);
-                if error_str.contains("already imported") {
-                    skipped_count += 1;
-                } else {
-                    eprintln!("[Pedaru] Failed to import {}: {:?}", path, e);
-                    error_count += 1;
-                }
+                eprintln!("[Pedaru] Failed to import {}: {:?}", path, e);
+                error_count += 1;
             }
         }
     }
@@ -518,7 +520,12 @@ fn toggle_bookshelf_favorite(
     item_id: i64,
     is_cloud: bool,
 ) -> Result<bool, String> {
-    bookshelf::toggle_favorite(&app, item_id, is_cloud).map_err(|e| e.into_tauri_error())
+    let result = if is_cloud {
+        bookshelf::toggle_cloud_favorite(&app, item_id)
+    } else {
+        bookshelf::toggle_local_favorite(&app, item_id)
+    };
+    result.map_err(|e| e.into_tauri_error())
 }
 
 /// Update last_opened timestamp when a PDF is opened from bookshelf
@@ -636,91 +643,48 @@ fn get_recent_files(
 // Event Handlers
 // ============================================================================
 
+/// Menu item ids that map directly to a frontend event with no payload
+const MENU_EVENTS: &[(&str, &str)] = &[
+    // App menu
+    ("reset_all_data", "reset-all-data-requested"),
+    ("open_settings", "menu-open-settings"),
+    // File menu
+    ("open_file", "menu-open-file-requested"),
+    // Go menu
+    ("go_first_page", "menu-go-first-page"),
+    ("go_last_page", "menu-go-last-page"),
+    ("go_prev_page", "menu-go-prev-page"),
+    ("go_next_page", "menu-go-next-page"),
+    ("go_back", "menu-go-back"),
+    ("go_forward", "menu-go-forward"),
+    // View menu
+    ("zoom_in", "menu-zoom-in"),
+    ("zoom_out", "menu-zoom-out"),
+    ("zoom_reset", "menu-zoom-reset"),
+    ("toggle_two_column", "menu-toggle-two-column"),
+    ("toggle_header", "menu-toggle-header"),
+    // Tabs menu
+    ("new_tab", "menu-new-tab"),
+    ("close_tab", "menu-close-tab"),
+    ("prev_tab", "menu-prev-tab"),
+    ("next_tab", "menu-next-tab"),
+    // Window menu
+    ("new_window", "menu-new-window"),
+    // Tools menu
+    ("search", "menu-search"),
+    ("toggle_bookmark", "menu-toggle-bookmark"),
+    ("translate", "menu-translate"),
+    ("translate_explain", "menu-translate-explain"),
+];
+
 /// Handle menu events from the application menu
 fn handle_menu_event(app: &tauri::AppHandle, event_id: &str) {
-    match event_id {
-        // App menu
-        "reset_all_data" => {
-            app.emit("reset-all-data-requested", ()).ok();
-        }
-        "open_settings" => {
-            app.emit("menu-open-settings", ()).ok();
-        }
-        // File menu
-        "open_file" => {
-            app.emit("menu-open-file-requested", ()).ok();
-        }
-        id if id.starts_with("open-recent-") => {
-            if let Some(file_path) = decode_file_path_from_menu_id(id) {
-                app.emit("menu-open-recent-selected", file_path).ok();
-            }
-        }
-        // Go menu
-        "go_first_page" => {
-            app.emit("menu-go-first-page", ()).ok();
-        }
-        "go_last_page" => {
-            app.emit("menu-go-last-page", ()).ok();
-        }
-        "go_prev_page" => {
-            app.emit("menu-go-prev-page", ()).ok();
-        }
-        "go_next_page" => {
-            app.emit("menu-go-next-page", ()).ok();
-        }
-        "go_back" => {
-            app.emit("menu-go-back", ()).ok();
-        }
-        "go_forward" => {
-            app.emit("menu-go-forward", ()).ok();
-        }
-        // View menu
-        "zoom_in" => {
-            app.emit("menu-zoom-in", ()).ok();
-        }
-        "zoom_out" => {
-            app.emit("menu-zoom-out", ()).ok();
-        }
-        "zoom_reset" => {
-            app.emit("menu-zoom-reset", ()).ok();
-        }
-        "toggle_two_column" => {
-            app.emit("menu-toggle-two-column", ()).ok();
-        }
-        "toggle_header" => {
-            app.emit("menu-toggle-header", ()).ok();
-        }
-        // Tabs menu
-        "new_tab" => {
-            app.emit("menu-new-tab", ()).ok();
-        }
-        "close_tab" => {
-            app.emit("menu-close-tab", ()).ok();
-        }
-        "prev_tab" => {
-            app.emit("menu-prev-tab", ()).ok();
-        }
-        "next_tab" => {
-            app.emit("menu-next-tab", ()).ok();
-        }
-        // Window menu
-        "new_window" => {
-            app.emit("menu-new-window", ()).ok();
-        }
-        // Tools menu
-        "search" => {
-            app.emit("menu-search", ()).ok();
-        }
-        "toggle_bookmark" => {
-            app.emit("menu-toggle-bookmark", ()).ok();
-        }
-        "translate" => {
-            app.emit("menu-translate", ()).ok();
-        }
-        "translate_explain" => {
-            app.emit("menu-translate-explain", ()).ok();
-        }
-        _ => {}
+    if let Some(&(_, event)) = MENU_EVENTS.iter().find(|(id, _)| *id == event_id) {
+        app.emit(event, ()).ok();
+    } else if event_id.starts_with("open-recent-")
+        && let Some(file_path) = decode_file_path_from_menu_id(event_id)
+    {
+        app.emit("menu-open-recent-selected", file_path).ok();
     }
 }
 
