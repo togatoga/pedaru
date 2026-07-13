@@ -20,6 +20,61 @@ export function formatDateTime(timestamp: number): string {
   return `${year}/${month}/${day} ${hours}:${minutes}`;
 }
 
+const DATE_TIME_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+};
+
+/**
+ * Formats a Unix timestamp (in seconds) as a localized date/time string
+ * @param timestamp - Unix timestamp in seconds
+ * @returns Formatted date string
+ *
+ * @example
+ * formatDate(1703123456) // "2023/12/21 10:30"
+ */
+export function formatDate(timestamp: number): string {
+  return new Date(timestamp * 1000).toLocaleString(
+    "ja-JP",
+    DATE_TIME_FORMAT_OPTIONS,
+  );
+}
+
+/**
+ * Formats an ISO date string as a localized date/time string
+ * @param isoString - ISO 8601 date string
+ * @returns Formatted date string, or "-" if the input is missing
+ *
+ * @example
+ * formatIsoDate("2023-12-21T10:30:00Z") // "2023/12/21 19:30"
+ * formatIsoDate(undefined) // "-"
+ */
+export function formatIsoDate(isoString?: string): string {
+  if (!isoString) return "-";
+  return new Date(isoString).toLocaleString("ja-JP", DATE_TIME_FORMAT_OPTIONS);
+}
+
+/**
+ * Formats a byte count as a human-readable file size
+ * @param bytes - File size in bytes
+ * @returns Formatted size string, or "Unknown" if the input is missing
+ *
+ * @example
+ * formatFileSize(1536) // "1.50 KB"
+ * formatFileSize(null) // "Unknown"
+ */
+export function formatFileSize(bytes: number | null | undefined): string {
+  if (bytes === null || bytes === undefined) return "Unknown";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 /**
  * Generates a tab label from page number and optional chapter title
  * @param page - The page number

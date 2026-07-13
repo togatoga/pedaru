@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronRight, Loader2, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { formatFileSize } from "@/lib/formatUtils";
 import type { PdfInfo, TocEntry } from "@/types/pdf";
 
 export interface BookDetailModalProps {
@@ -12,15 +13,6 @@ export interface BookDetailModalProps {
   thumbnailUrl: string | null;
   filePath: string | null;
   isTocLoading?: boolean;
-}
-
-function formatFileSize(bytes: number | null | undefined): string {
-  if (bytes === null || bytes === undefined) return "Unknown";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 function formatDate(dateStr: string | null | undefined): string {
