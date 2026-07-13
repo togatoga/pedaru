@@ -363,19 +363,21 @@ fn finish_completed_download(
 }
 
 /// Record a failed download: cancelled downloads go back to "pending",
-/// everything else is marked as "error"
+/// everything else is marked as "error". Returns the error message to
+/// surface to the frontend.
 fn finish_failed_download(
     app: &tauri::AppHandle,
     drive_file_id: &str,
     error: PedaruError,
-) -> Result<String, String> {
+) -> String {
     let status = match &error {
         PedaruError::GoogleDrive(GoogleDriveError::DownloadCancelled(_)) => "pending",
         _ => "error",
     };
-    bookshelf::update_download_status(app, drive_file_id, status, 0.0, None)
-        .map_err(|e| e.into_tauri_error())?;
-    Err(error.into_tauri_error())
+    if let Err(e) = bookshelf::update_download_status(app, drive_file_id, status, 0.0, None) {
+        return e.into_tauri_error();
+    }
+    error.into_tauri_error()
 }
 
 /// Download a bookshelf item
@@ -407,7 +409,7 @@ async fn download_bookshelf_item(
 
     match result {
         Ok(()) => finish_completed_download(&app, &drive_file_id, &dest_path),
-        Err(e) => finish_failed_download(&app, &drive_file_id, e),
+        Err(e) => Err(finish_failed_download(&app, &drive_file_id, e)),
     }
 }
 
